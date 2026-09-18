@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by [team logins to be added].*
+*This project has been created as part of the 42 curriculum by imellali, asyani.*
 
 # Younity
 
