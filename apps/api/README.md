@@ -175,3 +175,70 @@ audit fixes, especially `--force`.
 - [Prisma documentation](https://www.prisma.io/docs/)
 - [Vitest documentation](https://vitest.dev/guide/)
 - [Docker Compose documentation](https://docs.docker.com/compose/)
+
+
+## Development with Docker Compose
+
+This workflow runs both the API and PostgreSQL in containers.
+It requires Docker Engine and Docker Compose with Watch support.
+Node.js and npm run inside the API image.
+
+Run all commands below from the repository root.
+
+### First-time setup
+
+Copy the root environment template if `.env` does not already exist:
+
+```bash
+cp .env.example .env
+```
+
+Configure the PostgreSQL credentials and `API_DATABASE_URL`.
+The URL must use the same credentials, with `db:5432` as the database
+address. URL-encode special characters in the URL credentials.
+
+Compose supplies the API's environment variables directly.
+`apps/api/.env` is only needed when running the backend outside Docker.
+
+### Start development
+
+Stop any locally running API using port 3000, then run:
+
+```bash
+docker compose up --build --watch api
+```
+
+Open http://localhost:3000.
+
+- Source changes sync automatically and trigger Nest's watcher.
+- Dependency changes rebuild the API image.
+- Prisma schema changes rebuild the image and regenerate the client.
+- Database migrations must be applied separately.
+
+For changes outside the configured watch paths, such as test files or
+TypeScript configuration, rebuild the API:
+
+```bash
+docker compose up -d --build api
+```
+
+### Run tests
+
+With the containers running:
+
+```bash
+docker compose exec api npm run test
+docker compose exec api npm run test:e2e
+```
+
+### Stop development
+
+Press Ctrl+C in the Watch terminal, then stop both services:
+
+```bash
+docker compose stop api db
+```
+
+Database data remains in the named volume.
+
+This currently uses local HTTP. HTTPS setup is the next infrastructure step.
