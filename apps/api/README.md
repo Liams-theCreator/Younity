@@ -1,124 +1,177 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Younity API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Younity’s backend, built with NestJS and TypeScript using ES modules.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Current status
 
-## Description
+- NestJS application starts successfully.
+- PostgreSQL runs through Docker Compose.
+- Prisma connects to PostgreSQL and verifies connectivity at startup.
+- Unit and end-to-end tests use Vitest.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Application models, authentication, and event features are not implemented yet.
+This is a local development setup; HTTPS and containerized API deployment
+are still pending.
 
-## Project setup
+## Prerequisites
 
-```bash
-$ npm install
-```
+- Linux
+- nvm
+- Node.js version specified in the repository-root `.nvmrc`
+- npm, bundled with Node.js
+- Docker Engine and Docker Compose, available to your user
+- Ports 3000 and 5432 available
 
-## Compile and run the project
+Run the following setup steps from a fresh clone.
+
+## 1. Select Node.js
+
+From the repository root:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+nvm install
+nvm use
 ```
 
-## Run tests
+## 2. Configure PostgreSQL
+
+From the repository root:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cp .env.example .env
 ```
 
-## Deployment
+Edit `.env` and choose a local database password:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+```dotenv
+POSTGRES_USER=younity
+POSTGRES_PASSWORD=YOUR_LOCAL_PASSWORD
+POSTGRES_DB=younity
+```
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+These values initialize PostgreSQL when its data volume is first created.
+Changing this file later does not change an existing database user's password.
+
+Start the database:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+docker compose up -d --wait db
+docker compose ps
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+The `db` service should become healthy. It is available on
+`127.0.0.1:5432`; database files persist in a Docker volume.
 
-## Observability
+## 3. Configure the backend
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
+From the repository root:
 
 ```bash
-$ npm install @nestjs/observe
+cd apps/api
+cp .env.example .env
 ```
 
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
+Set `DATABASE_URL` in `apps/api/.env`:
 
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
+```dotenv
+DATABASE_URL="postgresql://younity:YOUR_LOCAL_PASSWORD@127.0.0.1:5432/younity?schema=public"
+```
 
-## Resources
+Use the same credentials as the root `.env`. URL-encode special characters
+in the username or password, such as `@` becoming `%40`.
 
-Check out a few resources that may come in handy when working with NestJS:
+The root `.env` configures Docker Compose. `apps/api/.env` configures
+Prisma and the backend. They are separate files.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Never commit either `.env`. Commit only examples containing placeholders.
+Do not overwrite an existing `.env` when repeating setup.
 
-## Support
+## 4. Install dependencies and generate Prisma Client
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+From `apps/api`:
 
-## Stay in touch
+```bash
+npm ci
+npm run prisma:generate
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+`npm ci` installs dependencies from the committed lockfile.
 
-## License
+Prisma generates its client into `src/generated/prisma/`. This directory
+is excluded from Git. Generate it after a fresh clone and whenever the
+Prisma schema changes. Do not edit generated files.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+The Prisma CLI configuration is `prisma7.config.ts`.
+Our generation script explicitly selects this file.
+
+## 5. Start the backend
+
+From `apps/api`:
+
+```bash
+npm run start:dev
+```
+
+Expected startup messages include:
+
+- `Database connection verified`
+- `Nest application successfully started`
+
+Open http://localhost:3000 to see the starter `Hello World!` response.
+
+Development mode watches for source changes. Use Ctrl+C to stop the API.
+
+## Tests and builds
+
+Run from `apps/api`:
+
+```bash
+npm run test
+npm run test:e2e
+npm run build
+```
+
+The starter controller unit test does not require PostgreSQL.
+End-to-end tests load the application and currently require the local
+development database to be running.
+
+Before adding tests that modify data, configure a separate test database.
+
+## Main files
+
+| Path | Purpose |
+| --- | --- |
+| `src/main.ts` | Application startup and shutdown hooks |
+| `src/app.module.ts` | Root application module |
+| `src/prisma/` | Shared Prisma service and module |
+| `prisma/schema.prisma` | Database models and client generator |
+| `prisma7.config.ts` | Prisma CLI configuration |
+| `test/` | End-to-end tests |
+| `vitest.config.ts` | Unit-test configuration |
+| `vitest.config.e2e.ts` | End-to-end test configuration |
+
+## Stopping PostgreSQL
+
+From the repository root:
+
+```bash
+docker compose stop db
+```
+
+This preserves the database volume.
+
+## Dependency security
+
+Known audit findings remain in Prisma's development dependency chain
+(`deepmerge-ts` and `mysql2`). They have not been fixed.
+
+Review `npm audit` and `npm audit --omit=dev` when updating dependencies
+and before deployment. Review proposed version changes before applying
+audit fixes, especially `--force`.
+
+## References
+
+- [NestJS documentation](https://docs.nestjs.com/)
+- [Prisma documentation](https://www.prisma.io/docs/)
+- [Vitest documentation](https://vitest.dev/guide/)
+- [Docker Compose documentation](https://docs.docker.com/compose/)
