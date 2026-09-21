@@ -241,4 +241,9 @@ docker compose stop api db
 
 Database data remains in the named volume.
 
-This currently uses local HTTP. HTTPS setup is the next infrastructure step.
+## HTTPS development
+
+Caddy provides the local HTTPS entry point:
+
+```text
+https://localhost

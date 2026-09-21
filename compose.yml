@@ -24,8 +24,6 @@ services:
       NODE_ENV: development
       PORT: "3000"
       DATABASE_URL: ${API_DATABASE_URL:?Set API_DATABASE_URL in root .env}
-    ports:
-      - "127.0.0.1:3000:3000"
     depends_on:
       db:
         condition: service_healthy
@@ -46,6 +44,20 @@ services:
 
         - action: rebuild
           path: ./apps/api/prisma
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+    depends_on:
+      - api
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
