@@ -1,4 +1,13 @@
 https://localhost {
     tls internal
-    reverse_proxy api:3000
+
+    redir /api /api/ 308
+
+    handle_path /api/* {
+        reverse_proxy api:3000
+    }
+
+    handle {
+        reverse_proxy web:5173
+    }
 }

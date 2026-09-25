@@ -14,6 +14,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
   api:
     build:
       context: ./apps/api
@@ -44,6 +45,35 @@ services:
 
         - action: rebuild
           path: ./apps/api/prisma
+
+  web:
+    build:
+      context: ./apps/web
+      target: development
+    image: younity-web:dev
+    init: true
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/web
+          target: /app
+          initial_sync: true
+          ignore:
+            - node_modules/
+            - dist/
+            - package.json
+            - package-lock.json
+            - Dockerfile
+
+        - action: rebuild
+          path: ./apps/web/package.json
+
+        - action: rebuild
+          path: ./apps/web/package-lock.json
+
+        - action: rebuild
+          path: ./apps/web/Dockerfile
+
   caddy:
     image: caddy:2-alpine
     ports:
@@ -53,9 +83,9 @@ services:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-
     depends_on:
       - api
+      - web
 
 volumes:
   postgres_data:
