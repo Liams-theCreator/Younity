@@ -1,20 +1,20 @@
 *This project has been created as part of the 42 curriculum by imellali, asyani, aaferyad, oait-h-m and sboukiou.*
 
-# Younity
+# :camel: Younity
 
 ***Younity is a web platform connecting Moroccan university students with campus events and opportunities.***
 ***Students will be able to discover hackathons, conferences, workshops, and networking events, while organizers will have tools to publish and manage their events.***
 ***Built with React, Tailwind CSS, NestJS, Prisma, and PostgreSQL.***
 
-## Build and run
+## :wrench: Build and run
 
-### Requirements
+### :page_with_curl: Requirements
 
 - **Git**
 - **Docker Engine**
 - **Docker Compose 2.32 or newer**
 
-### Setup
+### :pencil: Setup
 
 ```bash
     git clone git@github.com:Liams-theCreator/Younity.git
@@ -48,7 +48,7 @@ sudo update-ca-certificates
 
 Restart your browser. If it uses its own certificate store, import the certificate there too.
 
-### Access
+### :mag_right: Access
 
 - Frontend: https://localhost
 - Backend: https://localhost/api/
