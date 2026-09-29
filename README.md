@@ -1,28 +1,25 @@
-*This project has been created as part of the 42 curriculum by imellali, asyani, aaferyad, oait-h-m and sboukiou.
+*This project has been created as part of the 42 curriculum by imellali, asyani, aaferyad, oait-h-m and sboukiou.*
 
 # Younity
 
-Younity is a web platform connecting Moroccan university students with campus events and opportunities.
-
-Students will be able to discover hackathons, conferences, workshops, and networking events, while organizers will have tools to publish and manage their events.
-
-Built with React, Tailwind CSS, NestJS, Prisma, and PostgreSQL.
+***Younity is a web platform connecting Moroccan university students with campus events and opportunities.***
+***Students will be able to discover hackathons, conferences, workshops, and networking events, while organizers will have tools to publish and manage their events.***
+***Built with React, Tailwind CSS, NestJS, Prisma, and PostgreSQL.***
 
 ## Build and run
 
 ### Requirements
 
-- Git
-- Docker Engine
-- Docker Compose 2.32 or newer
+- **Git**
+- **Docker Engine**
+- **Docker Compose 2.32 or newer**
 
 ### Setup
 
 ```bash
-git clone git@github.com:Liams-theCreator/Younity.git
-cd Younity
-git switch dev-setup
-cp .env.example .env
+    git clone git@github.com:Liams-theCreator/Younity.git
+    cd Younity
+    cp .env.example .env
 ```
 
 Edit `.env` with your local database credentials. Use matching credentials in `POSTGRES_PASSWORD` and `API_DATABASE_URL`, with `db` as the database hostname.
