@@ -1,0 +1,93 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+      target: development
+    image: younity-api:dev
+    init: true
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      DATABASE_URL: ${API_DATABASE_URL:?Set API_DATABASE_URL in root .env}
+    depends_on:
+      db:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/api/src
+          target: /app/src
+          initial_sync: true
+          ignore:
+            - generated/
+
+        - action: rebuild
+          path: ./apps/api/package.json
+
+        - action: rebuild
+          path: ./apps/api/package-lock.json
+
+        - action: rebuild
+          path: ./apps/api/prisma
+
+  web:
+    build:
+      context: ./apps/web
+      target: development
+    image: younity-web:dev
+    init: true
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/web
+          target: /app
+          initial_sync: true
+          ignore:
+            - node_modules/
+            - dist/
+            - package.json
+            - package-lock.json
+            - Dockerfile
+
+        - action: rebuild
+          path: ./apps/web/package.json
+
+        - action: rebuild
+          path: ./apps/web/package-lock.json
+
+        - action: rebuild
+          path: ./apps/web/Dockerfile
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
