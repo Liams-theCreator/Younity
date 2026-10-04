@@ -10,8 +10,7 @@ import { PrismaClient } from '../generated/prisma/client.js';
 @Injectable()
 export class PrismaService
   extends PrismaClient
-  implements OnModuleInit, OnApplicationShutdown
-{
+  implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
