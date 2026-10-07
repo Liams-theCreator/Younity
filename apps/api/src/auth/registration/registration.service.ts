@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Post } from "@nestjs/common";
+import { ConflictException, Injectable } from "@nestjs/common";
 import * as argon2 from 'argon2';
 import { RegisterOrganizerDto } from "../dto/register-organizer.dto.js";
 import { RegisterStudentDto } from "../dto/register-student.dto.js";
@@ -10,8 +10,6 @@ export class RegistrationService {
 
 
   async registerStudent(dto: RegisterStudentDto) {
-    const email = dto.email.trim().toLowerCase();
-    const name = dto.name.trim();
     const existingUser = await this.prisma.user.findUnique({
       where: {
         email: dto.email,
@@ -26,10 +24,10 @@ export class RegistrationService {
 
     return this.prisma.user.create({
       data: {
-        name,
-        email,
+        name: dto.name,
+        email: dto.email,
         passwordhash,
-        role: 'STUDENT'
+        role: Role.STUDENT,
       },
       select: {
         id: true,
@@ -42,8 +40,6 @@ export class RegistrationService {
   }
 
   async registerOrganizer(dto: RegisterOrganizerDto) {
-    const email = dto.email.trim().toLowerCase();
-    const name = dto.name.trim();
     const existingUser = await this.prisma.user.findUnique({
       where: {
         email: dto.email,
@@ -58,10 +54,10 @@ export class RegistrationService {
 
     return this.prisma.user.create({
       data: {
-        name,
-        email,
+        name: dto.name,
+        email: dto.email,
         passwordhash,
-        role: 'ORGANIZER',
+        role: Role.ORGANIZER,
         organizationName: dto.organizationName,
       },
       select: {
