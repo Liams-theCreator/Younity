@@ -26,6 +26,7 @@ export class AuthService
 				},
 			});
 	}
+
 	async validateCredentials(email: string, password: string)
 	{
 		const user = await this.findUserForLogin(email);
