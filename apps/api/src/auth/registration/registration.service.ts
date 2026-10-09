@@ -3,6 +3,7 @@ import * as argon2 from 'argon2';
 import { RegisterOrganizerDto } from "../dto/register-organizer.dto.js";
 import { RegisterStudentDto } from "../dto/register-student.dto.js";
 import { PrismaService } from "../../prisma/prisma.service.js";
+import { Role } from "../../generated/prisma/enums.js";
 
 @Injectable()
 export class RegistrationService {
@@ -18,7 +19,7 @@ export class RegistrationService {
     if (existingUser) {
       throw new ConflictException('Email is already registred')
     }
-    const passwordhash = await argon2.hash(dto.password, {
+    const passwordHash = await argon2.hash(dto.password, {
       type: argon2.argon2id,
     });
 
@@ -26,7 +27,7 @@ export class RegistrationService {
       data: {
         name: dto.name,
         email: dto.email,
-        passwordhash,
+        passwordHash,
         role: Role.STUDENT,
       },
       select: {
@@ -48,7 +49,7 @@ export class RegistrationService {
     if (existingUser) {
       throw new ConflictException('Email si already registred');
     }
-    const passwordhash = await argon2.hash(dto.password, {
+    const passwordHash = await argon2.hash(dto.password, {
       type: argon2.argon2id,
     });
 
@@ -56,9 +57,8 @@ export class RegistrationService {
       data: {
         name: dto.name,
         email: dto.email,
-        passwordhash,
+        passwordHash,
         role: Role.ORGANIZER,
-        organizationName: dto.organizationName,
       },
       select: {
         id: true,

@@ -11,3 +11,58 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  STUDENT
+  ORGANIZER
+}
+
+enum StudyLevel {
+  FIRST_YEAR
+  SECOND_YEAR
+  THIRD_YEAR
+  FOURTH_YEAR
+  FINAL_YEAR
+  MASTER
+  DOCTORATE
+  OTHER
+}
+
+enum OrganizationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  student      Student?
+  organization Organization?
+}
+
+model Student {
+  id           String @id @default(uuid())
+  university   String
+  studyLevel   StudyLevel
+  fieldOfStudy String
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Organization {
+  id          String             @id @default(uuid())
+  name        String
+  description String?
+  status      OrganizationStatus @default(PENDING)
+
+  ownerId String @unique
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
