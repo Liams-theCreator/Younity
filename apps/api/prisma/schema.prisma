@@ -11,3 +11,24 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+// Provisional model for local authentication development.
+
+enum Role {
+  STUDENT
+  ORGANIZER
+  ADMIN
+}
+
+enum OrganizerApprovalStatus {
+  PENDING
+  APPROVED
+}
+
+model User {
+  id           Int    @id @default(autoincrement())
+  email        String @unique
+  passwordHash String
+  role         Role   @default(STUDENT)
+  organizerApprovalStatus OrganizerApprovalStatus @default(PENDING)
+}
+

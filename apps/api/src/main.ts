@@ -1,9 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
+import { ValidationPipe } from '@nestjs/common';
 
+
+
+//Enable validationPipe, allows DTO properties with validation decorators
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+  app.useGlobalPipes(
+	  new ValidationPipe({
+		  whitelist: true,
+		  forbidNonWhitelisted: true,
+		  transform: true,
+	  }),
+  );
+  app.setGlobalPrefix('api');
   await app.listen(process.env.PORT ?? 3000);
 }
 await bootstrap();
