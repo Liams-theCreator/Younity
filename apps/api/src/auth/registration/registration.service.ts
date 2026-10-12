@@ -3,7 +3,7 @@ import * as argon2 from 'argon2';
 import { RegisterOrganizerDto } from "../dto/register-organizer.dto.js";
 import { RegisterStudentDto } from "../dto/register-student.dto.js";
 import { PrismaService } from "../../prisma/prisma.service.js";
-import { Role } from "../../generated/prisma/enums.js";
+import { Role, UserStatus, VerificationStatus } from "../../generated/prisma/enums.js";
 
 @Injectable()
 export class RegistrationService {
@@ -25,17 +25,42 @@ export class RegistrationService {
 
     return this.prisma.user.create({
       data: {
-        name: dto.name,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
         email: dto.email,
         passwordHash,
         role: Role.STUDENT,
+        status: UserStatus.APPROVED,
+
+        student: {
+          create: {
+            university: dto.university,
+            studyLevel: dto.studyLevel,
+            academicField: dto.academicField,
+            interests: dto.interests,
+            opportunityFormat: dto.opportunityFormat,
+          },
+        },
       },
+
       select: {
         id: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         email: true,
         role: true,
+        status: true,
         createdAt: true,
+
+        student: {
+          select: {
+            university: true,
+            studyLevel: true,
+            academicField: true,
+            interests: true,
+            opportunityFormat: true,
+          },
+        },
       },
     });
   }
@@ -55,17 +80,47 @@ export class RegistrationService {
 
     return this.prisma.user.create({
       data: {
-        name: dto.name,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
         email: dto.email,
         passwordHash,
         role: Role.ORGANIZER,
+        status: UserStatus.PENDING,
+
+        ownedOrganizations: {
+          create: {
+            orgName: dto.organizationName,
+            type: dto.type,
+            representativeFullName: dto.representativeFullName,
+            academicPosition: dto.academicPosition,
+            proofUrl: dto.proofUrl,
+            phoneNumber: dto.phoneNumber,
+            verificationStatus: VerificationStatus.PENDING,
+          },
+        },
       },
+
       select: {
         id: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         email: true,
         role: true,
-        updatedAt: true,
+        status: true,
+        createdAt: true,
+
+        ownedOrganizations: {
+          select: {
+            id: true,
+            orgName: true,
+            type: true,
+            representativeFullName: true,
+            academicPosition: true,
+            phoneNumber: true,
+            verificationStatus: true,
+            createdAt: true,
+          },
+        },
       },
     });
   }
