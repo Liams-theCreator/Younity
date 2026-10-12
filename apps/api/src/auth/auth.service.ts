@@ -2,14 +2,21 @@ import { PrismaService } from '../prisma/prisma.service.js'
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { JwtService } from '@nestjs/jwt';
+import type { OnModuleInit } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 
 @Injectable()
-export class AuthService
+export class AuthService implements OnModuleInit 
 {
 	constructor(
 		private readonly prisma: PrismaService,
 		private readonly jwtService: JwtService,
 	) {}
+	private dummyPasswordHash!: string;
+	async OnModuleInit(): Promise<void> {
+		const randomPassword = randomBytes(32).toString('hex');
+		this.dummyPasswordHash = await argon2.hash(randomPassword);
+	}
 
 	async findUserForLogin(email: string)
 	{

@@ -35,7 +35,7 @@ export class AuthController
 	}
 	@Get('student-check')
 	@UseGuards(JwtAuthGuard, RolesGuard)
-	@Roles(Role.STUDENT)
+	@Roles(Role.STUDENT, Role.ORGANIZER)
 	studentCheck() {
 		return { message: 'Student access granted' };
 	}
