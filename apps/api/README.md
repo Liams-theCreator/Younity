@@ -10,8 +10,8 @@ Younity’s backend, built with NestJS and TypeScript using ES modules.
 - Unit and end-to-end tests use Vitest.
 
 Application models, authentication, and event features are not implemented yet.
-This is a local development setup; HTTPS and containerized API deployment
-are still pending.
+The full local development stack runs in Docker with HTTPS through Caddy.
+See the root README and run `./run.sh` from the repository root.
 
 ## Prerequisites
 
@@ -162,9 +162,6 @@ This preserves the database volume.
 
 ## Dependency security
 
-Known audit findings remain in Prisma's development dependency chain
-(`deepmerge-ts` and `mysql2`). They have not been fixed.
-
 Review `npm audit` and `npm audit --omit=dev` when updating dependencies
 and before deployment. Review proposed version changes before applying
 audit fixes, especially `--force`.
@@ -202,13 +199,14 @@ Compose supplies the API's environment variables directly.
 
 ### Start development
 
-Stop any locally running API using port 3000, then run:
+To start only the API and database (without the public HTTPS entry point), run:
 
 ```bash
 docker compose up --build --watch api
 ```
 
-Open http://localhost:3000.
+The API container port is not published directly to the host. Run the full
+stack with `./run.sh` to access https://localhost/api/.
 
 - Source changes sync automatically and trigger Nest's watcher.
 - Dependency changes rebuild the API image.
@@ -243,7 +241,10 @@ Database data remains in the named volume.
 
 ## HTTPS development
 
-Caddy provides the local HTTPS entry point:
+Run `./run.sh` from the repository root to start the full stack.
+Caddy serves the frontend at https://localhost and the API at
+https://localhost/api/. Follow the root README to trust its local certificate.
 
-```text
-https://localhost
+`npm run build` generates Prisma Client automatically before compiling.
+The production entry point is `dist/main.js`. Database models and migrations
+will be added once the schema is agreed.

@@ -3,10 +3,61 @@ set -euo pipefail
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
-if [[ ! -f .env ]]; then
-  echo "Missing root .env. Copy .env.example to .env and configure it first."
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker is required. Install Docker Engine and Docker Compose 2.32 or newer." >&2
+  exit 1
+fi
+if ! docker compose version >/dev/null 2>&1; then
+  echo "Docker Compose is required (version 2.32 or newer)." >&2
+  exit 1
+fi
+if ! docker compose watch --help | grep -q -- '--no-up'; then
+  echo "Upgrade Docker Compose to version 2.32 or newer for Watch support." >&2
+  exit 1
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker is not available. Start the daemon and check your user's Docker permissions." >&2
   exit 1
 fi
 
+if [[ ! -f .env ]]; then
+  if ! command -v openssl >/dev/null 2>&1; then
+    echo "Install OpenSSL, or copy .env.example to .env and configure matching database credentials." >&2
+    exit 1
+  fi
+  database_password=$(openssl rand -hex 24)
+  (umask 077; sed "s/REPLACE_WITH_LOCAL_PASSWORD/$database_password/g" .env.example > .env)
+  unset database_password
+  echo "Created .env with generated local database credentials."
+fi
+
 docker compose config --quiet
-exec docker compose up --build --watch
+docker compose up --build --wait --wait-timeout 180
+
+# Stop services when development ends; keep database and certificate volumes.
+trap 'docker compose stop' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+mkdir -p .local/certs
+if docker compose exec -T caddy sh -c '
+  for attempt in $(seq 1 30); do
+    test -f /data/caddy/pki/authorities/local/root.crt && exit 0
+    sleep 1
+  done
+  exit 1
+' && docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt .local/certs/root.crt; then
+  echo "Local HTTPS certificate: $PWD/.local/certs/root.crt"
+  echo "First run on Ubuntu/Debian:"
+  echo "  sudo install -m 0644 '$PWD/.local/certs/root.crt' /usr/local/share/ca-certificates/younity-caddy.crt"
+  echo "  sudo update-ca-certificates"
+  echo "Restart your browser; import the certificate there if it uses a separate trust store."
+else
+  echo "Could not export Caddy's certificate. Check: docker compose logs caddy" >&2
+  exit 1
+fi
+
+echo "Frontend: https://localhost"
+echo "Backend:  https://localhost/api/"
+echo "Watching source changes. Press Ctrl+C to stop. Logs: docker compose logs -f"
+docker compose watch --no-up

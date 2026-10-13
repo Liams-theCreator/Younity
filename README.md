@@ -13,16 +13,16 @@
 - **Git**
 - **Docker Engine**
 - **Docker Compose 2.32 or newer**
+- **OpenSSL** (for automatic first-run credentials)
 
 ### :pencil: Setup
 
 ```bash
     git clone git@github.com:Liams-theCreator/Younity.git
     cd Younity
-    cp .env.example .env
 ```
 
-Edit `.env` with your local database credentials. Use matching credentials in `POSTGRES_PASSWORD` and `API_DATABASE_URL`, with `db` as the database hostname.
+`./run.sh` creates a private `.env` with a generated database password if it does not exist. Existing configuration is preserved. To configure credentials yourself, copy `.env.example` to `.env` and use matching credentials in `POSTGRES_PASSWORD` and `API_DATABASE_URL`, with `db` as the database hostname. URL-encode special characters in the URL credentials.
 
 Build and start all services:
 
@@ -32,15 +32,11 @@ Build and start all services:
 
 ### Local HTTPS certificate
 
-On the first run, execute these commands in another terminal from the repository root (Ubuntu/Debian):
+The script waits for the API, frontend, and database, exports Caddy’s public root certificate to `.local/certs/root.crt`, then watches source changes. On the first run, trust that certificate in another terminal (Ubuntu/Debian):
 
 ```bash
-docker compose cp \
-  caddy:/data/caddy/pki/authorities/local/root.crt \
-  /tmp/younity-caddy-root.crt
-
 sudo install -m 0644 \
-  /tmp/younity-caddy-root.crt \
+  .local/certs/root.crt \
   /usr/local/share/ca-certificates/younity-caddy.crt
 
 sudo update-ca-certificates
@@ -56,3 +52,11 @@ Restart your browser. If it uses its own certificate store, import the certifica
 Source changes update automatically while `./run.sh` is running.
 
 Stop with `Ctrl+C`. Docker volumes preserve the database and certificates.
+
+### Troubleshooting
+
+- Docker must be running and accessible to your user. Ports 80, 443, and 5432 must be free.
+- Inspect service output with `docker compose logs -f`. If startup fails, inspect logs and run `docker compose stop` before retrying.
+- Changing `.env` does not change the password in an existing PostgreSQL volume. Keep the original credentials or update the database password explicitly.
+- Trusting the local certificate is a one-time system/browser step and may require administrator privileges. The script exports it but does not modify your trust store.
+- This Compose configuration is for development. Production builds can be checked with `npm run build` in each app; production hosting is not configured.
