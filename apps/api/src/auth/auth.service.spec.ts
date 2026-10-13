@@ -29,7 +29,7 @@ describe('AuthService.validateCredentials', () => {
 			email: databaseUser.email,
 		});
 	});
-	it ('rejects an incorrect password', async () => {
+	it ('rejects an incorrect password.', async () => {
 		const password = 'test-password';
 		const databaseUser = {
 			id : 2,
