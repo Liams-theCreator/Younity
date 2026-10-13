@@ -13,7 +13,7 @@ export class AuthService implements OnModuleInit
 		private readonly jwtService: JwtService,
 	) {}
 	private dummyPasswordHash!: string;
-	async OnModuleInit(): Promise<void> {
+	async onModuleInit(): Promise<void> {
 		const randomPassword = randomBytes(32).toString('hex');
 		this.dummyPasswordHash = await argon2.hash(randomPassword);
 	}
@@ -38,13 +38,12 @@ export class AuthService implements OnModuleInit
 	{
 		const user = await this.findUserForLogin(email);
 
-		if (user === null)
-			throw new UnauthorizedException('Invalid credentials');
+		const hashToCheck = user?.passwordHash ?? this.dummyPasswordHash;
 		const passwordMatches = await argon2.verify(
-			user.passwordHash,
+			hashToCheck,
 			password,
 		);
-		if (!passwordMatches)
+		if (!passwordMatches || user == null)
 			throw new UnauthorizedException('Invalid credentials');
 		return {
 			id: user.id,
