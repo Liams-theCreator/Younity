@@ -72,7 +72,7 @@ export class RegistrationService {
       }
     })
     if (existingUser) {
-      throw new ConflictException('Email si already registred');
+      throw new ConflictException('Email is already registred');
     }
     const passwordHash = await argon2.hash(dto.password, {
       type: argon2.argon2id,
