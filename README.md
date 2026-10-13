@@ -32,7 +32,7 @@ Build and start all services:
 
 ### Local HTTPS certificate
 
-The script waits for the API, frontend, and database, exports Caddy’s public root certificate to `.local/certs/root.crt`, then watches source changes. On the first run, trust that certificate in another terminal (Ubuntu/Debian):
+The API applies committed database migrations and seeds the category catalog before starting. The script waits for the API, frontend, and database, exports Caddy’s public root certificate to `.local/certs/root.crt`, then watches source changes. On the first run, trust that certificate in another terminal (Ubuntu/Debian):
 
 ```bash
 sudo install -m 0644 \
@@ -48,6 +48,8 @@ Restart your browser. If it uses its own certificate store, import the certifica
 
 - Frontend: https://localhost
 - Backend: https://localhost/api/
+- Health: https://localhost/api/health
+- Swagger: https://localhost/api/docs
 
 Source changes update automatically while `./run.sh` is running.
 
@@ -60,3 +62,15 @@ Stop with `Ctrl+C`. Docker volumes preserve the database and certificates.
 - Changing `.env` does not change the password in an existing PostgreSQL volume. Keep the original credentials or update the database password explicitly.
 - Trusting the local certificate is a one-time system/browser step and may require administrator privileges. The script exports it but does not modify your trust store.
 - This Compose configuration is for development. Production builds can be checked with `npm run build` in each app; production hosting is not configured.
+
+## Development checks
+
+Select the Node version in `.nvmrc` for host-side commands. In `apps/api`, run `npm ci`, `npm run prisma:generate`, `npm run lint`, `npm test`, and `npm run build`. In `apps/web`, run `npm ci`, `npm run lint`, and `npm run build`.
+
+Database tests require a separate database and `TEST_DATABASE_URL`; see [API setup](apps/api/README.md). Startup-script tests run with `python3 -m unittest discover -s tests -v`. GitHub Actions checks both applications, database migrations/seeds, and clean Docker/HTTPS startup.
+
+See [database foundation](docs/database-foundation.md) for schema mappings, diagram corrections, and verification limits. Authentication and event workflows are not yet implemented.
+
+## AI assistance
+
+Codex assisted with development setup fixes, the SQL-to-Prisma translation, migration/seed setup, API configuration, CI, tests, and documentation. The team should review the documented diagram assumptions and understand the generated implementation before evaluation.

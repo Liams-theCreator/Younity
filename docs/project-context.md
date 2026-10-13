@@ -1,6 +1,8 @@
 # Younity — project context
 
-Updated: 2026-09-17
+Updated: 2026-10-13
+
+Current implementation status: the user authorized foundation work on 2026-10-13 using `task.txt` and `db_diagram.sql`. React/Tailwind, NestJS, Prisma, PostgreSQL, and Caddy are now configured. Database models, the first migration, category seed, API validation/CORS/Swagger/environment configuration, and CI are implemented. See `database-foundation.md` for decisions and verification. The discovery notes below are historical and do not override the later authorization or implemented stack.
 
 ## Status and collaboration
 

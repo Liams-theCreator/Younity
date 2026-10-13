@@ -32,12 +32,20 @@ if [[ ! -f .env ]]; then
 fi
 
 docker compose config --quiet
-docker compose up --build --wait --wait-timeout 180
-
-# Stop services when development ends; keep database and certificate volumes.
-trap 'docker compose stop' EXIT
+# Stop services on failure or exit; retain database and certificate volumes.
+watch_pid=""
+cleanup() {
+  if [[ -n "$watch_pid" ]]; then
+    kill "$watch_pid" 2>/dev/null || true
+    wait "$watch_pid" 2>/dev/null || true
+  fi
+  docker compose stop
+}
+trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+docker compose up --build --wait --wait-timeout 180
 
 mkdir -p .local/certs
 if docker compose exec -T caddy sh -c '
@@ -60,4 +68,6 @@ fi
 echo "Frontend: https://localhost"
 echo "Backend:  https://localhost/api/"
 echo "Watching source changes. Press Ctrl+C to stop. Logs: docker compose logs -f"
-docker compose watch --no-up
+docker compose watch --no-up &
+watch_pid=$!
+wait "$watch_pid"

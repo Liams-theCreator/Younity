@@ -1,250 +1,92 @@
 # Younity API
 
-Younity’s backend, built with NestJS and TypeScript using ES modules.
+NestJS, TypeScript ES modules, Prisma 7, and PostgreSQL. The database foundation is implemented; authentication and event application workflows are not implemented yet.
 
-## Current status
+## Full development stack
 
-- NestJS application starts successfully.
-- PostgreSQL runs through Docker Compose.
-- Prisma connects to PostgreSQL and verifies connectivity at startup.
-- Unit and end-to-end tests use Vitest.
+From the repository root, run `./run.sh`. It creates local configuration when absent, builds the containers, applies committed migrations, seeds the category catalog, waits for readiness, and watches source changes. The root README describes local certificate trust.
 
-Application models, authentication, and event features are not implemented yet.
-The full local development stack runs in Docker with HTTPS through Caddy.
-See the root README and run `./run.sh` from the repository root.
+- API root: https://localhost/api/
+- Database health: https://localhost/api/health
+- Swagger UI: https://localhost/api/docs
+- OpenAPI JSON: https://localhost/api/docs-json
 
-## Prerequisites
+Caddy preserves `/api`; Nest owns the prefix. Compose does not publish the API's internal port 3000.
 
-- Linux
-- nvm
-- Node.js version specified in the repository-root `.nvmrc`
-- npm, bundled with Node.js
-- Docker Engine and Docker Compose, available to your user
-- Ports 3000 and 5432 available
+## Host-side development
 
-Run the following setup steps from a fresh clone.
-
-## 1. Select Node.js
-
-From the repository root:
-
-```bash
-nvm install
-nvm use
-```
-
-## 2. Configure PostgreSQL
-
-From the repository root:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and choose a local database password:
-
-```dotenv
-POSTGRES_USER=younity
-POSTGRES_PASSWORD=YOUR_LOCAL_PASSWORD
-POSTGRES_DB=younity
-```
-
-These values initialize PostgreSQL when its data volume is first created.
-Changing this file later does not change an existing database user's password.
-
-Start the database:
+Select the Node version in the root `.nvmrc` using `nvm install` and `nvm use`. Start the database from the root:
 
 ```bash
 docker compose up -d --wait db
-docker compose ps
 ```
 
-The `db` service should become healthy. It is available on
-`127.0.0.1:5432`; database files persist in a Docker volume.
-
-## 3. Configure the backend
-
-From the repository root:
-
-```bash
-cd apps/api
-cp .env.example .env
-```
-
-Set `DATABASE_URL` in `apps/api/.env`:
-
-```dotenv
-DATABASE_URL="postgresql://younity:YOUR_LOCAL_PASSWORD@127.0.0.1:5432/younity?schema=public"
-```
-
-Use the same credentials as the root `.env`. URL-encode special characters
-in the username or password, such as `@` becoming `%40`.
-
-The root `.env` configures Docker Compose. `apps/api/.env` configures
-Prisma and the backend. They are separate files.
-
-Never commit either `.env`. Commit only examples containing placeholders.
-Do not overwrite an existing `.env` when repeating setup.
-
-## 4. Install dependencies and generate Prisma Client
-
-From `apps/api`:
+From `apps/api`, copy `.env.example` to `.env` only if absent. Set `DATABASE_URL` using the root database credentials and `127.0.0.1:5432`, rather than the container-only hostname `db`. URL-encode special characters in credentials. Do not commit `.env` files.
 
 ```bash
 npm ci
 npm run prisma:generate
-```
-
-`npm ci` installs dependencies from the committed lockfile.
-
-Prisma generates its client into `src/generated/prisma/`. This directory
-is excluded from Git. Generate it after a fresh clone and whenever the
-Prisma schema changes. Do not edit generated files.
-
-The Prisma CLI configuration is `prisma7.config.ts`.
-Our generation script explicitly selects this file.
-
-## 5. Start the backend
-
-From `apps/api`:
-
-```bash
+npm run db:setup
 npm run start:dev
 ```
 
-Expected startup messages include:
+The host API is available at http://localhost:3000/api/. Use the full Compose stack for HTTPS. Host-side Vite proxies `/api` to this API.
 
-- `Database connection verified`
-- `Nest application successfully started`
+## Configuration
 
-Open http://localhost:3000 to see the starter `Hello World!` response.
+| Variable | Meaning |
+| --- | --- |
+| `DATABASE_URL` | Required PostgreSQL connection URL, including host and database |
+| `NODE_ENV` | `development` (default), `test`, or `production` |
+| `PORT` | Integer 1–65535; default 3000 |
+| `CORS_ORIGINS` | Comma-separated exact HTTP(S) origins without paths or wildcards; development defaults to `https://localhost,http://localhost:5173`; required explicitly in production |
+| `TEST_DATABASE_URL` | Explicit isolated database URL for end-to-end tests; never use an application database |
 
-Development mode watches for source changes. Use Ctrl+C to stop the API.
+Configuration is validated before application startup. All future request DTOs use the global transforming ValidationPipe, which rejects undeclared fields; DTOs must declare class-validator rules. Swagger documents the current endpoints. Health performs a real database query.
 
-## Tests and builds
+## Database commands
 
 Run from `apps/api`:
 
 ```bash
-npm run test
-npm run test:e2e
+npm run prisma:validate
+npm run prisma:generate
+npm run db:migrate:dev -- --name describe_change
+npm run db:migrate:deploy
+npm run db:seed
+npm run db:status
+```
+
+Use `migrate dev` only on isolated development databases; it uses a shadow database and may propose a reset. Review and commit migration SQL and `migration_lock.toml`. Use `migrate deploy` for committed migrations in CI and container startup. `db:setup` runs deploy then seed; it never resets the database.
+
+Prisma 7 generation and seed execution are explicit. `npm run build` generates the client before compilation. Generated files in `src/generated/prisma` are ignored and must not be edited. The production entry point is `dist/main.js`.
+
+The seed inserts 10 categories inferred from the diagram's interest vocabulary, keyed by stable slugs. Repeated execution preserves existing records and identifiers; no user accounts or passwords are seeded. See `docs/database-foundation.md` at the repository root for translation decisions.
+
+## Checks
+
+```bash
+npm run lint
+npm test
 npm run build
 ```
 
-The starter controller unit test does not require PostgreSQL.
-End-to-end tests load the application and currently require the local
-development database to be running.
-
-Before adding tests that modify data, configure a separate test database.
-
-## Main files
-
-| Path | Purpose |
-| --- | --- |
-| `src/main.ts` | Application startup and shutdown hooks |
-| `src/app.module.ts` | Root application module |
-| `src/prisma/` | Shared Prisma service and module |
-| `prisma/schema.prisma` | Database models and client generator |
-| `prisma7.config.ts` | Prisma CLI configuration |
-| `test/` | End-to-end tests |
-| `vitest.config.ts` | Unit-test configuration |
-| `vitest.config.e2e.ts` | End-to-end test configuration |
-
-## Stopping PostgreSQL
-
-From the repository root:
+For database/HTTP integration checks, create a separate PostgreSQL database, then supply its URL to both variables:
 
 ```bash
-docker compose stop db
+export DATABASE_URL='postgresql://USER:PASSWORD@127.0.0.1:5432/younity_test'
+export TEST_DATABASE_URL="$DATABASE_URL"
+export NODE_ENV=test
+npm run db:setup
+npm run test:e2e
 ```
 
-This preserves the database volume.
+The integration suite checks seed preservation, model relationships, foreign keys, duplicate registrations, deletion behavior, prefix routing, Swagger, CORS, and database health. Temporary model fixtures are rolled back. Seed categories remain in the dedicated test database.
 
-## Dependency security
+Inside Compose, `docker compose exec api npm test` runs unit tests. For integration tests, provision a separate database and pass `TEST_DATABASE_URL` explicitly; do not point it at the normal development database.
 
-Review `npm audit` and `npm audit --omit=dev` when updating dependencies
-and before deployment. Review proposed version changes before applying
-audit fixes, especially `--force`.
+## Watch and persistence
 
-## References
+Source and test files sync automatically. Dependency, Prisma, and build-configuration changes rebuild the API image. Rebuilds run committed migrations and seed before starting Nest. A schema edit requires a matching committed migration; Watch does not create migrations.
 
-- [NestJS documentation](https://docs.nestjs.com/)
-- [Prisma documentation](https://www.prisma.io/docs/)
-- [Vitest documentation](https://vitest.dev/guide/)
-- [Docker Compose documentation](https://docs.docker.com/compose/)
-
-
-## Development with Docker Compose
-
-This workflow runs both the API and PostgreSQL in containers.
-It requires Docker Engine and Docker Compose with Watch support.
-Node.js and npm run inside the API image.
-
-Run all commands below from the repository root.
-
-### First-time setup
-
-Copy the root environment template if `.env` does not already exist:
-
-```bash
-cp .env.example .env
-```
-
-Configure the PostgreSQL credentials and `API_DATABASE_URL`.
-The URL must use the same credentials, with `db:5432` as the database
-address. URL-encode special characters in the URL credentials.
-
-Compose supplies the API's environment variables directly.
-`apps/api/.env` is only needed when running the backend outside Docker.
-
-### Start development
-
-To start only the API and database (without the public HTTPS entry point), run:
-
-```bash
-docker compose up --build --watch api
-```
-
-The API container port is not published directly to the host. Run the full
-stack with `./run.sh` to access https://localhost/api/.
-
-- Source changes sync automatically and trigger Nest's watcher.
-- Dependency changes rebuild the API image.
-- Prisma schema changes rebuild the image and regenerate the client.
-- Database migrations must be applied separately.
-
-For changes outside the configured watch paths, such as test files or
-TypeScript configuration, rebuild the API:
-
-```bash
-docker compose up -d --build api
-```
-
-### Run tests
-
-With the containers running:
-
-```bash
-docker compose exec api npm run test
-docker compose exec api npm run test:e2e
-```
-
-### Stop development
-
-Press Ctrl+C in the Watch terminal, then stop both services:
-
-```bash
-docker compose stop api db
-```
-
-Database data remains in the named volume.
-
-## HTTPS development
-
-Run `./run.sh` from the repository root to start the full stack.
-Caddy serves the frontend at https://localhost and the API at
-https://localhost/api/. Follow the root README to trust its local certificate.
-
-`npm run build` generates Prisma Client automatically before compiling.
-The production entry point is `dist/main.js`. Database models and migrations
-will be added once the schema is agreed.
+Ctrl+C in `./run.sh` stops services while retaining database and certificate volumes. Changing `.env` does not update an existing database password. Inspect `docker compose logs -f` for failures. Do not delete volumes to resolve errors unless you intend to discard their data.
