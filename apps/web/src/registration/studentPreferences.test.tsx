@@ -3,24 +3,56 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import StudentPreferencesForm from '../components/StudentPreferencesForm'
 import { describe, expect, it } from 'vitest'
-import { emptyPreferences, validatePreferences, disciplines, opportunityFormats } from './studentPreferences'
+import {
+  emptyPreferences,
+  validatePreferences,
+  disciplines,
+  opportunityFormats,
+} from './studentPreferences'
 describe('database preference options', () => {
   it('allows field of study and academic level to be omitted', () => {
     expect(validatePreferences(emptyPreferences)).toEqual({})
-    expect(validatePreferences({ ...emptyPreferences, discipline: 'Computer Science & AI' })).toEqual({})
-    expect(validatePreferences({ ...emptyPreferences, academicLevel: 'Master / Ingénieur' })).toEqual({})
+    expect(
+      validatePreferences({ ...emptyPreferences, discipline: 'Computer Science & AI' }),
+    ).toEqual({})
+    expect(
+      validatePreferences({ ...emptyPreferences, academicLevel: 'Master / Ingénieur' }),
+    ).toEqual({})
   })
   it('rejects unsupported values without requiring a minimum interest count', () => {
-    expect(validatePreferences({ ...emptyPreferences, discipline: 'Computer Science & AI', academicLevel: 'Master / Ingénieur' })).toEqual({})
-    expect(validatePreferences({ ...emptyPreferences, discipline: 'unknown', academicLevel: 'unknown', interests: ['unknown'], formats: 'unknown' })).toEqual({ discipline: expect.any(String), academicLevel: expect.any(String), interests: expect.any(String), formats: expect.any(String) })
-    expect(disciplines.some(option => String(option.label) === 'Interdisciplinary')).toBe(false)
-    expect(opportunityFormats.some(option => String(option.label) === 'Certified Bootcamps')).toBe(false)
+    expect(
+      validatePreferences({
+        ...emptyPreferences,
+        discipline: 'Computer Science & AI',
+        academicLevel: 'Master / Ingénieur',
+      }),
+    ).toEqual({})
+    expect(
+      validatePreferences({
+        ...emptyPreferences,
+        discipline: 'unknown',
+        academicLevel: 'unknown',
+        interests: ['unknown'],
+        formats: 'unknown',
+      }),
+    ).toEqual({
+      discipline: expect.any(String),
+      academicLevel: expect.any(String),
+      interests: expect.any(String),
+      formats: expect.any(String),
+    })
+    expect(disciplines.some((option) => String(option.label) === 'Interdisciplinary')).toBe(false)
+    expect(
+      opportunityFormats.some((option) => String(option.label) === 'Certified Bootcamps'),
+    ).toBe(false)
   })
 })
 
 function PreferencesHarness() {
   const [preferences, setPreferences] = useState({ ...emptyPreferences })
-  return <StudentPreferencesForm preferences={preferences} onChange={setPreferences} onBack={() => {}} />
+  return (
+    <StudentPreferencesForm preferences={preferences} onChange={setPreferences} onBack={() => {}} />
+  )
 }
 
 it('labels academic preferences optional and allows submission without selections', async () => {

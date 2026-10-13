@@ -10,11 +10,24 @@ function Location() {
   return <output aria-label="Current route">{useLocation().pathname}</output>
 }
 function setup() {
-  render(<MemoryRouter initialEntries={['/register/organizer']}><OrganizerRegisterPage /><Location /></MemoryRouter>)
+  render(
+    <MemoryRouter initialEntries={['/register/organizer']}>
+      <OrganizerRegisterPage />
+      <Location />
+    </MemoryRouter>,
+  )
   return userEvent.setup()
 }
 async function fillDetails(user: ReturnType<typeof userEvent.setup>) {
-  for (const [label, value] of [['Organization / University Entity Name', 'Campus Club'], ['Representative Full Name', 'Yasmine'], ['Title / Academic Position', 'Coordinator'], ['Direct Contact Phone', '+212600000000'], ['Email Address', 'organizer@example.test'], ['Account Password', 'p'], ['Confirm password', 'p']]) {
+  for (const [label, value] of [
+    ['Organization / University Entity Name', 'Campus Club'],
+    ['Representative Full Name', 'Yasmine'],
+    ['Title / Academic Position', 'Coordinator'],
+    ['Direct Contact Phone', '+212600000000'],
+    ['Email Address', 'organizer@example.test'],
+    ['Account Password', 'p'],
+    ['Confirm password', 'p'],
+  ]) {
     await user.type(screen.getByLabelText(label, { exact: true }), value)
   }
   await user.selectOptions(screen.getByLabelText('Entity Category'), 'STUDENT_CLUB')
@@ -25,11 +38,15 @@ describe('organizer local registration', () => {
   it('submits directly to the supplied pending layout', async () => {
     const user = setup()
     await user.click(screen.getByRole('button', { name: submitName }))
-    expect(screen.getByRole('heading', { level: 1, name: 'Institutional Dossier Submitted' })).toBeVisible()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Institutional Dossier Submitted' }),
+    ).toBeVisible()
     expect(screen.getByText('Status: Queued')).toBeVisible()
     expect(screen.getByRole('heading', { name: /Validation Pipeline/ })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Academic Liaison Desk' })).toBeVisible()
-    expect(screen.queryByRole('navigation', { name: 'Preview application state' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('navigation', { name: 'Preview application state' }),
+    ).not.toBeInTheDocument()
     expect(screen.queryByText(/Preview only/)).not.toBeInTheDocument()
     expect(screen.getByLabelText('Current route')).toHaveTextContent('/register/organizer')
   })
@@ -37,9 +54,16 @@ describe('organizer local registration', () => {
   it('submits a revised dossier back to pending', async () => {
     const user = userEvent.setup()
     const onStateChange = vi.fn()
-    render(<MemoryRouter><OrganizerApplicationStatus state="needs_edit" onStateChange={onStateChange} /></MemoryRouter>)
+    render(
+      <MemoryRouter>
+        <OrganizerApplicationStatus state="needs_edit" onStateChange={onStateChange} />
+      </MemoryRouter>,
+    )
     expect(screen.getByText('Official Dean Endorsement Missing / Incomplete')).toBeVisible()
-    await user.upload(screen.getByLabelText('Replacement affiliation document'), new File(['revised'], 'revised.pdf', { type: 'application/pdf' }))
+    await user.upload(
+      screen.getByLabelText('Replacement affiliation document'),
+      new File(['revised'], 'revised.pdf', { type: 'application/pdf' }),
+    )
     expect(screen.getByText('Selected: revised.pdf')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Submit Revised Dossier' }))
     expect(onStateChange).toHaveBeenCalledWith('pending')
@@ -76,7 +100,12 @@ describe('organizer local registration', () => {
     const input = screen.getByLabelText('Affiliation or authorization document') as HTMLInputElement
     const click = vi.spyOn(input, 'click')
     const zone = screen.getByRole('group', { name: 'Upload affiliation document' })
-    for (const target of [zone, screen.getByText(/Drop Faculty Endorsement/), screen.getByText(/Optional preview selection only/), zone.querySelector('.document-icon')!]) {
+    for (const target of [
+      zone,
+      screen.getByText(/Drop Faculty Endorsement/),
+      screen.getByText(/Optional preview selection only/),
+      zone.querySelector('.document-icon')!,
+    ]) {
       click.mockClear()
       await user.click(target)
       expect(click).toHaveBeenCalledTimes(1)
@@ -105,7 +134,11 @@ describe('organizer local registration', () => {
   })
 
   it('renders the same detailed pending screen on the standalone route', () => {
-    render(<MemoryRouter initialEntries={['/organizer/pending']}><OrganizerPendingPage /></MemoryRouter>)
+    render(
+      <MemoryRouter initialEntries={['/organizer/pending']}>
+        <OrganizerPendingPage />
+      </MemoryRouter>,
+    )
     expect(screen.getByText('Status: Queued')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Academic Liaison Desk' })).toBeVisible()
     expect(screen.getByText('Credential & Mandate Review')).toBeVisible()

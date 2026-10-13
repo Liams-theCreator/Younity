@@ -7,17 +7,40 @@ import { emptyDraft, validateStudentDraft } from './model'
 
 describe('local registration', () => {
   it('validates email and confirmation without password complexity requirements', () => {
-    const draft = { ...emptyDraft, firstName: 'A', lastName: 'B', university: 'ENSIAS', email: 'a@b.ma', password: 'p', confirmPassword: 'p', acceptedPolicies: true }
+    const draft = {
+      ...emptyDraft,
+      firstName: 'A',
+      lastName: 'B',
+      university: 'ENSIAS',
+      email: 'a@b.ma',
+      password: 'p',
+      confirmPassword: 'p',
+      acceptedPolicies: true,
+    }
     expect(validateStudentDraft(draft)).toEqual({})
-    expect(validateStudentDraft({ ...draft, email: 'bad', confirmPassword: 'q' })).toMatchObject({ email: expect.any(String), confirmPassword: 'Passwords must match.' })
+    expect(validateStudentDraft({ ...draft, email: 'bad', confirmPassword: 'q' })).toMatchObject({
+      email: expect.any(String),
+      confirmPassword: 'Passwords must match.',
+    })
   })
   it('focuses errors and preserves both student steps without fake success', async () => {
     const user = userEvent.setup()
-    render(<MemoryRouter><StudentRegisterPage /></MemoryRouter>)
+    render(
+      <MemoryRouter>
+        <StudentRegisterPage />
+      </MemoryRouter>,
+    )
     await user.click(screen.getByRole('button', { name: 'Create student account' }))
     expect(screen.getByLabelText('First Name')).toHaveFocus()
     expect(screen.getByLabelText('Last Name')).toHaveAccessibleDescription('Enter your last name.')
-    for (const [label, value] of [['First Name', 'Yassine'], ['Last Name', 'Amrani'], ['Email Address', 'a@b.ma'], ['Account Password', 'p'], ['Confirm password', 'p']]) await user.type(screen.getByLabelText(label, { exact: true }), value)
+    for (const [label, value] of [
+      ['First Name', 'Yassine'],
+      ['Last Name', 'Amrani'],
+      ['Email Address', 'a@b.ma'],
+      ['Account Password', 'p'],
+      ['Confirm password', 'p'],
+    ])
+      await user.type(screen.getByLabelText(label, { exact: true }), value)
     await user.selectOptions(screen.getByLabelText('University / Academic Institution'), 'Other')
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: 'Create student account' }))
@@ -33,6 +56,8 @@ describe('local registration', () => {
     await user.click(screen.getByRole('button', { name: 'Continue to preferences' }))
     expect(screen.getByRole('checkbox', { name: /Hybrid Events/ })).toBeChecked()
     await user.click(screen.getByRole('button', { name: 'Review registration availability' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('No account was created and no preferences were sent')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'No account was created and no preferences were sent',
+    )
   })
 })

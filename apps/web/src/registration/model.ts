@@ -10,26 +10,38 @@ export type RegistrationDraft = {
 export type FieldErrors = Partial<Record<keyof RegistrationDraft, string>>
 export type AccountType = 'student' | 'organizer'
 export const emptyDraft: RegistrationDraft = {
-  firstName: '', email: '', password: '', confirmPassword: '', acceptedPolicies: false,
+  firstName: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  acceptedPolicies: false,
 }
 export const accountFields = ['firstName', 'email', 'password', 'confirmPassword'] as const
-export const studentAccountFields = ['firstName', 'lastName', 'email', 'password', 'confirmPassword'] as const
+export const studentAccountFields = [
+  'firstName',
+  'lastName',
+  'email',
+  'password',
+  'confirmPassword',
+] as const
 export type StudentRegistrationDraft = RegistrationDraft & { lastName: string; university: string }
 
 export function validateDraft(draft: RegistrationDraft, includePolicies = true): FieldErrors {
   const errors: FieldErrors = {}
   if (!draft.firstName.trim()) errors.firstName = 'Enter your first name.'
   if (!draft.email.trim()) errors.email = 'Enter your email address.'
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())) errors.email = 'Enter a valid email address.'
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()))
+    errors.email = 'Enter a valid email address.'
   for (const field of ['firstName', 'lastName'] as const) {
     if ((draft[field]?.length ?? 0) > 100) errors[field] = 'Use at most 100 characters.'
   }
   if (draft.email.length > 255) errors.email = 'Use at most 255 characters.'
-  // Do not invent a minimum length or complexity rule before SPRINT-01 approval.
   if (!draft.password) errors.password = 'Enter a password.'
   if (!draft.confirmPassword) errors.confirmPassword = 'Confirm your password.'
-  else if (draft.password !== draft.confirmPassword) errors.confirmPassword = 'Passwords must match.'
-  if (includePolicies && !draft.acceptedPolicies) errors.acceptedPolicies = 'Accept the Terms and Privacy Policy to continue.'
+  else if (draft.password !== draft.confirmPassword)
+    errors.confirmPassword = 'Passwords must match.'
+  if (includePolicies && !draft.acceptedPolicies)
+    errors.acceptedPolicies = 'Accept the Terms and Privacy Policy to continue.'
   return errors
 }
 
