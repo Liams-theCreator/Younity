@@ -258,15 +258,9 @@ than stored in separate state; like a C++ function of the current string,
 they cannot get out of sync with the entered password.
 
 `src/components/AlreadyHaveAccount.tsx` displays the “Already have an account?
-Sign In” footer below registration. The user confirmed their friend will build
-the login page. No production login route is approved or implemented here, so
-Sign In is visibly unavailable rather than pointing to a missing page.
-
-Once the friend supplies the actual route, pass that exact path through the
-`signInPath` prop of both `StudentRegisterPage` and `OrganizerRegisterPage` in
-`App.tsx`. The footer then renders a React Router Link to that destination.
-Do not guess the route, implement shared login/auth behavior in AUTH-04, or
-change protected routing without AUTH-05 coordination.
+Sign In” footer below registration. The merged AUTH-05 login screen is available
+at `/login`; `App.tsx` passes that route through `signInPath` to the student and
+organizer registration pages. The root route continues to show account selection.
 
 Tests in `src/registration/passwordFeedback.test.tsx` cover live feedback,
 reduced feedback after edits, spaces, visibility, advisory validation,
@@ -433,3 +427,11 @@ reference. Evidence: `/tmp/younity-auth04-organizer-refined-visual/`.
 
 Real API registration/upload verification remains unavailable until approved
 backend contracts and implementation are supplied. No commit or push was made.
+
+## AUTH-05 merge
+
+The login UI is in `src/pages/LoginPage.tsx` and `src/components/LoginForm.tsx`,
+with page-specific CSS modules. `src/auth/` contains the login service and session
+state foundation. Login retains AUTH-05’s success message behavior; dashboard
+pages and the session provider are retained for subsequent authentication work.
+Registration API and onboarding integration limitations described above still apply.
