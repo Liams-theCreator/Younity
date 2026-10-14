@@ -432,6 +432,19 @@ backend contracts and implementation are supplied. No commit or push was made.
 
 The login UI is in `src/pages/LoginPage.tsx` and `src/components/LoginForm.tsx`,
 with page-specific CSS modules. `src/auth/` contains the login service and session
-state foundation. Login retains AUTH-05’s success message behavior; dashboard
-pages and the session provider are retained for subsequent authentication work.
+state, guards, logout and tests owned by AUTH-05. AUTH-04 owns shared API transport
+and registration/pending UI. `main.tsx` mounts one `BrowserRouter` and one
+`AuthProvider`; `App.tsx` defines the sole guarded `/organizer/pending` route.
+Login updates the provider and returns to guarded pending when requested, or
+account selection otherwise. Session errors block protected content and offer
+retry. Logout waits for the server and blocks protected content on failure.
+
+The existing Vitest/jsdom setup runs auth and registration tests together.
+The auth adapter uses cookie credentials for `/api/auth/login`, `/api/auth/me`
+and POST `/api/auth/logout`. These endpoints are not implemented in this API
+checkout; logout and live session behavior require backend verification. The
+session response currently exposes ID and email only, so the guard verifies
+sign-in, not organizer role or approval status. AUTH-04's pending UI remains a
+preview; authentication does not validate the application details it displays.
+No new shared HTTP transport or pending UI was introduced.
 Registration API and onboarding integration limitations described above still apply.
