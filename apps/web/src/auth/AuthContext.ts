@@ -1,5 +1,5 @@
 import { createContext } from 'react'
-import type { SessionUser } from './model'
+import type { LoginCredentials, SessionUser } from './model'
 
 export type AuthState =
   | { status: 'loading'; user: null; error: null }
@@ -8,6 +8,8 @@ export type AuthState =
   | { status: 'error'; user: null; error: string }
 
 type AuthContextValue = AuthState & {
+  signIn: (credentials: LoginCredentials) => Promise<void>
+  signOut: () => Promise<void>
   refreshSession: () => Promise<void>
 }
 
