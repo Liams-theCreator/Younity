@@ -48,7 +48,7 @@ export async function getSession(
 export async function login(
   credentials: LoginCredentials,
   request: typeof fetch = fetch,
-): Promise<void> {
+): Promise<SessionUser> {
   try {
     const response = await request('/api/auth/login', {
       method: 'POST',
@@ -73,6 +73,23 @@ export async function login(
 
     if (user === null) {
       throw new LoginError('SESSION_NOT_ESTABLISHED')
+    }
+
+    return user
+  } catch (cause) {
+    if (cause instanceof LoginError) throw cause
+    throw new LoginError('NETWORK_ERROR')
+  }
+}
+
+export async function logout(request: typeof fetch = fetch): Promise<void> {
+  try {
+    const response = await request('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+    if (!response.ok && response.status !== 401) {
+      throw new LoginError('SERVICE_UNAVAILABLE')
     }
   } catch (cause) {
     if (cause instanceof LoginError) throw cause
