@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { Navigate, useLocation } from 'react-router'
+import { useAuth } from '../auth/useAuth'
 import LoginForm from '../components/LoginForm'
 import type { LoginCredentials } from '../auth/model'
-import { login } from '../auth/service'
 import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
-  const [signedIn, setSignedIn] = useState(false)
+  const auth = useAuth()
+  const location = useLocation()
+  const from: unknown = location.state?.from
+  const destination = typeof from === 'string' && /^\/organizer\/pending(?:[?#].*)?$/.test(from) ? from : '/register'
+
+  if (auth.status === 'authenticated') return <Navigate to={destination} replace />
 
   async function handleLogin(credentials: LoginCredentials) {
-    await login(credentials)
-    setSignedIn(true)
+    await auth.signIn(credentials)
   }
 
   return (
@@ -27,11 +31,7 @@ export default function LoginPage() {
         </header>
 
         <div className={styles.formArea}>
-          {signedIn ? (
-            <p role="status">Signed in successfully.</p>
-          ) : (
-            <LoginForm onSubmit={handleLogin} />
-          )}
+          {auth.status === 'loading' ? <p role="status">Checking your session…</p> : <LoginForm onSubmit={handleLogin} />}
         </div>
       </section>
     </main>
