@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { validateDatabaseUrl } from './database.js';
 
 export interface Environment {
   nodeEnv: 'development' | 'test' | 'production';
@@ -24,21 +25,7 @@ export function validateEnvironment(
   ) {
     throw new Error('PORT must be an integer between 1 and 65535');
   }
-  const databaseUrl = env.DATABASE_URL;
-  try {
-    const url = new URL(databaseUrl ?? '');
-    if (
-      !['postgres:', 'postgresql:'].includes(url.protocol) ||
-      !url.hostname ||
-      url.pathname.length <= 1
-    ) {
-      throw new Error();
-    }
-  } catch {
-    throw new Error(
-      'DATABASE_URL must be a PostgreSQL URL with a host and database name',
-    );
-  }
+  const databaseUrl = validateDatabaseUrl(env.DATABASE_URL);
   if (nodeEnv === 'production' && !env.CORS_ORIGINS?.trim()) {
     throw new Error('CORS_ORIGINS is required in production');
   }
@@ -67,7 +54,7 @@ export function validateEnvironment(
   return {
     nodeEnv: nodeEnv as Environment['nodeEnv'],
     port,
-    databaseUrl: databaseUrl!,
+    databaseUrl,
     corsOrigins,
   };
 }

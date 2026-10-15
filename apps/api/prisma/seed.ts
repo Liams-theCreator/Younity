@@ -2,9 +2,9 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { categories } from './seed-data.js';
-import { validateEnvironment } from '../src/config/environment.js';
+import { validateDatabaseUrl } from '../src/config/database.js';
 
-const { databaseUrl } = validateEnvironment();
+const databaseUrl = validateDatabaseUrl(process.env.DATABASE_URL);
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: databaseUrl }),
 });

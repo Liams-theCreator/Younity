@@ -58,6 +58,7 @@ Stop with `Ctrl+C`. Docker volumes preserve the database and certificates.
 ### Troubleshooting
 
 - Docker must be running and accessible to your user. Ports 80, 443, and 5432 must be free.
+- If a Docker build reports `ENOSPC`, inspect available disk space and `docker system df`. Unused build cache can be cleared with `docker builder prune`; this does not delete database volumes. Development images use slim Node bases and discard npm download caches.
 - Inspect service output with `docker compose logs -f`. If startup fails, inspect logs and run `docker compose stop` before retrying.
 - Changing `.env` does not change the password in an existing PostgreSQL volume. Keep the original credentials or update the database password explicitly.
 - Trusting the local certificate is a one-time system/browser step and may require administrator privileges. The script exports it but does not modify your trust store.

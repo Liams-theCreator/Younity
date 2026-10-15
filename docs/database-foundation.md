@@ -31,12 +31,20 @@ Container startup runs `db:setup` before Nest: deploy committed migrations, then
 
 ## Verification and remaining external checks
 
-Local verification used the pinned Node 22.23.2 runtime and an isolated PostgreSQL 18 instance because Docker is unavailable here. The initial migration and seed succeeded; comparing the migrated database to the Prisma schema reported no difference. Integration tests exercise all 11 models, repeat the real seed, and verify constraints and HTTP configuration. A live host smoke test also passed through Vite’s proxy to the compiled Nest API and PostgreSQL. See `foundation-checklist.md` for the full verification record.
+Initial verification used the pinned Node 22.23.2 runtime and an isolated PostgreSQL 18 instance because Docker was unavailable at that time. The initial migration and seed succeeded; comparing the migrated database to the Prisma schema reported no difference. Integration tests exercise all 11 models, repeat the real seed, and verify constraints and HTTP configuration. A live host smoke test also passed through Vite’s proxy to the compiled Nest API and PostgreSQL. See `foundation-checklist.md` for the full verification record.
 
 CI targets PostgreSQL 17, matching Compose. It checks install, validation/generation, lint, unit tests, deploy/seed, migration status/drift, end-to-end tests, and builds. A separate job starts `./run.sh` from a clean checkout and verifies Caddy HTTPS with its exported CA certificate.
 
-Hosted CI execution, live Compose verification, PR creation, and reviewer approval remain external completion steps. They are not asserted as passed by local tests.
+Hosted CI execution, PR creation, and reviewer approval remain external completion steps. Live Compose verification passed in the 2026-10-15 follow-up review. They are not asserted as passed by local tests.
 
 ## Development database migration
 
-On 2026-10-13, Docker PostgreSQL 17 was started for the configured `younity` development database. Migration `20261013000000_initial_foundation` applied successfully and the 10-category seed completed. Migration status is current; Prisma detected no difference between the live development database and the schema. The database container was left running. Full application/HTTPS startup and hosted CI are still pending verification.
+On 2026-10-13, Docker PostgreSQL 17 was started for the configured `younity` development database. Migration `20261013000000_initial_foundation` applied successfully and the 10-category seed completed. Migration status is current; Prisma detected no difference between the live development database and the schema. The database container was left running. Full application/HTTPS startup was verified in the 2026-10-15 follow-up review; hosted CI remains unverified.
+
+## Follow-up review — 2026-10-15
+
+Full Compose startup initially exhausted disk space during dependency installation. Both development images now use Node 22.23.2 Bookworm Slim and discard npm download caches before the install layer is saved. The API image explicitly installs OpenSSL and CA certificates for Prisma. After clearing disposable Docker build cache, both images built and `./run.sh` started all services successfully.
+
+The seed previously validated HTTP settings as well as the database URL. It now shares only the database-URL validator with the application, so production seeding does not require CORS or a valid API port. The real-seed regression test checks this behavior and preserves repeat-run identifiers and records.
+
+API validation, migrations, seed, status/drift, 22 unit tests, 10 integration tests, lint, and build passed inside the pinned Node image against the separate PostgreSQL 17 review database. Frontend lint/build and all four startup-script tests also passed. Certificate-verified HTTPS requests, headless Chromium desktop/mobile rendering, live API status, Swagger, and browser console checks passed. Watch synchronized temporary frontend/API probes and their deletion; probes were removed. Browser tooling and certificates were scoped to the checks, without changing the system/browser trust store.

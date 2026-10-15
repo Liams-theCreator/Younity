@@ -61,6 +61,8 @@ Use `migrate dev` only on isolated development databases; it uses a shadow datab
 
 Prisma 7 generation and seed execution are explicit. `npm run build` generates the client before compilation. Generated files in `src/generated/prisma` are ignored and must not be edited. The production entry point is `dist/main.js`.
 
+The seed requires only `DATABASE_URL`; HTTP settings such as `PORT` and `CORS_ORIGINS` are validated separately when starting the application.
+
 The seed inserts 10 categories inferred from the diagram's interest vocabulary, keyed by stable slugs. Repeated execution preserves existing records and identifiers; no user accounts or passwords are seeded. See `docs/database-foundation.md` at the repository root for translation decisions.
 
 ## Checks

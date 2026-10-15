@@ -66,7 +66,7 @@ afterAll(async () => {
 });
 
 describe('database foundation', () => {
-  it('preserves IDs and records when the real seed runs twice', async () => {
+  it('seeds without HTTP configuration and preserves records on repeated runs', async () => {
     const before = await prisma.category.findMany({ orderBy: { slug: 'asc' } });
     for (let run = 0; run < 2; run++) {
       execFileSync(
@@ -75,7 +75,9 @@ describe('database foundation', () => {
         {
           env: {
             ...process.env,
-            NODE_ENV: 'test',
+            NODE_ENV: run === 0 ? 'production' : 'test',
+            CORS_ORIGINS: '',
+            PORT: 'not-an-api-port',
             DATABASE_URL: process.env.TEST_DATABASE_URL,
           },
           stdio: 'pipe',
