@@ -18,6 +18,7 @@ GitHub Actions checks installation, Prisma generation/validation, migration depl
 - 22 API unit tests, 10 PostgreSQL 17/HTTP integration tests, and four startup-script tests passed.
 - Fresh migration, repeated seed, status, and schema-drift checks passed on a separate PostgreSQL 17 review database.
 - Full Docker startup and certificate-verified HTTPS health/Swagger requests passed.
+- A fresh checkout also generated its own configuration/certificate and migrated/seeded an isolated database successfully; test database storage was redirected under `/tmp` to avoid the constrained root disk. Test containers and named volumes were removed afterward.
 - Headless Chromium desktop/mobile UI, live API status, Swagger, and browser console checks passed.
 - Compose Watch synchronized frontend/API probes and their removal.
 - The `main` base was an ancestor of the branch at preparation time; no local merge conflict exists against that fetched base.

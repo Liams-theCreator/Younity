@@ -31,6 +31,7 @@ Task source: repository-root `task.txt`. Status recorded 2026-10-15.
 - [x] Live host smoke test confirms Vite -> compiled Nest -> PostgreSQL communication and Swagger.
 - [x] Bash syntax, YAML parsing, and whitespace checks pass.
 - [x] Full `./run.sh` startup succeeds with Docker PostgreSQL 17, API, frontend, and Caddy.
+- [x] Fresh-checkout startup generates configuration, migrates and seeds a separate database, and serves certificate-verified HTTPS endpoints; its test containers/volumes were removed afterward.
 - [x] HTTPS health and Swagger requests succeed using the exported Caddy CA.
 - [x] Headless Chromium checks pass for desktop/mobile layout, live API status, Swagger, and no browser console warnings/errors.
 - [x] Watch synchronizes frontend/API probe files and propagates their removal.
@@ -41,7 +42,7 @@ The initial verification used PostgreSQL 18. The follow-up review ran all API ch
 
 - [ ] Confirm hosted GitHub Actions passes after publication. Local Docker/HTTPS checks have passed; hosted CI status has not been checked.
 - [ ] Review the documented diagram corrections and initial category vocabulary with the team before downstream workflows depend on them.
-- [ ] Open the pull request and add its URL to the task record. The foundation implementation was committed and pushed; this follow-up review targets the requested `core/auth01` branch name.
+- [ ] Open the pull request and add its URL to the task record. The foundation implementation was committed and pushed; the local and remote branch is now `core/auth01`; prepared PR content is in `auth01-pull-request.md`.
 - [ ] Resolve any PR comments or merge conflicts and obtain reviewer approval.
 
 Adding CI does not establish that hosted CI has passed. Reviewer approval is an external task state, not an implementation claim.
