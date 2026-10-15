@@ -35,11 +35,11 @@ Initial verification used the pinned Node 22.23.2 runtime and an isolated Postgr
 
 CI targets PostgreSQL 17, matching Compose. It checks install, validation/generation, lint, unit tests, deploy/seed, migration status/drift, end-to-end tests, and builds. A separate job starts `./run.sh` from a clean checkout and verifies Caddy HTTPS with its exported CA certificate.
 
-Hosted CI execution, PR creation, and reviewer approval remain external completion steps. Live Compose verification passed in the 2026-10-15 follow-up review. They are not asserted as passed by local tests.
+Hosted CI and live Compose checks passed on 2026-10-15. PR creation and reviewer approval remain external completion steps.
 
 ## Development database migration
 
-On 2026-10-13, Docker PostgreSQL 17 was started for the configured `younity` development database. Migration `20261013000000_initial_foundation` applied successfully and the 10-category seed completed. Migration status is current; Prisma detected no difference between the live development database and the schema. The database container was left running. Full application/HTTPS startup was verified in the 2026-10-15 follow-up review; hosted CI remains unverified.
+On 2026-10-13, Docker PostgreSQL 17 was started for the configured `younity` development database. Migration `20261013000000_initial_foundation` applied successfully and the 10-category seed completed. Migration status is current; Prisma detected no difference between the live development database and the schema. The database container was left running. Full application/HTTPS startup was verified in the 2026-10-15 follow-up review; hosted CI subsequently passed in the CI compatibility verification below.
 
 ## Follow-up review — 2026-10-15
 
@@ -53,4 +53,12 @@ API validation, migrations, seed, status/drift, 22 unit tests, 10 integration te
 
 A fresh checkout of `core/auth01` with no `.env` or local certificates passed `./run.sh` under a separate Compose project. The check verified generated configuration, automatic migration/seed, current migration status, repeat seeding, and certificate-verified HTTPS frontend, health, and OpenAPI endpoints. To avoid the constrained root disk, only the test project's PostgreSQL data volume was redirected to a bind directory under `/tmp`; application service definitions and startup code were unchanged. Its test containers and named volumes were removed afterward. Development data and certificates were not reused or deleted.
 
-`origin/main` was an ancestor of the foundation branch when preparing the PR, so that fetched base introduces no merge conflict. Opening the PR and inspecting hosted Actions still require authenticated GitHub access; SSH Git push access alone does not provide these API operations.
+`origin/main` was an ancestor of the foundation branch when preparing the PR, so that fetched base introduces no merge conflict. Opening the PR requires authenticated GitHub write access. Hosted Actions summaries and annotations were readable through the public GitHub API and were used to diagnose and verify CI.
+
+## CI compatibility verification — 2026-10-15
+
+The API and frontend jobs passed, but the hosted startup job initially failed because the runner’s bundled Compose rejected `initial_sync`. The startup job now explicitly installs the locally verified Compose v5.6.0 through Docker’s official setup action. `run.sh` validates the required Compose version before creating configuration or starting containers, and regression tests cover versions below the minimum as well as supported 2.x and 5.x versions.
+
+The workflow supervises `run.sh` directly and preserves its failure status during cleanup. On failure it publishes a bounded startup-log excerpt as a check annotation, allowing diagnosis without authenticated log downloads. The revised smoke-test commands passed locally against a fresh isolated checkout, and all six startup-script tests passed.
+
+All three hosted jobs (`api`, `web`, `startup`) passed in [run 38741177016](https://github.com/Liams-theCreator/Younity/actions/runs/38741177016) for commit `7459613`, including database migration/seed, schema drift, lint, tests, builds, and full Docker/HTTPS startup.

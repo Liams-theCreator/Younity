@@ -18,13 +18,13 @@ Task source: local planning notes (not versioned). Status recorded 2026-10-15.
 - [x] Add GitHub Actions for API, frontend, PostgreSQL, and clean Docker/HTTPS startup checks.
 - [x] Update setup, database decisions, and verification documentation.
 
-## Local acceptance evidence
+## Acceptance evidence
 
 - [x] API lint, generation, and production build pass using Node 22.23.2.
 - [x] Frontend lint and production build pass.
 - [x] 22 API unit tests pass, including environment and request validation.
 - [x] 10 real database/HTTP integration tests pass, including repeat seeding.
-- [x] Four startup-script checks pass using a simulated Docker command.
+- [x] Six startup-script checks pass, including minimum/newer Compose support and rejection of older versions.
 - [x] Migration deployment and repeated setup succeed; migration status is current.
 - [x] Initial migration and category seed applied to the actual Docker PostgreSQL 17 development database; schema drift check passed.
 - [x] Prisma reports no difference between migrated database and application schema.
@@ -35,14 +35,14 @@ Task source: local planning notes (not versioned). Status recorded 2026-10-15.
 - [x] HTTPS health and Swagger requests succeed using the exported Caddy CA.
 - [x] Headless Chromium checks pass for desktop/mobile layout, live API status, Swagger, and no browser console warnings/errors.
 - [x] Watch synchronizes frontend/API probe files and propagates their removal.
+- [x] Hosted GitHub Actions API, web, and startup jobs pass: [verified run](https://github.com/Liams-theCreator/Younity/actions/runs/38741177016) for commit `7459613`.
 
 The initial verification used PostgreSQL 18. The follow-up review ran all API checks with the pinned Node 22.23.2 runtime inside Docker, using a separate `younity_review_test` database on PostgreSQL 17. The development database was not reset. Both host-side and container builds passed; browser checks used temporary tooling under `/tmp`.
 
 ## Outstanding completion steps
 
-- [ ] Confirm hosted GitHub Actions passes after publication. Local Docker/HTTPS checks have passed; hosted CI status has not been checked.
 - [ ] Review the documented diagram corrections and initial category vocabulary with the team before downstream workflows depend on them.
 - [ ] Open the pull request. The foundation implementation was committed and pushed; the local and remote branch is now `core/auth01`.
 - [ ] Resolve any PR comments or merge conflicts and obtain reviewer approval.
 
-Adding CI does not establish that hosted CI has passed. Reviewer approval is an external task state, not an implementation claim.
+Hosted CI success was verified through the GitHub API. Reviewer approval remains an external task state.
