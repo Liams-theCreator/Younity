@@ -1,7 +1,7 @@
 Owner: said
 Reviewer: smail
 Depends on: SPRINT-01 — Planning decisions and API contracts
-Branch: auth
+Branch: core/auth01
 Pull request: Add URL when opened
 
 Objective

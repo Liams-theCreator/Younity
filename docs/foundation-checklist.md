@@ -41,7 +41,7 @@ The initial verification used PostgreSQL 18. The follow-up review ran all API ch
 
 - [ ] Confirm hosted GitHub Actions passes after publication. Local Docker/HTTPS checks have passed; hosted CI status has not been checked.
 - [ ] Review the documented diagram corrections and initial category vocabulary with the team before downstream workflows depend on them.
-- [ ] Open the pull request and add its URL to the task record. The foundation implementation was committed and pushed; this follow-up review targets the requested `auth` branch name.
+- [ ] Open the pull request and add its URL to the task record. The foundation implementation was committed and pushed; this follow-up review targets the requested `core/auth01` branch name.
 - [ ] Resolve any PR comments or merge conflicts and obtain reviewer approval.
 
 Adding CI does not establish that hosted CI has passed. Reviewer approval is an external task state, not an implementation claim.
