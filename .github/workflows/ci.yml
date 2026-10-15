@@ -75,13 +75,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          setsid ./run.sh > /tmp/younity-startup.log 2>&1 &
+          ./run.sh > /tmp/younity-startup.log 2>&1 &
           runner_pid=$!
           cleanup() {
-            kill -TERM -- "-$runner_pid" 2>/dev/null || true
+            startup_status=$?
+            trap - EXIT
+            kill -TERM "$runner_pid" 2>/dev/null || true
+            wait "$runner_pid" 2>/dev/null || true
             docker compose logs --no-color || true
             cat /tmp/younity-startup.log
-            docker compose down
+            if [[ "$startup_status" != 0 ]]; then
+              details=$(tail -35 /tmp/younity-startup.log)
+              details=${details//'%'/'%25'}
+              details=${details//$'\r'/'%0D'}
+              details=${details//$'\n'/'%0A'}
+              echo "::error title=Application startup failed::$details"
+            fi
+            docker compose down || true
+            exit "$startup_status"
           }
           trap cleanup EXIT
           for attempt in $(seq 1 120); do
