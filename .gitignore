@@ -10,3 +10,6 @@ coverage/
 !.env.example
 
 __pycache__/
+
+# Local task notes
+/task.txt

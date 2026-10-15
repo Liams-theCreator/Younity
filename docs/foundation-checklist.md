@@ -1,6 +1,6 @@
 # Authentication foundation task checklist
 
-Task source: repository-root `task.txt`. Status recorded 2026-10-15.
+Task source: local planning notes (not versioned). Status recorded 2026-10-15.
 
 ## Implementation
 
@@ -42,7 +42,7 @@ The initial verification used PostgreSQL 18. The follow-up review ran all API ch
 
 - [ ] Confirm hosted GitHub Actions passes after publication. Local Docker/HTTPS checks have passed; hosted CI status has not been checked.
 - [ ] Review the documented diagram corrections and initial category vocabulary with the team before downstream workflows depend on them.
-- [ ] Open the pull request and add its URL to the task record. The foundation implementation was committed and pushed; the local and remote branch is now `core/auth01`; prepared PR content is in `auth01-pull-request.md`.
+- [ ] Open the pull request. The foundation implementation was committed and pushed; the local and remote branch is now `core/auth01`.
 - [ ] Resolve any PR comments or merge conflicts and obtain reviewer approval.
 
 Adding CI does not establish that hosted CI has passed. Reviewer approval is an external task state, not an implementation claim.
