@@ -23,6 +23,7 @@ class StartupTests(unittest.TestCase):
         self.docker.write_text('''#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$MOCK_LOG"
 case "$*" in
+  'compose version --short') echo "${MOCK_COMPOSE_VERSION:-v5.6.0}";;
   'compose watch --help') echo --no-up;;
   'compose up '*) exit "${MOCK_START_EXIT:-0}";;
   'compose cp '*) touch "${@: -1}";;
@@ -82,6 +83,23 @@ esac
             if process.poll() is None:
                 process.kill()
                 process.wait()
+
+    def test_rejects_compose_versions_without_initial_sync(self):
+        for version in ('v1.29.2', 'v2.29.7', 'v2.31.0'):
+            with self.subTest(version=version):
+                self.environment['MOCK_COMPOSE_VERSION'] = version
+                result = self.run_script()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('2.32 or newer is required', result.stderr)
+                self.assertFalse((self.root / '.env').exists())
+                self.assertNotIn('compose up ', (self.root / 'calls').read_text())
+
+    def test_accepts_minimum_and_newer_compose_versions(self):
+        for version in ('v2.32.0', '2.40.0', 'v5.6.0'):
+            with self.subTest(version=version):
+                self.environment['MOCK_COMPOSE_VERSION'] = version
+                result = self.run_script()
+                self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_missing_compose_explains_failure_before_configuration(self):
         self.docker.write_text('#!/usr/bin/env bash\nexit 1\n')

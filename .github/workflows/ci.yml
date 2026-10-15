@@ -69,6 +69,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Set up supported Docker Compose
+        uses: docker/setup-compose-action@v2
+        with:
+          version: v5.6.0
       - run: bash -n run.sh
       - run: python3 -m unittest discover -s tests -v
       - name: Verify single-command startup and HTTPS

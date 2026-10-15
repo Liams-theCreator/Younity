@@ -7,11 +7,22 @@ if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required. Install Docker Engine and Docker Compose 2.32 or newer." >&2
   exit 1
 fi
-if ! docker compose version >/dev/null 2>&1; then
+if ! compose_version=$(docker compose version --short 2>/dev/null); then
   echo "Docker Compose is required (version 2.32 or newer)." >&2
   exit 1
 fi
-if ! docker compose watch --help | grep -q -- '--no-up'; then
+if [[ "$compose_version" =~ ^v?([0-9]+)\.([0-9]+)\.[0-9]+([-+].*)?$ ]]; then
+  compose_major=$((10#${BASH_REMATCH[1]}))
+  compose_minor=$((10#${BASH_REMATCH[2]}))
+else
+  echo "Could not determine Docker Compose version: $compose_version" >&2
+  exit 1
+fi
+if (( compose_major < 2 || (compose_major == 2 && compose_minor < 32) )); then
+  echo "Docker Compose 2.32 or newer is required (found $compose_version). Upgrade Docker Compose." >&2
+  exit 1
+fi
+if ! docker compose watch --help | grep -- '--no-up' >/dev/null; then
   echo "Upgrade Docker Compose to version 2.32 or newer for Watch support." >&2
   exit 1
 fi
