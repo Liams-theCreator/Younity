@@ -93,6 +93,7 @@ export function OrganizationFields({
             onChange={(value) => onChange('category', value)}
           />
         </div>
+        {details.category === 'OTHER' && input('customCategory', 'Custom Entity Category', 'Enter your entity category')}
       </OrganizerSection>
       <OrganizerSection number={2} title="Lead organizer details">
         <div className="organizer-field-row">

@@ -1,5 +1,8 @@
+import { meetsMinimumPasswordStrength } from './passwordStrength'
+
 export type RegistrationDraft = {
   firstName: string
+  customUniversity?: string
   university?: string
   lastName?: string
   email: string
@@ -37,6 +40,8 @@ export function validateDraft(draft: RegistrationDraft, includePolicies = true):
   }
   if (draft.email.length > 255) errors.email = 'Use at most 255 characters.'
   if (!draft.password) errors.password = 'Enter a password.'
+  else if (!meetsMinimumPasswordStrength(draft.password))
+    errors.password = 'Meet all 4 password checks: 8+ characters, a number, a special symbol, and an uppercase letter.'
   if (!draft.confirmPassword) errors.confirmPassword = 'Confirm your password.'
   else if (draft.password !== draft.confirmPassword)
     errors.confirmPassword = 'Passwords must match.'
@@ -49,6 +54,10 @@ export function validateStudentDraft(draft: StudentRegistrationDraft): FieldErro
   const errors = validateDraft(draft)
   if (!draft.university.trim()) errors.university = 'Enter your university.'
   else if (draft.university.length > 255) errors.university = 'Use at most 255 characters.'
+  if (draft.university === 'Other') {
+    if (!draft.customUniversity?.trim()) errors.customUniversity = 'Enter your institution name.'
+    else if (draft.customUniversity.length > 255) errors.customUniversity = 'Use at most 255 characters.'
+  }
   if (!draft.lastName.trim()) errors.lastName = 'Enter your last name.'
   return errors
 }

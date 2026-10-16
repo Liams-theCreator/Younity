@@ -31,6 +31,19 @@ export default function RegistrationSelect({
           name={id}
           required
           value={value}
+          onMouseDown={(event) => {
+            // Open after mouse release so the opening gesture cannot select an
+            // option underneath the pointer in desktop native popup menus.
+            if (event.button === 0 && typeof event.currentTarget.showPicker === 'function') {
+              event.preventDefault()
+              event.currentTarget.focus()
+            }
+          }}
+          onClick={(event) => {
+            if (event.detail > 0 && typeof event.currentTarget.showPicker === 'function') {
+              event.currentTarget.showPicker()
+            }
+          }}
           onChange={(event) => onChange(event.target.value)}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}

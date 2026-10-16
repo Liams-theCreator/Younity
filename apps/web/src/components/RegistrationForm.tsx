@@ -224,7 +224,7 @@ export function PolicyAcceptance({
               (open in new tabs)
             </>
           ) : (
-            <>Terms and Privacy Policy</>
+            <><a href="#terms">Terms</a> and <a href="#privacy">Privacy Policy</a></>
           )}
           .
         </span>
@@ -232,7 +232,7 @@ export function PolicyAcceptance({
       <p className="helper" id="policy-note">
         {policies
           ? 'Read both documents before accepting.'
-          : 'Policy documents are not available yet. Account creation is unavailable.'}
+          : 'Policy links are preview placeholders; full documents are not available yet.'}
       </p>
       {error && (
         <p className="field-error" id="policy-error">

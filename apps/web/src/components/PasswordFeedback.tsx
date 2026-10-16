@@ -1,11 +1,7 @@
+import { passwordChecks } from '../registration/passwordStrength'
 import ReferenceIcon from './ReferenceIcon'
 export default function PasswordFeedback({ password }: { password: string }) {
-  const checks = [
-    { label: '8+ characters', met: Array.from(password).length >= 8 },
-    { label: 'At least 1 number', met: /[0-9]/.test(password) },
-    { label: 'Special symbol', met: /[^\p{L}\p{N}\s]/u.test(password) },
-    { label: '1 uppercase letter', met: /\p{Lu}/u.test(password) },
-  ]
+  const checks = passwordChecks(password)
   const score = checks.filter((check) => check.met).length
   const feedback = !password
     ? 'Not entered'
@@ -41,7 +37,7 @@ export default function PasswordFeedback({ password }: { password: string }) {
         ))}
       </ul>
       <p className="password-guidance-note" id="password-guidance-note">
-        Suggested checks only. This feedback does not guarantee password security.
+        All 4 checks are required to continue.
       </p>
     </section>
   )

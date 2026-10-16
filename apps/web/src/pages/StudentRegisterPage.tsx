@@ -31,6 +31,7 @@ export default function StudentRegisterPage({
     ...emptyDraft,
     lastName: '',
     university: '',
+    customUniversity: '',
   })
   const [errors, setErrors] = useState<FieldErrors>({})
   const [step, setStep] = useState<1 | 2>(1)
@@ -108,6 +109,30 @@ export default function StudentRegisterPage({
                       error={errors.university}
                       onChange={(value) => change('university', value)}
                     />
+                    {draft.university === 'Other' && (
+                      <div className="form-field">
+                        <div className="field-label">
+                          <label htmlFor="customUniversity">Custom University / Academic Institution</label>
+                          <span className="required-hint">Required</span>
+                        </div>
+                        <input
+                          id="customUniversity"
+                          name="customUniversity"
+                          type="text"
+                          required
+                          maxLength={255}
+                          autoComplete="organization"
+                          placeholder="Enter your institution name"
+                          value={draft.customUniversity ?? ''}
+                          onChange={(event) => change('customUniversity', event.target.value)}
+                          aria-invalid={Boolean(errors.customUniversity)}
+                          aria-describedby={errors.customUniversity ? 'customUniversity-error' : undefined}
+                        />
+                        {errors.customUniversity && (
+                          <p className="field-error" id="customUniversity-error">{errors.customUniversity}</p>
+                        )}
+                      </div>
+                    )}
                   </>
                 }
               />

@@ -1,5 +1,6 @@
 export type OrganizationDetails = {
   organizationName: string
+  customCategory: string
   category: string
   representativeName: string
   position: string
@@ -8,6 +9,7 @@ export type OrganizationDetails = {
 export const emptyOrganizationDetails: OrganizationDetails = {
   organizationName: '',
   category: '',
+  customCategory: '',
   representativeName: '',
   position: '',
   phone: '',
@@ -32,6 +34,10 @@ export function validateOrganization(
   }
   if (!organizationTypes.some((value) => value === details.category))
     errors.category = 'Select an entity category.'
+  if (details.category === 'OTHER') {
+    if (!details.customCategory.trim()) errors.customCategory = 'Enter your entity category.'
+    else if (details.customCategory.length > 255) errors.customCategory = 'Use at most 255 characters.'
+  }
   if (details.phone && !/^\+?[0-9 ()-]+$/.test(details.phone))
     errors.phone = 'Enter a valid contact phone number.'
   return errors
@@ -44,5 +50,5 @@ export const organizationTypeLabels: Record<(typeof organizationTypes)[number], 
   ASSOCIATION: 'Registered Association',
   COMPANY: 'Company / Corporate Partner',
   COMMUNITY: 'Professional Community / Tech Chapter',
-  OTHER: 'Other Organization',
+  OTHER: 'Other',
 }

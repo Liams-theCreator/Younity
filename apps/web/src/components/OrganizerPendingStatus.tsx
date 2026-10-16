@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import '../registration/stitch.css'
 
 export default function OrganizerPendingStatus() {
@@ -302,24 +303,20 @@ export default function OrganizerPendingStatus() {
                   className={`flex flex-wrap sm:flex-nowrap items-center gap-3 w-full md:w-auto
                     justify-end`}
                 >
-                  <a
+                  <Link
                     className={`inline-flex items-center justify-center min-h-[48px] px-7 py-3 rounded-xl
                       font-medium text-sm text-[#17243D] bg-white border border-[#E2E8F0]
                       shadow-sm hover:bg-[#F8FAFC] hover:border-[#CBD5E1] transition-all
-                      duration-150 cursor-pointer w-full sm:w-auto text-center whitespace-nowrap`}
-                    href="{{DATA:SCREEN:SCREEN_6}}"
-                  >
+                      duration-150 cursor-pointer w-full sm:w-auto text-center whitespace-nowrap`} to="/">
                     Explore Campus Events as Attendee
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     className={`inline-flex items-center justify-center min-h-[48px] px-7 py-3 rounded-xl
                       font-semibold text-sm text-white bg-[#2854D9] shadow-sm hover:bg-[#1E42B3]
                       hover:shadow transition-all duration-150 cursor-pointer w-full sm:w-auto
-                      text-center whitespace-nowrap`}
-                    href="{{DATA:SCREEN:SCREEN_6}}"
-                  >
+                      text-center whitespace-nowrap`} to="/">
                     Return to Younity Portal
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>

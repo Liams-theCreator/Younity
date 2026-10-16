@@ -1,7 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { AccountFields, PolicyAcceptance, RegistrationLayout } from '../components/RegistrationForm'
-import { emptyDraft } from '../registration/model'
+import { emptyDraft, validateDraft } from '../registration/model'
 import type { FieldErrors } from '../registration/model'
 import ReferenceIcon from '../components/ReferenceIcon'
 import OrganizerApplicationStatus from '../components/OrganizerApplicationStatus'
@@ -13,7 +13,7 @@ import {
   OrganizerSection,
   OrganizerHeader,
 } from '../components/OrganizerSections'
-import { emptyOrganizationDetails } from '../registration/organizationDraft'
+import { emptyOrganizationDetails, validateOrganization } from '../registration/organizationDraft'
 
 export default function OrganizerRegistration({
   policies,
@@ -31,6 +31,11 @@ export default function OrganizerRegistration({
     Partial<Record<keyof typeof organization, string>>
   >({})
   const fileInput = useRef<HTMLInputElement>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const submissionTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (submissionTimer.current !== null) clearTimeout(submissionTimer.current)
+  }, [])
   const [state, setState] = useState<ApplicationState>('form')
   useLayoutEffect(() => {
     window.document.getElementById('page-title')?.focus()
@@ -44,6 +49,18 @@ export default function OrganizerRegistration({
     setAcceptedPolicies(value)
     setErrors({})
   }
+  function validateForm() {
+    const accountErrors = validateDraft({
+      ...account,
+      firstName: organization.representativeName,
+      acceptedPolicies,
+    })
+    delete accountErrors.firstName
+    const detailErrors = validateOrganization(organization)
+    setErrors(accountErrors)
+    setOrganizationErrors(detailErrors)
+    return { ...detailErrors, ...accountErrors }
+  }
   const previewControls = (
     <nav
       className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-4 py-4"
@@ -54,6 +71,7 @@ export default function OrganizerRegistration({
         <button
           key={value}
           type="button"
+          disabled={isSubmitting}
           aria-pressed={state === value}
           onClick={() => setState(value)}
           className={`rounded-lg border px-3 py-2 text-sm ${state === value ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
@@ -95,13 +113,26 @@ export default function OrganizerRegistration({
         introduction="Establish your official university or academic entity profile to publish certified campus initiatives, symposiums, and accredited programs on Younity."
       >
         <form
-          noValidate
+          aria-busy={isSubmitting}
+          onInvalid={validateForm}
           onSubmit={(event) => {
             event.preventDefault()
-            setState('pending')
+            if (isSubmitting || submissionTimer.current !== null) return
+            const nextErrors = validateForm()
+            const firstError = Object.keys(nextErrors)[0]
+            if (firstError) {
+              window.document.getElementById(firstError)?.focus()
+              return
+            }
+            setIsSubmitting(true)
+            submissionTimer.current = setTimeout(() => {
+              submissionTimer.current = null
+              setIsSubmitting(false)
+              setState('pending')
+            }, 1500)
           }}
         >
-          <fieldset>
+          <fieldset disabled={isSubmitting}>
             <legend className="sr-only">Organizer registration details</legend>
             <OrganizationFields
               details={organization}
@@ -198,12 +229,13 @@ export default function OrganizerRegistration({
               />
             </div>
             <div className="actions">
-              <button className="primary" type="submit">
-                <span>Submit Organization for Verification</span>
+              <button className="primary" type="submit" disabled={isSubmitting}>
+                <span>{isSubmitting ? 'Submitting...' : 'Submit Organization for Verification'}</span>
                 <ReferenceIcon name="arrow_forward" />
               </button>
             </div>
           </fieldset>
+          <p role="status" aria-live="polite">{isSubmitting ? 'Submitting...' : ''}</p>
         </form>
         <AlreadyHaveAccount signInPath={signInPath} />
         <Link className="back-link" to="/register">

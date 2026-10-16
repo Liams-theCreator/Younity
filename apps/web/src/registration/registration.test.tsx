@@ -6,15 +6,15 @@ import StudentRegisterPage from '../pages/StudentRegisterPage'
 import { emptyDraft, validateStudentDraft } from './model'
 
 describe('local registration', () => {
-  it('validates email and confirmation without password complexity requirements', () => {
+  it('validates email and confirmation with all password checks required', () => {
     const draft = {
       ...emptyDraft,
       firstName: 'A',
       lastName: 'B',
       university: 'ENSIAS',
       email: 'a@b.ma',
-      password: 'p',
-      confirmPassword: 'p',
+      password: 'Abcdefg1!',
+      confirmPassword: 'Abcdefg1!',
       acceptedPolicies: true,
     }
     expect(validateStudentDraft(draft)).toEqual({})
@@ -37,12 +37,16 @@ describe('local registration', () => {
       ['First Name', 'Yassine'],
       ['Last Name', 'Amrani'],
       ['Email Address', 'a@b.ma'],
-      ['Account Password', 'p'],
-      ['Confirm password', 'p'],
+      ['Account Password', 'Abcdefg1!'],
+      ['Confirm password', 'Abcdefg1!'],
     ])
       await user.type(screen.getByLabelText(label, { exact: true }), value)
     await user.selectOptions(screen.getByLabelText('University / Academic Institution'), 'Other')
     await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Continue to preferences' }))
+    expect(screen.getByLabelText('Custom University / Academic Institution')).toHaveFocus()
+    expect(screen.getByText('Enter your institution name.')).toBeVisible()
+    await user.type(screen.getByLabelText('Custom University / Academic Institution'), 'Custom Institute')
     await user.click(screen.getByRole('button', { name: 'Create student account' }))
     expect(screen.getByRole('alert')).toHaveTextContent('Backend integration is not available')
     await user.click(screen.getByRole('button', { name: 'Continue to preferences' }))
@@ -52,7 +56,8 @@ describe('local registration', () => {
     await user.click(screen.getByRole('checkbox', { name: /Hybrid Events/ }))
     await user.click(screen.getByRole('button', { name: 'Back to Account Info' }))
     expect(screen.getByLabelText('University / Academic Institution')).toHaveValue('Other')
-    expect(screen.getByLabelText('Account Password', { exact: true })).toHaveValue('p')
+    expect(screen.getByLabelText('Custom University / Academic Institution')).toHaveValue('Custom Institute')
+    expect(screen.getByLabelText('Account Password', { exact: true })).toHaveValue('Abcdefg1!')
     await user.click(screen.getByRole('button', { name: 'Continue to preferences' }))
     expect(screen.getByRole('checkbox', { name: /Hybrid Events/ })).toBeChecked()
     await user.click(screen.getByRole('button', { name: 'Review registration availability' }))

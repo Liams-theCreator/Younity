@@ -60,7 +60,7 @@ describe('password feedback and sign-in footer', () => {
     expect(password).toHaveAttribute('type', 'password')
     expect(password).toHaveValue('Abcdefg1!')
   })
-  it('keeps suggested checks advisory rather than imposing unapproved validation rules', async () => {
+  it('blocks incomplete passwords and requires all checks', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -79,9 +79,16 @@ describe('password feedback and sign-in footer', () => {
       'Mohammed V University (Rabat - ENSIAS, FSR, EMI)',
     )
     await user.type(screen.getByLabelText('Email Address'), 'student@example.test')
-    await user.type(screen.getByLabelText('Account Password', { exact: true }), 'p')
-    await user.type(screen.getByLabelText('Confirm password'), 'p')
+    await user.type(screen.getByLabelText('Account Password', { exact: true }), 'abcdefgh1')
+    await user.type(screen.getByLabelText('Confirm password'), 'abcdefgh1')
     await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Create student account' }))
+    expect(screen.getByLabelText('Account Password', { exact: true })).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Account Password', { exact: true }))
+    await user.clear(screen.getByLabelText('Confirm password'))
+    await user.type(screen.getByLabelText('Account Password', { exact: true }), 'Abcdefg1!')
+    await user.type(screen.getByLabelText('Confirm password'), 'Abcdefg1!')
     await user.click(screen.getByRole('button', { name: 'Create student account' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Backend integration is not available',

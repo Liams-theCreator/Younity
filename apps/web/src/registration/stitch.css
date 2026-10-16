@@ -593,7 +593,7 @@
 .registration-student .field-label label {
   font-weight: 600;
 }
-.registration-student .required-hint {
+.registration-shell .required-hint {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: none;
@@ -930,13 +930,4 @@
     align-items: stretch;
     flex-direction: column;
   }
-}
-
-.registration-shell .registration-select-field .field-label label {
-  font-weight: 500;
-}
-.registration-shell .registration-select-field .required-hint {
-  font-weight: 400;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
