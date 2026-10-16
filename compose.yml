@@ -74,6 +74,21 @@ services:
           target: /app/test
           initial_sync: true
 
+        - action: sync
+          path: ./apps/api/vitest.config.ts
+          target: /app/vitest.config.ts
+          initial_sync: true
+
+        - action: sync
+          path: ./apps/api/vitest.config.e2e.ts
+          target: /app/vitest.config.e2e.ts
+          initial_sync: true
+
+        - action: sync
+          path: ./apps/api/.oxlintrc.json
+          target: /app/.oxlintrc.json
+          initial_sync: true
+
   web:
     build:
       context: ./apps/web

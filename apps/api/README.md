@@ -89,6 +89,6 @@ Inside Compose, `docker compose exec api npm test` runs unit tests. For integrat
 
 ## Watch and persistence
 
-Source and test files sync automatically. Dependency, Prisma, and build-configuration changes rebuild the API image. Rebuilds run committed migrations and seed before starting Nest. A schema edit requires a matching committed migration; Watch does not create migrations.
+Source files, test files, both Vitest configuration files, and `.oxlintrc.json` sync automatically. Changes to test or lint settings are available on the next check inside the running container. Dependency, Prisma, and build-configuration changes rebuild the API image. Rebuilds run committed migrations and seed before starting Nest. A schema edit requires a matching committed migration; Watch does not create migrations.
 
 Ctrl+C in `./run.sh` stops services while retaining database and certificate volumes. Changing `.env` does not update an existing database password. Inspect `docker compose logs -f` for failures. Do not delete volumes to resolve errors unless you intend to discard their data.

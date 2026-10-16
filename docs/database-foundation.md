@@ -62,3 +62,9 @@ The API and frontend jobs passed, but the hosted startup job initially failed be
 The workflow supervises `run.sh` directly and preserves its failure status during cleanup. On failure it publishes a bounded startup-log excerpt as a check annotation, allowing diagnosis without authenticated log downloads. The revised smoke-test commands passed locally against a fresh isolated checkout, and all six startup-script tests passed.
 
 All three hosted jobs (`api`, `web`, `startup`) passed in [run 38741177016](https://github.com/Liams-theCreator/Younity/actions/runs/38741177016) for commit `7459613`, including database migration/seed, schema drift, lint, tests, builds, and full Docker/HTTPS startup.
+
+## Branch recheck — 2026-10-16
+
+Hosted CI on commit `fea8165` was confirmed successful in [run 38741467434](https://github.com/Liams-theCreator/Younity/actions/runs/38741467434). Local lint and builds for both apps, 22 API unit tests, six startup-script tests, and the full Docker API suite were rerun successfully. The Docker suite used the separate PostgreSQL 17 review database: migration/seed/status, no schema drift, and all 10 integration tests passed. Certificate-verified HTTPS frontend, health, and Swagger requests also passed.
+
+The review identified a Watch gap: API test and lint configuration changes were absent from the running container. Compose now synchronizes both Vitest configs and `.oxlintrc.json`, including initial synchronization. Temporary whitespace-only edits confirmed byte-for-byte synchronization of all three files; their original content was restored locally and in the container before running the checks. Services were stopped after verification; development data was not reset.

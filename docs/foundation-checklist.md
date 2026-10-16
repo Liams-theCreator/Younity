@@ -1,6 +1,6 @@
 # Authentication foundation task checklist
 
-Task source: local planning notes (not versioned). Status recorded 2026-10-15.
+Task source: local planning notes (not versioned). Status recorded 2026-10-16.
 
 ## Implementation
 
@@ -35,6 +35,7 @@ Task source: local planning notes (not versioned). Status recorded 2026-10-15.
 - [x] HTTPS health and Swagger requests succeed using the exported Caddy CA.
 - [x] Headless Chromium checks pass for desktop/mobile layout, live API status, Swagger, and no browser console warnings/errors.
 - [x] Watch synchronizes frontend/API probe files and propagates their removal.
+- [x] API Vitest and lint configuration changes synchronize into the running container; original content restoration was also verified.
 - [x] Hosted GitHub Actions API, web, and startup jobs pass: [verified run](https://github.com/Liams-theCreator/Younity/actions/runs/38741177016) for commit `7459613`.
 
 The initial verification used PostgreSQL 18. The follow-up review ran all API checks with the pinned Node 22.23.2 runtime inside Docker, using a separate `younity_review_test` database on PostgreSQL 17. The development database was not reset. Both host-side and container builds passed; browser checks used temporary tooling under `/tmp`.
