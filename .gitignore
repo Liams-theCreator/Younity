@@ -3,7 +3,13 @@ dist/
 coverage/
 *.log
 *.tsbuildinfo
+.local/
 
 .env
 .env.*
 !.env.example
+
+__pycache__/
+
+# Local task notes
+/task.txt
