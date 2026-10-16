@@ -1,4 +1,8 @@
-import { useLayoutEffect, useState } from 'react'
+import type { FormEvent } from 'react'
+import { registerStudent, REGISTRATION_UNAVAILABLE } from '../registration/service'
+import type { RegistrationPageProps } from '../registration/service'
+import type { StudentPreferences } from '../registration/studentPreferences'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import {
   AccountFields,
@@ -23,10 +27,7 @@ import { emptyPreferences } from '../registration/studentPreferences'
 export default function StudentRegisterPage({
   policies,
   signInPath,
-}: {
-  policies?: { terms: string; privacy: string }
-  signInPath?: string
-}) {
+}: RegistrationPageProps) {
   const [draft, setDraft] = useState<StudentRegistrationDraft>({
     ...emptyDraft,
     lastName: '',
@@ -35,19 +36,52 @@ export default function StudentRegisterPage({
   })
   const [errors, setErrors] = useState<FieldErrors>({})
   const [step, setStep] = useState<1 | 2>(1)
-  const [preferences, setPreferences] = useState({ ...emptyPreferences })
+  const [preferences, setPreferences] = useState<StudentPreferences>({ ...emptyPreferences })
   const [message, setMessage] = useState('')
-  function change(field: keyof RegistrationDraft, value: string | boolean) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const submissionRequest = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => submissionRequest.current?.abort()
+  }, [])
+  useLayoutEffect(() => {
+    document.getElementById('page-title')?.focus()
+  }, [step])
+
+  function change<K extends keyof RegistrationDraft>(field: K, value: RegistrationDraft[K]) {
     setMessage('')
     setDraft((current) => ({ ...current, [field]: value }))
     setErrors((current) => ({ ...current, [field]: undefined }))
   }
-  useLayoutEffect(() => {
-    document.getElementById('page-title')?.focus()
-  }, [step])
   function move(next: 1 | 2) {
     setStep(next)
   }
+  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault()
+    if (submissionRequest.current) return
+    const nextErrors = validateStudentDraft(draft)
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length) {
+      focusFirstError(nextErrors)
+      return
+    }
+    const controller = new AbortController()
+    submissionRequest.current = controller
+    setIsSubmitting(true)
+    setMessage('')
+    try {
+      await registerStudent(draft, controller.signal)
+      // TODO: Navigate to the approved completion route after confirmed API success.
+    } catch {
+      if (!controller.signal.aborted) setMessage(REGISTRATION_UNAVAILABLE)
+    } finally {
+      if (!controller.signal.aborted) {
+        submissionRequest.current = null
+        setIsSubmitting(false)
+      }
+    }
+  }
+
   return (
     <RegistrationLayout
       variant={step === 1 ? 'student' : 'student-preferences'}
@@ -67,22 +101,8 @@ export default function StudentRegisterPage({
         />
       ) : (
         <>
-          <form
-            noValidate
-            onSubmit={(event) => {
-              event.preventDefault()
-              const nextErrors = validateStudentDraft(draft)
-              setErrors(nextErrors)
-              if (Object.keys(nextErrors).length) {
-                focusFirstError(nextErrors)
-                return
-              }
-              setMessage(
-                'Backend integration is not available. No account was created and no data was sent.',
-              )
-            }}
-          >
-            <fieldset>
+          <form noValidate aria-busy={isSubmitting} onSubmit={handleSubmit}>
+            <fieldset disabled={isSubmitting}>
               <legend className="sr-only">Student account details</legend>
               <AccountFields
                 includeLastName
@@ -112,7 +132,9 @@ export default function StudentRegisterPage({
                     {draft.university === 'Other' && (
                       <div className="form-field">
                         <div className="field-label">
-                          <label htmlFor="customUniversity">Custom University / Academic Institution</label>
+                          <label htmlFor="customUniversity">
+                            Custom University / Academic Institution
+                          </label>
                           <span className="required-hint">Required</span>
                         </div>
                         <input
@@ -129,7 +151,9 @@ export default function StudentRegisterPage({
                           aria-describedby={errors.customUniversity ? 'customUniversity-error' : undefined}
                         />
                         {errors.customUniversity && (
-                          <p className="field-error" id="customUniversity-error">{errors.customUniversity}</p>
+                          <p className="field-error" id="customUniversity-error">
+                            {errors.customUniversity}
+                          </p>
                         )}
                       </div>
                     )}
@@ -143,7 +167,7 @@ export default function StudentRegisterPage({
                 onChange={(value) => change('acceptedPolicies', value)}
               />
               <button className="primary" type="submit">
-                <span>Create student account</span>
+                <span>{isSubmitting ? 'Submitting...' : 'Create student account'}</span>
                 <ReferenceIcon name="arrow_forward" />
               </button>
               <button
@@ -165,7 +189,7 @@ export default function StudentRegisterPage({
                 Preferences are a local preview. No account is created by continuing.
               </p>
             </fieldset>
-            <SubmissionStatus pending={false} message={message} />
+            <SubmissionStatus pending={isSubmitting} message={message} />
           </form>
           <AlreadyHaveAccount signInPath={signInPath} />
           <aside className="role-switcher" aria-label="Organizer registration">

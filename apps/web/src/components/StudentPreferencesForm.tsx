@@ -65,7 +65,7 @@ export default function StudentPreferencesForm({
 }) {
   const [errors, setErrors] = useState<PreferenceErrors>({})
   const [message, setMessage] = useState('')
-  function update(field: keyof StudentPreferences, value: string | string[]) {
+  function update<K extends keyof StudentPreferences>(field: K, value: StudentPreferences[K]) {
     onChange({ ...preferences, [field]: value })
     setErrors((current) => ({ ...current, [field]: undefined }))
     setMessage('')
@@ -91,6 +91,7 @@ export default function StudentPreferencesForm({
             ?.focus()
           return
         }
+        // TODO: Connect real API using approved preference IDs and completion routing.
         setMessage(
           'Backend integration is not available. No account was created and no preferences were sent.',
         )
@@ -217,7 +218,10 @@ export default function StudentPreferencesForm({
           </p>
         )}
       </fieldset>
-      <fieldset data-preference-group="formats">
+      <fieldset
+        data-preference-group="formats"
+        aria-describedby={errors.formats ? 'formats-error' : undefined}
+      >
         <legend>Preferred Opportunity Formats</legend>
         <div className="format-grid">
           {opportunityFormats.map((option) => (
@@ -239,6 +243,7 @@ export default function StudentPreferencesForm({
           ))}
         </div>
       </fieldset>
+      {errors.formats && <p className="field-error" id="formats-error">{errors.formats}</p>}
       <div className="preference-actions">
         <button className="secondary" type="button" onClick={onBack}>
           Back to Account Info

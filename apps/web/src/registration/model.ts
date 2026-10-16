@@ -29,9 +29,13 @@ export const studentAccountFields = [
 ] as const
 export type StudentRegistrationDraft = RegistrationDraft & { lastName: string; university: string }
 
-export function validateDraft(draft: RegistrationDraft, includePolicies = true): FieldErrors {
+export function validateDraft(
+  draft: RegistrationDraft,
+  includePolicies = true,
+  includeFirstName = true,
+): FieldErrors {
   const errors: FieldErrors = {}
-  if (!draft.firstName.trim()) errors.firstName = 'Enter your first name.'
+  if (includeFirstName && !draft.firstName.trim()) errors.firstName = 'Enter your first name.'
   if (!draft.email.trim()) errors.email = 'Enter your email address.'
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()))
     errors.email = 'Enter a valid email address.'

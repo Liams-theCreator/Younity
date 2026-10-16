@@ -74,7 +74,7 @@ describe('organizer local registration', () => {
     expect(
       screen.queryByRole('navigation', { name: 'Preview application state' }),
     ).not.toBeInTheDocument()
-    expect(screen.queryByText(/Preview only/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Preview only/)).toBeVisible()
     expect(screen.getByLabelText('Current route')).toHaveTextContent('/register/organizer')
   })
 
@@ -170,6 +170,6 @@ describe('organizer local registration', () => {
     expect(screen.getByRole('heading', { name: 'Academic Liaison Desk' })).toBeVisible()
     expect(screen.getByText('Credential & Mandate Review')).toBeVisible()
     expect(screen.getByText('Event Management Console Activation')).toBeVisible()
-    expect(screen.queryByText(/preview only/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/preview only/i)).toBeVisible()
   })
 })

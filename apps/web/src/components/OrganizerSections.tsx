@@ -130,7 +130,7 @@ export function OrganizerReviewNotice() {
         </div>
         <p>
           Organizer applications require administrator review before event publishing privileges are
-          unlocked. This is a local UI preview; backend integration is not available.
+          unlocked. Updates regarding your verification status will be delivered directly to your institutional email address.
         </p>
       </div>
     </aside>

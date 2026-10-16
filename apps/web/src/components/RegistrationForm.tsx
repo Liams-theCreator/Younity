@@ -103,7 +103,7 @@ export function AccountFields({
   includeLastName?: boolean
   afterNames?: ReactNode
   omitFirstName?: boolean
-  onChange: (field: keyof RegistrationDraft, value: string | boolean) => void
+  onChange: <K extends keyof RegistrationDraft>(field: K, value: RegistrationDraft[K]) => void
 }) {
   const [passwordVisible, setPasswordVisible] = useState(false)
   function renderField(field: AccountField) {

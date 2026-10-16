@@ -1,8 +1,9 @@
+import type { FormEvent } from 'react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { AccountFields, PolicyAcceptance, RegistrationLayout } from '../components/RegistrationForm'
 import { emptyDraft, validateDraft } from '../registration/model'
-import type { FieldErrors } from '../registration/model'
+import type { RegistrationDraft, FieldErrors } from '../registration/model'
 import ReferenceIcon from '../components/ReferenceIcon'
 import OrganizerApplicationStatus from '../components/OrganizerApplicationStatus'
 import type { ApplicationState } from '../registration/applicationState'
@@ -13,55 +14,83 @@ import {
   OrganizerSection,
   OrganizerHeader,
 } from '../components/OrganizerSections'
+import type { OrganizationDetails } from '../registration/organizationDraft'
+import { registerOrganizer, REGISTRATION_UNAVAILABLE } from '../registration/service'
+import type { RegistrationPageProps } from '../registration/service'
 import { emptyOrganizationDetails, validateOrganization } from '../registration/organizationDraft'
 
 export default function OrganizerRegistration({
   policies,
   signInPath,
-}: {
-  policies?: { terms: string; privacy: string }
-  signInPath?: string
-}) {
-  const [account, setAccount] = useState({ ...emptyDraft })
+}: RegistrationPageProps) {
+  const [account, setAccount] = useState<RegistrationDraft>({ ...emptyDraft })
   const [acceptedPolicies, setAcceptedPolicies] = useState(false)
-  const [organization, setOrganization] = useState({ ...emptyOrganizationDetails })
+  const [organization, setOrganization] = useState<OrganizationDetails>({ ...emptyOrganizationDetails })
   const [document, setDocument] = useState<File | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [organizationErrors, setOrganizationErrors] = useState<
-    Partial<Record<keyof typeof organization, string>>
+    Partial<Record<keyof OrganizationDetails, string>>
   >({})
   const fileInput = useRef<HTMLInputElement>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const submissionTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => () => {
-    if (submissionTimer.current !== null) clearTimeout(submissionTimer.current)
-  }, [])
+  const submissionRequest = useRef<AbortController | null>(null)
+  const [submissionError, setSubmissionError] = useState('')
   const [state, setState] = useState<ApplicationState>('form')
+
+  useEffect(() => {
+    return () => submissionRequest.current?.abort()
+  }, [])
   useLayoutEffect(() => {
     window.document.getElementById('page-title')?.focus()
   }, [state])
+
   function selectDocument(file: File | undefined) {
-    if (!file) return
+    if (!file || submissionRequest.current) return
     setDocument(file)
     if (fileInput.current) fileInput.current.value = ''
   }
   function changePolicies(value: boolean) {
     setAcceptedPolicies(value)
-    setErrors({})
+    setErrors((current) => ({ ...current, acceptedPolicies: undefined }))
   }
   function validateForm() {
-    const accountErrors = validateDraft({
-      ...account,
-      firstName: organization.representativeName,
-      acceptedPolicies,
-    })
-    delete accountErrors.firstName
+    const accountErrors = validateDraft({ ...account, acceptedPolicies }, true, false)
     const detailErrors = validateOrganization(organization)
     setErrors(accountErrors)
     setOrganizationErrors(detailErrors)
     return { ...detailErrors, ...accountErrors }
   }
-  const previewControls = (
+  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault()
+    if (submissionRequest.current) return
+    const nextErrors = validateForm()
+    const firstError = Object.keys(nextErrors)[0]
+    if (firstError) {
+      window.document.getElementById(firstError)?.focus()
+      return
+    }
+    setIsSubmitting(true)
+    setSubmissionError('')
+    const controller = new AbortController()
+    submissionRequest.current = controller
+    try {
+      const nextState = await registerOrganizer({
+        account: { ...account, acceptedPolicies },
+        organization,
+        document,
+      }, controller.signal)
+      if (!controller.signal.aborted) setState(nextState)
+    } catch {
+      if (!controller.signal.aborted) setSubmissionError(REGISTRATION_UNAVAILABLE)
+    } finally {
+      if (!controller.signal.aborted) {
+        submissionRequest.current = null
+        setIsSubmitting(false)
+      }
+    }
+  }
+
+  const previewControls = import.meta.env.DEV ? (
     <nav
       className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-4 py-4"
       aria-label="Preview application state"
@@ -92,7 +121,7 @@ export default function OrganizerRegistration({
         examples. No data is sent.
       </p>
     </nav>
-  )
+  ) : null
   if (state === 'pending')
     return <OrganizerApplicationStatus state={state} onStateChange={setState} />
   if (state !== 'form')
@@ -115,22 +144,7 @@ export default function OrganizerRegistration({
         <form
           aria-busy={isSubmitting}
           onInvalid={validateForm}
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (isSubmitting || submissionTimer.current !== null) return
-            const nextErrors = validateForm()
-            const firstError = Object.keys(nextErrors)[0]
-            if (firstError) {
-              window.document.getElementById(firstError)?.focus()
-              return
-            }
-            setIsSubmitting(true)
-            submissionTimer.current = setTimeout(() => {
-              submissionTimer.current = null
-              setIsSubmitting(false)
-              setState('pending')
-            }, 1500)
-          }}
+          onSubmit={handleSubmit}
         >
           <fieldset disabled={isSubmitting}>
             <legend className="sr-only">Organizer registration details</legend>
@@ -235,6 +249,7 @@ export default function OrganizerRegistration({
               </button>
             </div>
           </fieldset>
+          {submissionError && <p className="notice error" role="alert">{submissionError}</p>}
           <p role="status" aria-live="polite">{isSubmitting ? 'Submitting...' : ''}</p>
         </form>
         <AlreadyHaveAccount signInPath={signInPath} />

@@ -1,3 +1,4 @@
+import { mockRevisedDossier, REGISTRATION_UNAVAILABLE } from '../registration/service'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import ReferenceIcon from './ReferenceIcon'
@@ -12,6 +13,7 @@ export default function OrganizerApplicationStatus({
   onStateChange: (state: ApplicationState) => void
 }) {
   const [replacement, setReplacement] = useState('')
+  const [submissionError, setSubmissionError] = useState('')
   switch (state) {
     case 'pending':
       return <OrganizerPendingStatus />
@@ -1052,7 +1054,7 @@ justify-center text-primary group-hover:scale-105 transition-transform`}
                       {'from your computer'}
                     </p>
                     <span className="inline-block font-caption text-caption text-outline">
-                      {'PDF, DOCX up to 10MB • Encrypted & verified'}
+                      {'Local file selection only. Upload requirements await backend integration.'}
                     </span>
                     <input
                       id="reupload-file"
@@ -1097,10 +1099,15 @@ whitespace-nowrap`}
 rounded-xl font-semibold text-sm text-white bg-[#2854D9] shadow-sm
 hover:bg-[#1E42B3] hover:shadow transition-all duration-150
 cursor-pointer w-full sm:w-auto whitespace-nowrap`}
-                    onClick={() => onStateChange('pending')}
+                    onClick={() => {
+                      // TODO: Connect real API for dossier revision and use its returned status.
+                      if (import.meta.env.DEV) onStateChange(mockRevisedDossier())
+                      else setSubmissionError(REGISTRATION_UNAVAILABLE)
+                    }}
                   >
-                    <span className="">{'Submit Revised Dossier'}</span>
+                    <span>{'Submit Revised Dossier'}</span>
                   </button>
+                  {submissionError && <p className="notice error" role="alert">{submissionError}</p>}
                 </div>
               </div>
             </div>

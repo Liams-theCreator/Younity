@@ -4,6 +4,7 @@ import '../registration/stitch.css'
 export default function OrganizerPendingStatus() {
   return (
     <div className="organizer-status-preview">
+      <p className="notice" role="status">Preview only. This sample does not confirm a submitted application.</p>
       <div
         className={`bg-surface font-body-md text-on-surface antialiased min-h-screen flex flex-col
           justify-center items-center`}
@@ -45,7 +46,7 @@ export default function OrganizerPendingStatus() {
                   overflow-hidden`}
               >
                 <div className="mb-8 text-left">
-                  <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight mb-2">
+                  <h1 id="page-title" tabIndex={-1} className="font-headline-lg text-headline-lg text-on-surface tracking-tight mb-2">
                     Institutional Dossier Submitted
                   </h1>
                   <p className="font-body-md text-body-md text-on-surface-variant max-w-2xl">
