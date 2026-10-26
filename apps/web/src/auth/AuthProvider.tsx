@@ -3,7 +3,6 @@ import { AuthContext, type AuthState } from './AuthContext'
 import type { LoginCredentials } from './model'
 import * as authService from './service'
 
-// Auth-specific boundary; AUTH-04 owns the shared HTTP transport.
 export type AuthService = Pick<typeof authService, 'getSession' | 'login' | 'logout'>
 const loadingState: AuthState = { status: 'loading', user: null, error: null }
 
@@ -42,7 +41,6 @@ export default function AuthProvider({ children, service = authService }: {
 
   const signOut = useCallback(async () => {
     const currentRequest = ++requestId.current
-    // Hide protected content while the server invalidates the cookie.
     setState(loadingState)
     try {
       await service.logout()
