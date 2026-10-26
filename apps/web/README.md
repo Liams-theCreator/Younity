@@ -489,3 +489,42 @@ registration form directly. `/` and legacy `/register` URLs (including a trailin
 slash) redirect to `/login`. Registration back links and the shared registration
 brand link return to sign in. The old account-selection page has been removed.
 Auth session, guards and logout behavior are unchanged by this navigation update.
+
+## AUTH-04 real registration handoff - 26 October 2026
+
+Registration now posts JSON through the existing `apiRequest` transport to
+`/api/auth/register/student` and `/api/auth/register/organizer`, in development
+and production. A confirmed response must contain the created account's ID and
+matching email; HTML fallbacks are rejected. Validation messages and duplicate
+email conflicts are shown without starting login. Network failures do not claim
+that no account was created, because a response can be lost after server success.
+
+Payload mapping follows AUTH-02's `6398da6` DTOs: all selected interests are sent
+as an array, academic preferences are mapped to database enums, and unsupported
+`customType`, UI-only confirmation/policy fields and fabricated proof URLs are
+omitted. The unsupported third-year option is not offered. Organizer account
+names currently derive from the representative's full name; backend name errors
+are shown on that field. Selected proof documents remain local and are not sent;
+real upload integration is a separate requirement.
+
+Students can create an account immediately or choose optional preferences first.
+Submitting preferences includes them in registration; Skip creates the account
+with empty preferences. Both flows call the existing AUTH-05 `signIn` only after
+account creation, then replace the route with `/login`, where shared role/status
+rules choose the destination. The pending-route renderer matches AUTH-05's latest
+verified-session status screen rather than a local dossier simulation.
+
+If creation succeeds but sign-in fails, the page shows "Account created; please
+sign in." and locks registration submission. The user can retry login on the
+existing login page without posting registration again. In-flight requests are
+locked against duplicates and cancelled on unmount. No new auth provider, cookie
+strategy, logout behavior, guard implementation or transport was introduced.
+
+Use the integrated HTTPS stack that routes `/api` to the backend. Vite alone on
+port 5173 does not supply API endpoints or an API proxy. The checked-out API still
+contains only starter controllers; AUTH-02 and AUTH-03 must be integrated into the
+running backend. AUTH-03's currently fetched `/auth/me` implementation still returns
+only ID/email, while AUTH-05 needs role/status/organization fields. A real login
+journey therefore also requires that backend session contract to be completed.
+Local API ports were unavailable during this implementation, so automated tests
+use HTTP response fixtures; they do not establish live database or cookie behavior.
