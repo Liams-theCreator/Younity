@@ -32,8 +32,6 @@ export default function RegistrationSelect({
           required
           value={value}
           onMouseDown={(event) => {
-            // Open after mouse release so the opening gesture cannot select an
-            // option underneath the pointer in desktop native popup menus.
             if (event.button === 0 && typeof event.currentTarget.showPicker === 'function') {
               event.preventDefault()
               event.currentTarget.focus()
