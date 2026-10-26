@@ -52,7 +52,6 @@ export function mapStudentPayload(
     university: (draft.university.toLowerCase() === 'other'
       ? draft.customUniversity ?? ''
       : draft.university).trim(),
-    // The DTO uses the plural key `interests` but accepts a single enum value.
     ...(interests ? { interests } : {}),
   }
 }
@@ -74,11 +73,9 @@ export function mapOrganizerPayload(
     representativeFullName,
     academicPosition: organization.position.trim(),
     phoneNumber: organization.phone.trim(),
-    // TODO: Backend needs to add customType field. Its current strict DTO rejects this key.
     ...(organization.category.toLowerCase() === 'other'
       ? { customType: organization.customCategory.trim() }
       : {}),
-    // TODO: Replace this mock URL with the URL returned by a real file upload.
     ...(document ? { proofUrl: 'https://mock-storage.com/proof.pdf' } : {}),
   }
 }
