@@ -1,15 +1,23 @@
+import { useAuth } from '../auth/useAuth'
+import styles from './AuthShell.module.css'
+
 export default function StudentDashboardPage() {
+  const { user } = useAuth()
+
   return (
-    <main className="flex min-h-svh items-center justify-center bg-[#f7f9fe] p-6">
-      <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-lg">
-        <p className="mb-3 font-semibold text-[#2854d9]">Younity</p>
+    <main className={styles.page}>
+      <section className={styles.card}>
+        <p className={styles.eyebrow}>
+          Student workspace
+        </p>
 
-        <h1 className="text-3xl font-bold text-slate-900">
-          Student dashboard
-        </h1>
+        <h1>Student dashboard</h1>
 
-        <p className="mt-4 text-slate-600">
-          Your campus events and opportunities will appear here.
+        <p>Welcome, {user?.email}.</p>
+
+        <p>
+          You are signed in. Event discovery will be
+          connected here in the next feature.
         </p>
       </section>
     </main>
