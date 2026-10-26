@@ -30,14 +30,14 @@ describe('merged registration and login routes', () => {
     expect(await screen.findByRole('form', { name: 'Sign in to Younity' })).toBeInTheDocument()
   })
 
-  it('keeps production pending UI honest about unavailable application data', async () => {
+  it('renders production pending status from the verified session', async () => {
     vi.stubEnv('DEV', false)
     vi.mocked(apiRequest).mockResolvedValue(Response.json({
       id: 1, email: 'organizer@example.test', role: 'ORGANIZER', status: 'PENDING',
       organization: { verificationStatus: 'PENDING' },
     }))
     render(<MemoryRouter initialEntries={['/organizer/pending']}><App /></MemoryRouter>)
-    expect(await screen.findByRole('heading', { name: 'Application status unavailable' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Organization verification pending' })).toBeInTheDocument()
     expect(screen.queryByText(/YNT-ORG-2025/)).not.toBeInTheDocument()
   })
 })
