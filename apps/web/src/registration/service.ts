@@ -13,14 +13,10 @@ export async function registerStudent(
   signal: AbortSignal,
 ): Promise<void> {
   signal.throwIfAborted()
-  // Retain the typed input boundary until the approved DTO mapping is supplied.
   void payload
-  // TODO: Connect real API. Map approved DTO fields explicitly; never send
-  // confirmPassword or assume UI institution labels are backend identifiers.
   throw new Error(REGISTRATION_UNAVAILABLE)
 }
 
-/** Development-only Mock API: no account is created and no file is uploaded. */
 export function mockRegisterOrganizer(signal: AbortSignal): Promise<'pending'> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
@@ -44,12 +40,9 @@ export async function registerOrganizer(
   signal: AbortSignal,
 ): Promise<'pending'> {
   if (import.meta.env.DEV) return mockRegisterOrganizer(signal)
-  // TODO: Connect real API with fetch(..., { signal }). Map the approved DTO
-  // and upload contract; return pending only after confirmed server success.
   throw new Error(REGISTRATION_UNAVAILABLE)
 }
 
-/** Local status-screen fixture, not an application decision from the server. */
 export function mockRevisedDossier(): 'pending' {
   return 'pending'
 }
