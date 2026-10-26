@@ -23,6 +23,7 @@ export type AuthState =
       status: 'error'
       user: null
       error: string
+      operation: 'session' | 'logout'
     }
 
 type AuthContextValue = AuthState & {

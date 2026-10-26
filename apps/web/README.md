@@ -520,11 +520,41 @@ existing login page without posting registration again. In-flight requests are
 locked against duplicates and cancelled on unmount. No new auth provider, cookie
 strategy, logout behavior, guard implementation or transport was introduced.
 
-Use the integrated HTTPS stack that routes `/api` to the backend. Vite alone on
-port 5173 does not supply API endpoints or an API proxy. The checked-out API still
-contains only starter controllers; AUTH-02 and AUTH-03 must be integrated into the
-running backend. AUTH-03's currently fetched `/auth/me` implementation still returns
+Use the integrated HTTPS stack that routes `/api` to the backend. Vite now proxies `/api` to `API_PROXY_TARGET` (default `http://127.0.0.1:3000`).
+The checked-out API includes the database/configuration/health foundation, but
+AUTH-02 registration and AUTH-03 authentication controllers still need integration
+into the running backend. AUTH-03's currently fetched `/auth/me` implementation still returns
 only ID/email, while AUTH-05 needs role/status/organization fields. A real login
 journey therefore also requires that backend session contract to be completed.
 Local API ports were unavailable during this implementation, so automated tests
 use HTTP response fixtures; they do not establish live database or cookie behavior.
+
+
+## Foundation merged from main
+
+The application now uses the AUTH-01 database and development foundation.
+See the repository-root README for current Docker, HTTPS and configuration
+instructions. Earlier implementation notes above are historical.
+
+From the repository root:
+- ./run.sh starts services detached.
+- ./run.sh --watch enables live source synchronization.
+- docker compose logs -f displays service logs.
+
+Vite proxies /api to the backend. API_PROXY_TARGET overrides the target;
+Compose uses http://api:3000. Caddy preserves the /api prefix.
+
+Frontend checks: npm run lint, npm test, npm run build.
+Real registration and authentication acceptance still require backend integration.
+
+
+
+## Latest merge validation
+
+AUTH-05's foundation, API proxy and verified-pending routing tests are merged
+without replacing AUTH-04's real registration calls, array payload mapping or
+registration-to-sign-in handoff. AUTH-05 now distinguishes session-check failures
+from logout failures, preserving its own retry behavior. The combined routing
+tests cover pending-to-approved refresh, role redirects and session-check retry.
+The database foundation alone does not supply registration or authentication
+controllers; live end-to-end acceptance still needs those backend branches.
