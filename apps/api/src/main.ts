@@ -1,12 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
+import  cookieParser  from 'cookie-parser';
+import { ConfigService } from '@nestjs/config';
 
 
 
 //Enable validationPipe, allows DTO properties with validation decorators
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const config = app.get(ConfigService);
+  app.enableCors({
+	  origin: config.getOrThrow<string>('FRONTEND_ORIGIN'),
+	  credentials: true,
+  });
+  app.use(cookieParser());
   app.enableShutdownHooks();
   app.useGlobalPipes(
 	  new ValidationPipe({
