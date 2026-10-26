@@ -1,7 +1,10 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('../auth/useAuth', () => ({ useAuth: () => ({ signIn: vi.fn() }) }))
+vi.mock('../api/client', () => ({ apiRequest: vi.fn(async () => new Response(null, { status: 500 })) }))
 import PasswordFeedback from '../components/PasswordFeedback'
 import StudentRegisterPage from '../pages/StudentRegisterPage'
 import OrganizerRegisterPage from '../pages/OrganizerRegisterPage'
@@ -91,7 +94,7 @@ describe('password feedback and sign-in footer', () => {
     await user.type(screen.getByLabelText('Confirm password'), 'Abcdefg1!')
     await user.click(screen.getByRole('button', { name: 'Create student account' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Backend integration is not available',
+      'Registration is temporarily unavailable',
     )
   })
   it.each(['student', 'organizer'])(
