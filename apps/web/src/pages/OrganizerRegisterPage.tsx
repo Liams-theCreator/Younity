@@ -1,7 +1,6 @@
 import { mapOrganizerPayload } from '../registration/payload'
 import type { FormEvent } from 'react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
 import { AccountFields, PolicyAcceptance, RegistrationLayout } from '../components/RegistrationForm'
 import { emptyDraft, validateDraft } from '../registration/model'
 import type { RegistrationDraft, FieldErrors } from '../registration/model'
@@ -100,7 +99,7 @@ export default function OrganizerRegistration({
     <>
       <RegistrationLayout
         variant="organizer"
-        headerContent={<OrganizerHeader signInPath={signInPath} />}
+        headerContent={<OrganizerHeader />}
         beforeCard={<OrganizerReviewNotice />}
         title="Institutional Organizer Registration"
         introduction="Establish your official university or academic entity profile to publish certified campus initiatives, symposiums, and accredited programs on Younity."
@@ -217,9 +216,6 @@ export default function OrganizerRegistration({
           <p role="status" aria-live="polite">{isSubmitting ? 'Submitting...' : ''}</p>
         </form>
         <AlreadyHaveAccount signInPath={signInPath} />
-        <Link className="back-link" to="/login">
-          Back to sign in
-        </Link>
       </RegistrationLayout>
     </>
   )
