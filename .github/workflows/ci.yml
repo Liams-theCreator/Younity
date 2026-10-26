@@ -62,6 +62,7 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm test
       - run: npm run build
 
   startup:
@@ -105,8 +106,10 @@ jobs:
             sleep 5
           done
           test -f .local/certs/root.crt
-          curl --fail --silent --show-error --cacert .local/certs/root.crt https://localhost/api/health | jq -e '.status == "ok"'
-          curl --fail --silent --show-error --cacert .local/certs/root.crt https://localhost/ | grep -q '<title>Younity</title>'
-          curl --fail --silent --show-error --cacert .local/certs/root.crt https://localhost/api/docs-json | jq -e '.paths["/api/health"]'
+          https_port="$(docker compose port caddy 443 | awk -F: '{print $NF}')"
+          base_url="https://localhost:${https_port}"
+          curl --fail --silent --show-error --cacert .local/certs/root.crt "$base_url/api/health" | jq -e '.status == "ok"'
+          curl --fail --silent --show-error --cacert .local/certs/root.crt "$base_url/" | grep -q '<title>Younity</title>'
+          curl --fail --silent --show-error --cacert .local/certs/root.crt "$base_url/api/docs-json" | jq -e '.paths["/api/health"]'
           docker compose exec -T api npm run db:status
           docker compose exec -T api npm run db:seed
