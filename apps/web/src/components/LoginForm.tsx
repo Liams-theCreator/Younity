@@ -38,6 +38,7 @@ export default function LoginForm({
     }
 
     submissionInProgress.current = true
+
     setError('')
     setIsSubmitting(true)
 
@@ -108,13 +109,6 @@ export default function LoginForm({
           >
             Password
           </label>
-
-          <span
-            className={styles.comingSoon}
-            title="Password reset is outside this sprint"
-          >
-            Forgot password? Coming soon
-          </span>
         </div>
 
         <div className={styles.passwordField}>

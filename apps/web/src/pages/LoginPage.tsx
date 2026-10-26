@@ -7,19 +7,11 @@ import styles from './LoginPage.module.css'
 export default function LoginPage() {
   const auth = useAuth()
 
-  const {
-    status,
-    destination,
-    error,
-    signIn,
-    refreshSession,
-  } = auth
-
   if (
-    status === 'authenticated' &&
-    destination !== null
+    auth.status === 'authenticated' &&
+    auth.destination !== null
   ) {
-    return <Navigate to={destination} replace />
+    return <Navigate to={auth.destination} replace />
   }
 
   return (
@@ -38,20 +30,20 @@ export default function LoginPage() {
             </h1>
 
             <p className={styles.subtitle}>
-              Manage university club spaces, curate
-              hackathons, and verify attendee check-ins.
+              Manage university club spaces, curate hackathons,
+              and verify attendee check-ins.
             </p>
           </header>
 
           <div className={styles.formArea}>
-            {status === 'loading' ? (
+            {auth.status === 'loading' ? (
               <p role="status">
                 Checking your session…
               </p>
-            ) : status === 'authenticated' ? (
+            ) : auth.status === 'authenticated' ? (
               <p role="alert">
-                Your account does not have access to a
-                dashboard. Please contact support.
+                Your account does not have access to a dashboard.
+                Please contact support.
               </p>
             ) : (
               <>
@@ -61,28 +53,35 @@ export default function LoginPage() {
                       className={styles.notice}
                       role="status"
                     >
-                      Your session expired. Please sign
-                      in again.
+                      Your session expired. Please sign in again.
                     </p>
                   )}
 
-                {status === 'error' && (
+                {auth.status === 'error' && (
                   <div className={styles.notice}>
-                    <p role="status">{error}</p>
+                    <p role="alert">{auth.error}</p>
 
                     <button
                       className={styles.retry}
                       type="button"
                       onClick={() => {
-                        void refreshSession()
+                        if (auth.operation === 'logout') {
+                          void auth
+                            .signOut()
+                            .catch(() => undefined)
+                        } else {
+                          void auth.refreshSession()
+                        }
                       }}
                     >
-                      Retry session check
+                      {auth.operation === 'logout'
+                        ? 'Retry sign out'
+                        : 'Retry session check'}
                     </button>
                   </div>
                 )}
 
-                <LoginForm onSubmit={signIn} />
+                <LoginForm onSubmit={auth.signIn} />
               </>
             )}
           </div>
@@ -122,9 +121,8 @@ export default function LoginPage() {
           </summary>
 
           <p>
-            Official policies and support details will
-            be published before account registration
-            opens.
+            Official policies and support details will be
+            published before account registration opens.
           </p>
         </details>
       </footer>

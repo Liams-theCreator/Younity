@@ -34,6 +34,7 @@ export default function AuthProvider({
   children: ReactNode
 }) {
   const [state, setState] = useState<AuthState>(loadingState)
+
   const requestId = useRef(0)
   const pendingLogin = useRef<Promise<SessionUser> | null>(null)
   const pendingLogout = useRef<Promise<void> | null>(null)
@@ -62,6 +63,7 @@ export default function AuthProvider({
           status: 'error',
           user: null,
           error: 'We could not check your session. Please try again.',
+          operation: 'session',
         })
       },
     )
@@ -81,6 +83,7 @@ export default function AuthProvider({
 
     const currentRequest = ++requestId.current
     const operation = login(credentials)
+
     pendingLogin.current = operation
 
     try {
@@ -101,7 +104,9 @@ export default function AuthProvider({
   }, [])
 
   const signOut = useCallback((): Promise<void> => {
-    if (pendingLogout.current) return pendingLogout.current
+    if (pendingLogout.current) {
+      return pendingLogout.current
+    }
 
     const currentRequest = ++requestId.current
     const loginToFinish = pendingLogin.current
@@ -110,7 +115,7 @@ export default function AuthProvider({
 
     const operation: Promise<void> = (async () => {
       try {
-        // Finish an earlier login before clearing its cookie.
+        // Let an earlier login finish before clearing its cookie.
         if (loginToFinish) {
           await loginToFinish.catch(() => undefined)
         }
@@ -129,6 +134,7 @@ export default function AuthProvider({
               cause instanceof LogoutError
                 ? cause.message
                 : 'We could not confirm sign-out. Please try again.',
+            operation: 'logout',
           })
         }
 
@@ -141,6 +147,7 @@ export default function AuthProvider({
     })
 
     pendingLogout.current = operation
+
     return operation
   }, [])
 

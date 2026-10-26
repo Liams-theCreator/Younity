@@ -13,36 +13,40 @@ export default function ProtectedRoute({
   children,
   renderRedirect,
 }: ProtectedRouteProps) {
-  const {
-    status,
-    destination,
-    error,
-    refreshSession,
-  } = useAuth()
+  const auth = useAuth()
 
-  if (status === 'loading') {
+  if (auth.status === 'loading') {
     return <p role="status">Checking your session…</p>
   }
 
-  if (status === 'error') {
+  if (auth.status === 'error') {
     return (
       <div>
-        <p role="alert">{error}</p>
+        <p role="alert">{auth.error}</p>
+
         <button
           type="button"
-          onClick={() => void refreshSession()}
+          onClick={() => {
+            if (auth.operation === 'logout') {
+              void auth.signOut().catch(() => undefined)
+            } else {
+              void auth.refreshSession()
+            }
+          }}
         >
-          Retry session check
+          {auth.operation === 'logout'
+            ? 'Retry sign out'
+            : 'Retry session check'}
         </button>
       </div>
     )
   }
 
-  if (status === 'anonymous') {
+  if (auth.status === 'anonymous') {
     return renderRedirect('/login')
   }
 
-  if (destination === null) {
+  if (auth.destination === null) {
     return (
       <p role="alert">
         Your account does not have access to this page.
@@ -51,8 +55,8 @@ export default function ProtectedRoute({
     )
   }
 
-  if (destination !== requiredDestination) {
-    return renderRedirect(destination)
+  if (auth.destination !== requiredDestination) {
+    return renderRedirect(auth.destination)
   }
 
   return <>{children}</>
