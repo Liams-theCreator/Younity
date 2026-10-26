@@ -3,7 +3,7 @@ https://localhost {
 
     redir /api /api/ 308
 
-    handle_path /api/* {
+    handle /api/* {
         reverse_proxy api:3000
     }
 

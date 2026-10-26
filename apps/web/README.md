@@ -489,3 +489,20 @@ registration form directly. `/` and legacy `/register` URLs (including a trailin
 slash) redirect to `/login`. Registration back links and the shared registration
 brand link return to sign in. The old account-selection page has been removed.
 Auth session, guards and logout behavior are unchanged by this navigation update.
+
+## Foundation merged from main
+
+The application now uses the AUTH-01 database and development foundation.
+See the repository-root README for current Docker, HTTPS and configuration
+instructions. Earlier implementation notes above are historical.
+
+From the repository root:
+- ./run.sh starts services detached.
+- ./run.sh --watch enables live source synchronization.
+- docker compose logs -f displays service logs.
+
+Vite proxies /api to the backend. API_PROXY_TARGET overrides the target;
+Compose uses http://api:3000. Caddy preserves the /api prefix.
+
+Frontend checks: npm run lint, npm test, npm run build.
+Real registration and authentication acceptance still require backend integration.

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+
+usage() {
+  cat <<'HELP'
+Usage: ./clean [--keep-data] [--docker-cache] [-h|--help]
+
+Remove this Compose project's containers (including orphans), service images,
+networks, database/certificate volumes, and generated development files.
+The default deletes the local database and HTTPS certificates. Trust the new
+certificate after the next ./run.sh. Source files and .env are preserved.
+
+  --keep-data     Preserve Docker volumes and exported certificates.
+  --docker-cache  Also prune unused Docker build cache across ALL projects.
+  -h, --help      Show this help without deleting anything.
+
+Unrelated containers, images, networks, and volumes are left alone. Images still
+used by another container cannot be removed; Docker will report them.
+HELP
+}
+keep_data=false
+docker_cache=false
+for argument in "$@"; do
+  case "$argument" in
+    --keep-data) keep_data=true ;;
+    --docker-cache) docker_cache=true ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $argument" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
+  echo "Docker Engine and Docker Compose are required." >&2
+  exit 1
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker is not available. Start the daemon and check your user's Docker permissions." >&2
+  exit 1
+fi
+
+# Interpolation is required even for 'down'. Permit cleanup before initial setup
+# or after .env was removed, without changing existing configuration.
+export POSTGRES_USER="${POSTGRES_USER:-cleanup}"
+export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-cleanup}"
+export POSTGRES_DB="${POSTGRES_DB:-cleanup}"
+export API_DATABASE_URL="${API_DATABASE_URL:-postgresql://cleanup:cleanup@db/cleanup}"
+
+options=(--remove-orphans --rmi all)
+if [[ "$keep_data" == false ]]; then
+  echo "Removing Younity services, images, networks, and volumes (including the local database)."
+  options+=(--volumes)
+else
+  echo "Removing Younity services, images, and networks; preserving database and certificates."
+fi
+docker compose down "${options[@]}"
+
+if [[ "$docker_cache" == true ]]; then
+  docker builder prune --all --force
+fi
+
+for app in apps/api apps/web; do
+  rm -rf -- "$app/node_modules" "$app/dist" "$app/coverage"
+  find "$app" -type f -name '*.tsbuildinfo' -delete
+done
+rm -rf -- apps/api/src/generated/prisma tests/__pycache__
+if [[ "$keep_data" == false ]]; then
+  rm -rf -- .local/certs
+fi
+echo "Cleanup complete. Start again with ./run.sh or ./run.sh --detach."
