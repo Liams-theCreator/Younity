@@ -454,7 +454,7 @@ Registration API and onboarding integration limitations described above still ap
 
 The latest AUTH-05 implementation is merged into AUTH-04. `main.tsx` mounts
 one BrowserRouter, `App.tsx` mounts one AuthProvider, and `AuthRoutes.tsx`
-defines the single route table. The root continues to show account selection.
+defines the single route table. The root and the legacy `/register` URL redirect to `/login`. Login links lead directly to student and organizer registration; no account-selection screen is rendered.
 AUTH-04 registration forms, provisional payload mappings and production
 unavailable behavior remain intact. The existing Vitest/jsdom configuration
 runs registration and auth suites together.
@@ -480,3 +480,12 @@ backend branch or approval of a changed backend contract. Backend owners must
 confirm cookies, logout and the full session profile before real end-to-end
 acceptance. Registration and file upload remain unconnected. The jury PDF is a
 historical snapshot from before this merge.
+
+
+### Registration navigation
+
+Start at `/login`, then choose Join as Student or Organizer to open the matching
+registration form directly. `/` and legacy `/register` URLs (including a trailing
+slash) redirect to `/login`. Registration back links and the shared registration
+brand link return to sign in. The old account-selection page has been removed.
+Auth session, guards and logout behavior are unchanged by this navigation update.
