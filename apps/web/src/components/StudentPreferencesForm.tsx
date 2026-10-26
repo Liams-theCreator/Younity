@@ -58,17 +58,21 @@ export default function StudentPreferencesForm({
   preferences,
   onChange,
   onBack,
+  onSubmit,
+  onSkip,
+  disabled = false,
 }: {
   preferences: StudentPreferences
   onChange: (next: StudentPreferences) => void
   onBack: () => void
+  onSubmit: () => void
+  onSkip: () => void
+  disabled?: boolean
 }) {
   const [errors, setErrors] = useState<PreferenceErrors>({})
-  const [message, setMessage] = useState('')
   function update<K extends keyof StudentPreferences>(field: K, value: StudentPreferences[K]) {
     onChange({ ...preferences, [field]: value })
     setErrors((current) => ({ ...current, [field]: undefined }))
-    setMessage('')
   }
   return (
     <form
@@ -91,184 +95,173 @@ export default function StudentPreferencesForm({
             ?.focus()
           return
         }
-        setMessage(
-          'Backend integration is not available. No account was created and no preferences were sent.',
-        )
+        onSubmit()
       }}
     >
-      <p className="helper">
-        Local preview only. Backend integration is not available; no data is sent.
-      </p>
-      <fieldset
-        data-preference-group="discipline"
-        aria-describedby={errors.discipline ? 'discipline-error' : 'discipline-hint'}
-      >
-        <legend>
-          Field of Study & Academic Discipline{' '}
-          <span className="text-outline/70 text-xs font-normal">OPTIONAL</span>
-        </legend>
-        <p className="preference-hint" id="discipline-hint">
-          Select your primary concentration
-        </p>
-        <div className="discipline-grid">
-          {disciplines.map((option) => (
-            <label className="discipline-choice" key={option.label}>
-              <input
-                type="checkbox"
-                name="discipline"
-                value={option.label}
-                checked={preferences.discipline === option.label}
-                onChange={() =>
-                  update('discipline', preferences.discipline === option.label ? '' : option.label)
-                }
-                aria-invalid={Boolean(errors.discipline)}
-                aria-describedby={errors.discipline ? 'discipline-error' : undefined}
-              />
-              <span className="discipline-card">
-                <span className="discipline-icon">
-                  <PreferenceIcon kind={option.icon} />
-                </span>
-                <span className="selection-mark" aria-hidden="true">
-                  ✓
-                </span>
-                <strong>{option.label}</strong>
-                <small>{option.detail}</small>
-              </span>
-            </label>
-          ))}
-        </div>
-        {errors.discipline && (
-          <p className="field-error" id="discipline-error">
-            {errors.discipline}
+      <fieldset disabled={disabled} className="contents">
+        <p className="helper">Choose optional preferences, then create your account.</p>
+        <fieldset
+          data-preference-group="discipline"
+          aria-describedby={errors.discipline ? 'discipline-error' : 'discipline-hint'}
+        >
+          <legend>
+            Field of Study & Academic Discipline{' '}
+            <span className="text-outline/70 text-xs font-normal">OPTIONAL</span>
+          </legend>
+          <p className="preference-hint" id="discipline-hint">
+            Select your primary concentration
           </p>
-        )}
-      </fieldset>
-      <fieldset
-        data-preference-group="academicLevel"
-        aria-describedby={errors.academicLevel ? 'academic-level-error' : undefined}
-      >
-        <legend className="academic-level-legend">
-          Current Academic Level in Morocco{' '}
-          <span className="text-outline/70 text-xs font-normal">OPTIONAL</span>
-        </legend>
-        <div className="academic-level-grid">
-          {academicLevels.map((option) => (
-            <label className="level-choice" key={option}>
-              <input
-                type="checkbox"
-                name="academicLevel"
-                value={option}
-                checked={preferences.academicLevel === option}
-                onChange={() =>
-                  update('academicLevel', preferences.academicLevel === option ? '' : option)
-                }
-                aria-invalid={Boolean(errors.academicLevel)}
-                aria-describedby={errors.academicLevel ? 'academic-level-error' : undefined}
-              />
-              <span>{option}</span>
-            </label>
-          ))}
-        </div>
-        {errors.academicLevel && (
-          <p className="field-error" id="academic-level-error">
-            {errors.academicLevel}
-          </p>
-        )}
-      </fieldset>
-      <fieldset
-        data-preference-group="interests"
-        aria-describedby={errors.interests ? 'interests-error interests-hint' : 'interests-hint'}
-      >
-        <legend>Topics & Activities of Interest</legend>
-        <p className="preference-hint" id="interests-hint">
-          Select the interests you care about (optional).
-        </p>
-        <div className="interest-options">
-          {interests.map((option, index) => (
-            <label className="interest-choice" key={option}>
-              <input
-                type="checkbox"
-                name="interests"
-                checked={preferences.interests.includes(option)}
-                onChange={() =>
-                  update(
-                    'interests',
-                    preferences.interests.includes(option)
-                      ? preferences.interests.filter((value) => value !== option)
-                      : [...preferences.interests, option],
-                  )
-                }
-                aria-invalid={Boolean(errors.interests)}
-                aria-describedby={errors.interests ? 'interests-error' : undefined}
-              />
-              <span>
-                <PreferenceIcon kind={disciplines[index % disciplines.length].icon} />
-                {option}
-                <span className="chip-check" aria-hidden="true">
-                  ✓
+          <div className="discipline-grid">
+            {disciplines.map((option) => (
+              <label className="discipline-choice" key={option.label}>
+                <input
+                  type="checkbox"
+                  name="discipline"
+                  value={option.label}
+                  checked={preferences.discipline === option.label}
+                  onChange={() =>
+                    update('discipline', preferences.discipline === option.label ? '' : option.label)
+                  }
+                  aria-invalid={Boolean(errors.discipline)}
+                  aria-describedby={errors.discipline ? 'discipline-error' : undefined}
+                />
+                <span className="discipline-card">
+                  <span className="discipline-icon">
+                    <PreferenceIcon kind={option.icon} />
+                  </span>
+                  <span className="selection-mark" aria-hidden="true">
+                    ✓
+                  </span>
+                  <strong>{option.label}</strong>
+                  <small>{option.detail}</small>
                 </span>
-              </span>
-            </label>
-          ))}
-        </div>
-        {errors.interests && (
-          <p className="field-error" id="interests-error">
-            {errors.interests}
+              </label>
+            ))}
+          </div>
+          {errors.discipline && (
+            <p className="field-error" id="discipline-error">
+              {errors.discipline}
+            </p>
+          )}
+        </fieldset>
+        <fieldset
+          data-preference-group="academicLevel"
+          aria-describedby={errors.academicLevel ? 'academic-level-error' : undefined}
+        >
+          <legend className="academic-level-legend">
+            Current Academic Level in Morocco{' '}
+            <span className="text-outline/70 text-xs font-normal">OPTIONAL</span>
+          </legend>
+          <div className="academic-level-grid">
+            {academicLevels.map((option) => (
+              <label className="level-choice" key={option}>
+                <input
+                  type="checkbox"
+                  name="academicLevel"
+                  value={option}
+                  checked={preferences.academicLevel === option}
+                  onChange={() =>
+                    update('academicLevel', preferences.academicLevel === option ? '' : option)
+                  }
+                  aria-invalid={Boolean(errors.academicLevel)}
+                  aria-describedby={errors.academicLevel ? 'academic-level-error' : undefined}
+                />
+                <span>{option}</span>
+              </label>
+            ))}
+          </div>
+          {errors.academicLevel && (
+            <p className="field-error" id="academic-level-error">
+              {errors.academicLevel}
+            </p>
+          )}
+        </fieldset>
+        <fieldset
+          data-preference-group="interests"
+          aria-describedby={errors.interests ? 'interests-error interests-hint' : 'interests-hint'}
+        >
+          <legend>Topics & Activities of Interest</legend>
+          <p className="preference-hint" id="interests-hint">
+            Select the interests you care about (optional).
           </p>
-        )}
-      </fieldset>
-      <fieldset
-        data-preference-group="formats"
-        aria-describedby={errors.formats ? 'formats-error' : undefined}
-      >
-        <legend>Preferred Opportunity Formats</legend>
-        <div className="format-grid">
-          {opportunityFormats.map((option) => (
-            <label className="format-choice flex items-start" key={option.label}>
-              <input
-                className="w-4! h-4! shrink-0 aspect-square mt-1!"
-                type="checkbox"
-                name="formats"
-                checked={preferences.formats === option.label}
-                onChange={() =>
-                  update('formats', preferences.formats === option.label ? '' : option.label)
-                }
-              />
-              <span>
-                <strong>{option.label}</strong>
-                <small>{option.detail}</small>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      {errors.formats && <p className="field-error" id="formats-error">{errors.formats}</p>}
-      <div className="preference-actions">
-        <button className="secondary" type="button" onClick={onBack}>
-          Back to Account Info
-        </button>
-        <div>
-          <button
-            className="preference-skip"
-            type="button"
-            onClick={() =>
-              setMessage(
-                'Backend integration is not available. No account was created. You can go back to your account information.',
-              )
-            }
-          >
-            Skip for now, I'll set this later
+          <div className="interest-options">
+            {interests.map((option, index) => (
+              <label className="interest-choice" key={option}>
+                <input
+                  type="checkbox"
+                  name="interests"
+                  checked={preferences.interests.includes(option)}
+                  onChange={() =>
+                    update(
+                      'interests',
+                      preferences.interests.includes(option)
+                        ? preferences.interests.filter((value) => value !== option)
+                        : [...preferences.interests, option],
+                    )
+                  }
+                  aria-invalid={Boolean(errors.interests)}
+                  aria-describedby={errors.interests ? 'interests-error' : undefined}
+                />
+                <span>
+                  <PreferenceIcon kind={disciplines[index % disciplines.length].icon} />
+                  {option}
+                  <span className="chip-check" aria-hidden="true">
+                    ✓
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {errors.interests && (
+            <p className="field-error" id="interests-error">
+              {errors.interests}
+            </p>
+          )}
+        </fieldset>
+        <fieldset
+          data-preference-group="formats"
+          aria-describedby={errors.formats ? 'formats-error' : undefined}
+        >
+          <legend>Preferred Opportunity Formats</legend>
+          <div className="format-grid">
+            {opportunityFormats.map((option) => (
+              <label className="format-choice flex items-start" key={option.label}>
+                <input
+                  className="w-4! h-4! shrink-0 aspect-square mt-1!"
+                  type="checkbox"
+                  name="formats"
+                  checked={preferences.formats === option.label}
+                  onChange={() =>
+                    update('formats', preferences.formats === option.label ? '' : option.label)
+                  }
+                />
+                <span>
+                  <strong>{option.label}</strong>
+                  <small>{option.detail}</small>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {errors.formats && <p className="field-error" id="formats-error">{errors.formats}</p>}
+        <div className="preference-actions">
+          <button className="secondary" type="button" onClick={onBack}>
+            Back to Account Info
           </button>
-          <button className="primary" type="submit">
-            Review registration availability
-          </button>
+          <div>
+            <button
+              className="preference-skip"
+              type="button"
+              onClick={onSkip}
+            >
+              Skip for now, I'll set this later
+            </button>
+            <button className="primary" type="submit">
+              Create student account
+            </button>
+          </div>
         </div>
-      </div>
-      {message && (
-        <p className="notice" role="alert">
-          {message}
-        </p>
-      )}
+      </fieldset>
     </form>
   )
 }
