@@ -22,12 +22,6 @@ describe('merged registration and login routes', () => {
     expect(screen.getByRole('link', { name: /^Organizer/ })).toHaveAttribute('href', '/register/organizer')
   })
 
-  it.each(['/register/student', '/register/organizer'])('returns directly to sign in from %s', async (path) => {
-    render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
-    await userEvent.click(screen.getByRole('link', { name: 'Back to sign in' }))
-    expect(await screen.findByRole('form', { name: 'Sign in to Younity' })).toBeInTheDocument()
-  })
-
   it.each(['/register/student', '/register/organizer'])('opens login from %s', async (path) => {
     const user = userEvent.setup()
     render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
