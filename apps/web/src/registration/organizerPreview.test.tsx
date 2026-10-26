@@ -2,6 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('../auth/useAuth', () => ({ useAuth: () => ({ signIn: vi.fn() }) }))
+vi.mock('../api/client', () => ({ apiRequest: vi.fn(async () => new Response(null, { status: 500 })) }))
 import { emptyOrganizationDetails, validateOrganization } from './organizationDraft'
 import OrganizerRegisterPage from '../pages/OrganizerRegisterPage'
 import OrganizerPendingPage from '../pages/OrganizerPendingPage'
@@ -22,7 +25,7 @@ function setup() {
 async function fillDetails(user: ReturnType<typeof userEvent.setup>) {
   for (const [label, value] of [
     ['Organization / University Entity Name', 'Campus Club'],
-    ['Representative Full Name', 'Yasmine'],
+    ['Representative Full Name', 'Yasmine Test'],
     ['Title / Academic Position', 'Coordinator'],
     ['Direct Contact Phone', '+212600000000'],
     ['Email Address', 'organizer@example.test'],
@@ -53,7 +56,7 @@ describe('organizer local registration', () => {
     expect(validateOrganization({ ...emptyOrganizationDetails, category: 'OTHER', customCategory: 'Research Network' }).customCategory).toBeUndefined()
     expect(validateOrganization({ ...emptyOrganizationDetails, category: 'UNIVERSITY' }).customCategory).toBeUndefined()
   })
-  it('validates required fields and policies before simulating submission', async () => {
+  it('validates required fields and policies before sending registration', async () => {
     const user = setup()
     await user.click(screen.getByRole('button', { name: submitName }))
     expect(screen.getByLabelText('Organization / University Entity Name')).toHaveAttribute('aria-invalid', 'true')
@@ -64,21 +67,14 @@ describe('organizer local registration', () => {
     expect(screen.queryByText('Status: Queued')).not.toBeInTheDocument()
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: submitName }))
-    expect(screen.getByRole('button', { name: 'Submitting...' })).toBeDisabled()
-    expect(screen.getByText('Submitting...', { selector: '[role="status"]' })).toBeVisible()
     expect(screen.queryByText('Status: Queued')).not.toBeInTheDocument()
-    expect(await screen.findByRole('heading', { level: 1, name: 'Institutional Dossier Submitted' }, { timeout: 3000 })).toBeVisible()
-    expect(screen.getByText('Status: Queued')).toBeVisible()
-    expect(screen.getByRole('heading', { name: /Validation Pipeline/ })).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Academic Liaison Desk' })).toBeVisible()
-    expect(
-      screen.queryByRole('navigation', { name: 'Preview application state' }),
-    ).not.toBeInTheDocument()
-    expect(screen.getByText(/Preview only/)).toBeVisible()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Registration is temporarily unavailable')
+    expect(screen.queryByText('Status: Queued')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Organization / University Entity Name')).toHaveValue('Campus Club')
     expect(screen.getByLabelText('Current route')).toHaveTextContent('/register/organizer')
   })
 
-  it('submits a revised dossier back to pending', async () => {
+  it('does not simulate a successful dossier revision', async () => {
     const user = userEvent.setup()
     const onStateChange = vi.fn()
     render(
@@ -93,7 +89,8 @@ describe('organizer local registration', () => {
     )
     expect(screen.getByText('Selected: revised.pdf')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Submit Revised Dossier' }))
-    expect(onStateChange).toHaveBeenCalledWith('pending')
+    expect(onStateChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Application revisions are not connected yet')
   })
 
   it('supports keyboard browsing, dropping, replacement, cancellation, removal and reselecting a file', async () => {
@@ -130,7 +127,7 @@ describe('organizer local registration', () => {
     for (const target of [
       zone,
       screen.getByText(/Drop Faculty Endorsement/),
-      screen.getByText(/Optional preview selection only/),
+      screen.getByText(/Optional local selection only/),
       zone.querySelector('.document-icon')!,
     ]) {
       click.mockClear()
@@ -151,12 +148,12 @@ describe('organizer local registration', () => {
     click.mockRestore()
   })
 
-  it('allows an empty optional file selection for preview submission', async () => {
+  it('allows an empty optional file selection for registration', async () => {
     const user = setup()
     await fillDetails(user)
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: submitName }))
-    expect(await screen.findByText('Status: Queued', {}, { timeout: 3000 })).toBeVisible()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Registration is temporarily unavailable')
     expect(screen.getByLabelText('Current route')).toHaveTextContent('/register/organizer')
   })
 
