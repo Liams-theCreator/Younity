@@ -207,9 +207,6 @@ export default function StudentRegisterPage({
               Register as organizer <ReferenceIcon name="arrow_outward" />
             </Link>
           </aside>
-          <Link className="back-link" to="/login">
-            Back to sign in
-          </Link>
         </>
       )}
     </RegistrationLayout>
