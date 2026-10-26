@@ -91,7 +91,6 @@ export default function StudentPreferencesForm({
             ?.focus()
           return
         }
-        // TODO: Connect real API using approved preference IDs and completion routing.
         setMessage(
           'Backend integration is not available. No account was created and no preferences were sent.',
         )
