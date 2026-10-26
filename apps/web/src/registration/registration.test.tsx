@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('../auth/useAuth', () => ({ useAuth: () => ({ signIn: vi.fn() }) }))
+vi.mock('../api/client', () => ({ apiRequest: vi.fn(async () => new Response(null, { status: 500 })) }))
 import StudentRegisterPage from '../pages/StudentRegisterPage'
 import { emptyDraft, validateStudentDraft } from './model'
 
@@ -48,7 +51,7 @@ describe('local registration', () => {
     expect(screen.getByText('Enter your institution name.')).toBeVisible()
     await user.type(screen.getByLabelText('Custom University / Academic Institution'), 'Custom Institute')
     await user.click(screen.getByRole('button', { name: 'Create student account' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('Backend integration is not available')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Registration is temporarily unavailable')
     await user.click(screen.getByRole('button', { name: 'Continue to preferences' }))
     await user.click(screen.getByRole('checkbox', { name: /Computer Science & AI/ }))
     await user.click(screen.getByRole('checkbox', { name: 'Second Year (L2)' }))
@@ -60,9 +63,9 @@ describe('local registration', () => {
     expect(screen.getByLabelText('Account Password', { exact: true })).toHaveValue('Abcdefg1!')
     await user.click(screen.getByRole('button', { name: 'Continue to preferences' }))
     expect(screen.getByRole('checkbox', { name: /Hybrid Events/ })).toBeChecked()
-    await user.click(screen.getByRole('button', { name: 'Review registration availability' }))
+    await user.click(screen.getByRole('button', { name: 'Create student account' }))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'No account was created and no preferences were sent',
+      'Registration is temporarily unavailable',
     )
   })
 })
