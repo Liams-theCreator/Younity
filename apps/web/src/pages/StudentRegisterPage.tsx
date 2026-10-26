@@ -1,9 +1,11 @@
+import { useRegistration } from '../registration/useRegistration'
+import { registrationFieldErrors } from '../registration/errors'
 import { mapStudentPayload } from '../registration/payload'
 import type { FormEvent } from 'react'
-import { registerStudent, REGISTRATION_UNAVAILABLE } from '../registration/service'
+import { registerStudent } from '../registration/service'
 import type { RegistrationPageProps } from '../registration/service'
 import type { StudentPreferences } from '../registration/studentPreferences'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { Link } from 'react-router'
 import {
   AccountFields,
@@ -38,49 +40,39 @@ export default function StudentRegisterPage({
   const [errors, setErrors] = useState<FieldErrors>({})
   const [step, setStep] = useState<1 | 2>(1)
   const [preferences, setPreferences] = useState<StudentPreferences>({ ...emptyPreferences })
-  const [message, setMessage] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const submissionRequest = useRef<AbortController | null>(null)
-
-  useEffect(() => {
-    return () => submissionRequest.current?.abort()
-  }, [])
+  const { submit, isSubmitting, accountCreated, error, clearError } = useRegistration()
   useLayoutEffect(() => {
     document.getElementById('page-title')?.focus()
   }, [step])
 
   function change<K extends keyof RegistrationDraft>(field: K, value: RegistrationDraft[K]) {
-    setMessage('')
+    clearError()
     setDraft((current) => ({ ...current, [field]: value }))
     setErrors((current) => ({ ...current, [field]: undefined }))
   }
   function move(next: 1 | 2) {
     setStep(next)
   }
-  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault()
-    if (submissionRequest.current) return
+  async function submitAccount(selectedPreferences: StudentPreferences = preferences): Promise<void> {
+    if (isSubmitting || accountCreated) return
     const nextErrors = validateStudentDraft(draft)
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) {
+      move(1)
       focusFirstError(nextErrors)
       return
     }
-    const controller = new AbortController()
-    submissionRequest.current = controller
-    setIsSubmitting(true)
-    setMessage('')
-    try {
-      const payload = mapStudentPayload(draft, preferences)
-      await registerStudent(payload, controller.signal)
-    } catch {
-      if (!controller.signal.aborted) setMessage(REGISTRATION_UNAVAILABLE)
-    } finally {
-      if (!controller.signal.aborted) {
-        submissionRequest.current = null
-        setIsSubmitting(false)
-      }
+    const payload = mapStudentPayload(draft, selectedPreferences)
+    const failure = await submit((signal) => registerStudent(payload, signal), { email: payload.email, password: payload.password })
+    if (failure) {
+      const nextErrors = registrationFieldErrors(failure).fields
+      setErrors(nextErrors)
+      if (Object.keys(nextErrors).length) move(1)
     }
+  }
+  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault()
+    await submitAccount()
   }
 
   return (
@@ -99,11 +91,14 @@ export default function StudentRegisterPage({
           preferences={preferences}
           onChange={setPreferences}
           onBack={() => move(1)}
+          onSubmit={() => void submitAccount()}
+          onSkip={() => void submitAccount(emptyPreferences)}
+          disabled={isSubmitting || accountCreated}
         />
       ) : (
         <>
           <form noValidate aria-busy={isSubmitting} onSubmit={handleSubmit}>
-            <fieldset disabled={isSubmitting}>
+            <fieldset disabled={isSubmitting || accountCreated}>
               <legend className="sr-only">Student account details</legend>
               <AccountFields
                 includeLastName
@@ -187,10 +182,9 @@ export default function StudentRegisterPage({
                 Continue to preferences
               </button>
               <p className="helper student-preview-note">
-                Preferences are a local preview. No account is created by continuing.
+                You can optionally choose your preferences before creating your account.
               </p>
             </fieldset>
-            <SubmissionStatus pending={isSubmitting} message={message} />
           </form>
           <AlreadyHaveAccount signInPath={signInPath} />
           <aside className="role-switcher" aria-label="Organizer registration">
@@ -208,6 +202,10 @@ export default function StudentRegisterPage({
             </Link>
           </aside>
         </>
+      )}
+      <SubmissionStatus pending={isSubmitting} message={error?.message ?? ''} />
+      {accountCreated && !isSubmitting && (
+        <p className="notice" role="status">Account created; please sign in. <Link to="/login">Sign in</Link></p>
       )}
     </RegistrationLayout>
   )
