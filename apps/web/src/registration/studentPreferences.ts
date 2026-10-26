@@ -10,7 +10,6 @@ export const disciplines = [
 export const academicLevels = [
   'First Year (CPGE / L1)',
   'Second Year (L2)',
-  'Third Year (L3)',
   'Master / Ingénieur',
   'PhD / Doctorate',
 ] as const
