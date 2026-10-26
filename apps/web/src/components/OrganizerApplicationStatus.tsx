@@ -1100,7 +1100,6 @@ rounded-xl font-semibold text-sm text-white bg-[#2854D9] shadow-sm
 hover:bg-[#1E42B3] hover:shadow transition-all duration-150
 cursor-pointer w-full sm:w-auto whitespace-nowrap`}
                     onClick={() => {
-                      // TODO: Connect real API for dossier revision and use its returned status.
                       if (import.meta.env.DEV) onStateChange(mockRevisedDossier())
                       else setSubmissionError(REGISTRATION_UNAVAILABLE)
                     }}

@@ -1,7 +1,7 @@
 import AuthProvider from './auth/AuthProvider'
 import AuthRoutes from './auth/AuthRoutes'
 import LogoutButton from './components/LogoutButton'
-import OrganizationStatusPage from './pages/OrganizationStatusPage'
+import OrganizerPendingPage from './pages/OrganizerPendingPage'
 
 export default function App() {
   return (
@@ -9,7 +9,7 @@ export default function App() {
       <LogoutButton />
 
       <AuthRoutes
-        pendingPage={<OrganizationStatusPage />}
+        pendingPage={<OrganizerPendingPage />}
       />
     </AuthProvider>
   )

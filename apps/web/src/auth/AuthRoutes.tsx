@@ -8,7 +8,6 @@ import {
 import LoginPage from '../pages/LoginPage'
 import StudentDashboardPage from '../pages/StudentDashboardPage'
 import OrganizerDashboardPage from '../pages/OrganizerDashboardPage'
-import RegisterPage from '../pages/RegisterPage'
 import StudentRegisterPage from '../pages/StudentRegisterPage'
 import OrganizerRegisterPage from '../pages/OrganizerRegisterPage'
 import OrganizationStatusPage from '../pages/OrganizationStatusPage'
@@ -35,16 +34,7 @@ export default function AuthRoutes({
 
       <Route
         path="/register"
-        element={
-          <>
-            <RegisterPage />
-            <p className="auth-register-login">
-              <Link to="/login">
-                Already have an account? Sign in
-              </Link>
-            </p>
-          </>
-        }
+        element={<Navigate to="/login" replace />}
       />
 
       <Route

@@ -1,3 +1,4 @@
+import { mapStudentPayload } from '../registration/payload'
 import type { FormEvent } from 'react'
 import { registerStudent, REGISTRATION_UNAVAILABLE } from '../registration/service'
 import type { RegistrationPageProps } from '../registration/service'
@@ -70,8 +71,8 @@ export default function StudentRegisterPage({
     setIsSubmitting(true)
     setMessage('')
     try {
-      await registerStudent(draft, controller.signal)
-      // TODO: Navigate to the approved completion route after confirmed API success.
+      const payload = mapStudentPayload(draft, preferences)
+      await registerStudent(payload, controller.signal)
     } catch {
       if (!controller.signal.aborted) setMessage(REGISTRATION_UNAVAILABLE)
     } finally {
@@ -206,8 +207,8 @@ export default function StudentRegisterPage({
               Register as organizer <ReferenceIcon name="arrow_outward" />
             </Link>
           </aside>
-          <Link className="back-link" to="/register">
-            Back to account selection
+          <Link className="back-link" to="/login">
+            Back to sign in
           </Link>
         </>
       )}
