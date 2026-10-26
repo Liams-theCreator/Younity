@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import StudentPreferencesForm from '../components/StudentPreferencesForm'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   emptyPreferences,
   validatePreferences,
@@ -48,10 +48,14 @@ describe('database preference options', () => {
   })
 })
 
+const onSubmit = vi.fn()
+const onSkip = vi.fn()
+beforeEach(() => { onSubmit.mockClear(); onSkip.mockClear() })
+
 function PreferencesHarness() {
   const [preferences, setPreferences] = useState({ ...emptyPreferences })
   return (
-    <StudentPreferencesForm preferences={preferences} onChange={setPreferences} onBack={() => {}} />
+    <StudentPreferencesForm preferences={preferences} onChange={setPreferences} onBack={() => {}} onSubmit={onSubmit} onSkip={onSkip} />
   )
 }
 
@@ -59,8 +63,10 @@ it('labels academic preferences optional and allows submission without selection
   const user = userEvent.setup()
   render(<PreferencesHarness />)
   expect(screen.getAllByText('OPTIONAL')).toHaveLength(2)
-  await user.click(screen.getByRole('button', { name: 'Review registration availability' }))
-  expect(screen.getByRole('alert')).toHaveTextContent('Backend integration is not available.')
+  await user.click(screen.getByRole('button', { name: 'Create student account' }))
+  expect(onSubmit).toHaveBeenCalledOnce()
+  await user.click(screen.getByRole('button', { name: /Skip for now/ }))
+  expect(onSkip).toHaveBeenCalledOnce()
   expect(screen.queryByText('Choose your primary field of study.')).not.toBeInTheDocument()
   expect(screen.queryByText('Choose your current academic level.')).not.toBeInTheDocument()
 })
