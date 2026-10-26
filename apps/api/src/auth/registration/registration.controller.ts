@@ -18,6 +18,11 @@ export class RegistrationController {
 
   @Post('student')
   /************************** Swagger Documentation ********************************************/
+  @ApiOperation({
+    summary: 'Register a student',
+    description:
+      'Creates a student user and linked profile. Does not issue login tokens.',
+  })
   @ApiBody({
     type: RegisterStudentDto,
   })

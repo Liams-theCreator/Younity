@@ -1,6 +1,11 @@
 import { Transform } from "class-transformer";
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength, Matches } from "class-validator";
-import { StudyLevel, AcademicField, Interests, OpportunityFormat } from "../../generated/prisma/enums.js";
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength, Matches, IsArray, ArrayUnique } from "class-validator";
+import {
+  AcademicLevel,
+  AcademicField,
+  Interests,
+  OpportunityFormat,
+} from '../../generated/prisma/enums.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class RegisterStudentDto {
@@ -57,7 +62,7 @@ export class RegisterStudentDto {
   @ApiProperty({
     example: 'Password123-@@++',
     format: 'password',
-    minLength: 15,
+    minLength: 8,
     maxLength: 128,
     writeOnly: true,
     description:
@@ -84,14 +89,14 @@ export class RegisterStudentDto {
   university?: string | null;
 
   @ApiPropertyOptional({
-    enum: StudyLevel,
-    enumName: 'StudyLevel',
-    example: StudyLevel.FIRST_YEAR,
+    enum: AcademicLevel,
+    enumName: 'AcademicLevel',
+    example: AcademicLevel.FIRST_YEAR,
     nullable: true,
   })
   @IsOptional()
-  @IsEnum(StudyLevel)
-  studyLevel?: StudyLevel | null;
+  @IsEnum(AcademicLevel)
+  studyLevel?: AcademicLevel | null;
 
   @ApiPropertyOptional({
     enum: AcademicField,
@@ -106,11 +111,13 @@ export class RegisterStudentDto {
   @ApiPropertyOptional({
     enum: Interests,
     enumName: 'Interests',
-    example: ['HACKATHONS', 'AI'],
-    nullable: true,
-    description: 'One interest, matching the current database schema',
+    isArray: true,
+    example: [Interests.HACKATHONS, Interests.AI_DATA],
+    description: 'Student interests. Defaults to an empty array when omitted.',
   })
   @IsOptional()
+  @IsArray()
+  @ArrayUnique()
   @IsEnum(Interests, { each: true })
   interests?: Interests[];
 
