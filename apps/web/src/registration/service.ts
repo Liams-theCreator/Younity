@@ -1,27 +1,20 @@
-import type { RegistrationDraft, StudentRegistrationDraft } from './model'
-import type { OrganizationDetails } from './organizationDraft'
+import type { OrganizerRegistrationPayload, StudentRegistrationPayload } from './payload'
 
 export interface RegistrationPageProps {
   policies?: { terms: string; privacy: string }
   signInPath?: string
 }
 
-export interface OrganizerRegistrationInput {
-  account: RegistrationDraft
-  organization: OrganizationDetails
-  document: File | null
-}
-
 export const REGISTRATION_UNAVAILABLE =
   'Backend integration is not available. No account was created and no data was sent.'
 
 export async function registerStudent(
-  draft: StudentRegistrationDraft,
+  payload: StudentRegistrationPayload,
   signal: AbortSignal,
 ): Promise<void> {
   signal.throwIfAborted()
   // Retain the typed input boundary until the approved DTO mapping is supplied.
-  void draft
+  void payload
   // TODO: Connect real API. Map approved DTO fields explicitly; never send
   // confirmPassword or assume UI institution labels are backend identifiers.
   throw new Error(REGISTRATION_UNAVAILABLE)
@@ -47,7 +40,7 @@ export function mockRegisterOrganizer(signal: AbortSignal): Promise<'pending'> {
 }
 
 export async function registerOrganizer(
-  _input: OrganizerRegistrationInput,
+  _payload: OrganizerRegistrationPayload,
   signal: AbortSignal,
 ): Promise<'pending'> {
   if (import.meta.env.DEV) return mockRegisterOrganizer(signal)
