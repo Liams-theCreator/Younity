@@ -1,7 +1,6 @@
 import RegistrationSelect from './RegistrationSelect'
 import ReferenceIcon from './ReferenceIcon'
 import type { ReactNode } from 'react'
-import { Link } from 'react-router'
 
 import { organizationTypes, organizationTypeLabels } from '../registration/organizationDraft'
 import type { OrganizationDetails } from '../registration/organizationDraft'
@@ -119,7 +118,7 @@ export function OrganizationFields({
 
 export function OrganizerReviewNotice() {
   return (
-    <aside className="organizer-review-notice" aria-label="Organizer verification notice">
+    <aside className="organizer-review-notice mt-6!" aria-label="Organizer verification notice">
       <span className="review-shield">
         <ReferenceIcon name="verified_user" />
       </span>
@@ -137,7 +136,7 @@ export function OrganizerReviewNotice() {
   )
 }
 
-export function OrganizerHeader({ signInPath }: { signInPath?: string }) {
+export function OrganizerHeader() {
   return (
     <div className="w-full flex flex-col gap-1">
       <div className="flex items-center justify-between">
@@ -153,14 +152,6 @@ font-bold`}
             Step 1 of 2: Institutional &amp; Organizer Dossier
           </span>
         </div>
-        <Link
-          className={`inline-flex items-center gap-1 font-label-sm text-label-sm
-text-on-surface-variant hover:text-primary transition-colors`}
-          to={signInPath ?? '/login'}
-        >
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
-          <span className="">Back to Sign In</span>
-        </Link>
       </div>
       <div className="w-full grid grid-cols-2 gap-2 mt-1">
         <div className="h-1.5 w-full bg-primary-container rounded-full"></div>
