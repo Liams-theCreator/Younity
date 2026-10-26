@@ -13,11 +13,19 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs())
 
 describe('merged registration and login routes', () => {
-  it('keeps account selection at the root', () => {
-    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
-    expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /I am a student/ })).toHaveAttribute('href', '/register/student')
-    expect(screen.getByRole('link', { name: /I am an organizer/ })).toHaveAttribute('href', '/register/organizer')
+  it.each(['/', '/register', '/register/'])('opens login from %s', async (path) => {
+    render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
+    expect(await screen.findByRole('form', { name: 'Sign in to Younity' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Welcome back to Younity' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Create your account' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Join as Student/ })).toHaveAttribute('href', '/register/student')
+    expect(screen.getByRole('link', { name: /^Organizer/ })).toHaveAttribute('href', '/register/organizer')
+  })
+
+  it.each(['/register/student', '/register/organizer'])('returns directly to sign in from %s', async (path) => {
+    render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
+    await userEvent.click(screen.getByRole('link', { name: 'Back to sign in' }))
+    expect(await screen.findByRole('form', { name: 'Sign in to Younity' })).toBeInTheDocument()
   })
 
   it.each(['/register/student', '/register/organizer'])('opens login from %s', async (path) => {
