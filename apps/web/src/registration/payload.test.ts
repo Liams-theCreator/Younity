@@ -6,33 +6,21 @@ import { emptyPreferences } from './studentPreferences'
 
 const student = { ...emptyDraft, firstName: ' Sara ', lastName: ' Test ', email: 'SARA@example.com', university: 'Other', customUniversity: ' Custom Institute ', password: 'Password1!' }
 
-describe('registration DTO payloads', () => {
-  it('replaces Other with the custom institution and sends only the first interest enum', () => {
-    const payload = mapStudentPayload(student, { ...emptyPreferences, interests: ['AI & Data Science', 'Robotics & Smart IoT'] })
-    expect(payload).toEqual({ firstName: 'Sara', lastName: 'Test', email: 'sara@example.com', password: 'Password1!', university: 'Custom Institute', interests: 'AI_DATA' })
+describe('AUTH-02 registration DTO mapping', () => {
+  it('sends every selected interest with enum values and maps optional preferences', () => {
+    const payload = mapStudentPayload(student, { discipline: 'Computer Science & AI', academicLevel: 'Master / Ingénieur', formats: 'Hybrid Events', interests: ['AI & Data Science', 'Robotics & Smart IoT'] })
+    expect(payload).toEqual({ firstName: 'Sara', lastName: 'Test', email: 'sara@example.com', password: 'Password1!', university: 'Custom Institute', interests: ['AI_DATA', 'ROBOTICS_IOT'], academicField: 'COMPUTER_SCIENCE', studyLevel: 'MASTER', opportunityFormat: 'HYBRID' })
     expect(payload).not.toHaveProperty('confirmPassword')
     expect(payload).not.toHaveProperty('acceptedPolicies')
   })
-
-  it('handles lowercase other, predefined institutions, and no selected interests', () => {
+  it('supports empty preferences and predefined universities', () => {
     expect(mapStudentPayload({ ...student, university: 'other' }, emptyPreferences).university).toBe('Custom Institute')
-    const payload = mapStudentPayload({ ...student, university: 'University A' }, emptyPreferences)
-    expect(payload.university).toBe('University A')
-    expect(payload).not.toHaveProperty('interests')
+    expect(mapStudentPayload({ ...student, university: 'University A' }, emptyPreferences)).toEqual(expect.objectContaining({ university: 'University A', interests: [] }))
   })
-
-  it('splits names at the first space, maps organizer fields, and uses a URL instead of a File', () => {
-    const payload = mapOrganizerPayload(student, {
-      ...emptyOrganizationDetails, organizationName: ' Club ', category: 'other',
-      customCategory: ' Research Network ', representativeName: '  Sara   El Amrani ',
-      position: ' Director ', phone: ' +212612345678 ',
-    }, new File(['proof'], 'proof.pdf'))
-    expect(payload).toEqual({ firstName: 'Sara', lastName: 'El Amrani', email: 'sara@example.com', password: 'Password1!', organizationName: 'Club', type: 'OTHER', representativeFullName: 'Sara El Amrani', academicPosition: 'Director', phoneNumber: '+212612345678', customType: 'Research Network', proofUrl: 'https://mock-storage.com/proof.pdf' })
+  it('omits unsupported customType and fabricated proof URL', () => {
+    const payload = mapOrganizerPayload(student, { ...emptyOrganizationDetails, organizationName: ' Club ', category: 'OTHER', customCategory: ' Research Network ', representativeName: ' Sara   El Amrani ', position: ' Director ', phone: ' +212612345678 ' })
+    expect(payload).toEqual({ firstName: 'Sara', lastName: 'El Amrani', email: 'sara@example.com', password: 'Password1!', organizationName: 'Club', type: 'OTHER', representativeFullName: 'Sara El Amrani', academicPosition: 'Director', phoneNumber: '+212612345678' })
     expect(payload).not.toHaveProperty('document')
-  })
-
-  it('omits custom category and proof URL when they are not applicable', () => {
-    const payload = mapOrganizerPayload(student, { ...emptyOrganizationDetails, category: 'UNIVERSITY', representativeName: 'Sara Test', customCategory: 'Stale value' }, null)
     expect(payload).not.toHaveProperty('customType')
     expect(payload).not.toHaveProperty('proofUrl')
   })
