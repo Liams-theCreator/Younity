@@ -73,7 +73,6 @@ export default function StudentRegisterPage({
     try {
       const payload = mapStudentPayload(draft, preferences)
       await registerStudent(payload, controller.signal)
-      // TODO: Navigate to the approved completion route after confirmed API success.
     } catch {
       if (!controller.signal.aborted) setMessage(REGISTRATION_UNAVAILABLE)
     } finally {
