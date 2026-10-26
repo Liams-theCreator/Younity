@@ -10,6 +10,58 @@ import { UserRole, UserStatus, VerificationStatus } from "../../generated/prisma
 export class RegistrationService {
   constructor(private readonly prisma: PrismaService) { }
 
+  private isEmailConflict(error: unknown): boolean {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== 'P2002'
+    ) {
+      return false;
+    }
+
+    // Recognize the usual field/constraint metadata.
+    const target = error.meta?.target;
+
+    if (
+      (Array.isArray(target) &&
+        target.length === 1 &&
+        target[0] === 'email') ||
+      target === 'email' ||
+      target === 'users_email_key'
+    ) {
+      return true;
+    }
+
+    // Recognize the adapter metadata captured in your report.
+    const adapterError = error.meta?.driverAdapterError;
+
+    if (
+      typeof adapterError !== 'object' ||
+      adapterError === null ||
+      !('cause' in adapterError)
+    ) {
+      return false;
+    }
+
+    const cause = adapterError.cause;
+
+    if (
+      typeof cause !== 'object' ||
+      cause === null ||
+      !('constraint' in cause)
+    ) {
+      return false;
+    }
+
+    const constraint = cause.constraint;
+
+    return (
+      error.meta?.modelName === 'User' &&
+      typeof constraint === 'object' &&
+      constraint !== null &&
+      'index' in constraint &&
+      constraint.index === 'users_email_key'
+    );
+  }
 
   async registerStudent(dto: RegisterStudentDto) {
     const existingUser = await this.prisma.user.findUnique({
@@ -25,7 +77,7 @@ export class RegistrationService {
     });
 
     try {
-      return this.prisma.user.create({
+      return await this.prisma.user.create({
         data: {
           firstName: dto.firstName,
           lastName: dto.lastName,
@@ -66,23 +118,10 @@ export class RegistrationService {
         },
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const target = error.meta?.target;
-
-        const isEmailConflict =
-          (Array.isArray(target) &&
-            target.length === 1 &&
-            target[0] === 'email') ||
-          target === 'email' ||
-          target === 'users_email_key';
-
-        if (isEmailConflict) {
-          throw new ConflictException('Email is already registered');
-        }
+      if (this.isEmailConflict(error)) {
+        throw new ConflictException('Email is already registered');
       }
+
       throw error;
     }
   }
@@ -101,7 +140,7 @@ export class RegistrationService {
     });
 
     try {
-      return this.prisma.user.create({
+      return await this.prisma.user.create({
         data: {
           firstName: dto.firstName,
           lastName: dto.lastName,
@@ -147,23 +186,10 @@ export class RegistrationService {
         },
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const target = error.meta?.target;
-
-        const isEmailConflict =
-          (Array.isArray(target) &&
-            target.length === 1 &&
-            target[0] === 'email') ||
-          target === 'email' ||
-          target === 'users_email_key';
-
-        if (isEmailConflict) {
-          throw new ConflictException('Email is already registered');
-        }
+      if (this.isEmailConflict(error)) {
+        throw new ConflictException('Email is already registered');
       }
+
       throw error;
     }
   }

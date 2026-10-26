@@ -54,7 +54,7 @@ export class RegisterOrganizerDto {
   @ApiProperty({
     example: 'Example-only-password-2026!',
     format: 'password',
-    minLength: 15,
+    minLength: 8,
     maxLength: 128,
     writeOnly: true,
   })
