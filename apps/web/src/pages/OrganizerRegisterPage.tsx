@@ -88,50 +88,16 @@ export default function OrganizerRegistration({
     }
   }
 
-  const previewControls = import.meta.env.DEV ? (
-    <nav
-      className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-4 py-4"
-      aria-label="Preview application state"
-    >
-      <span className="text-sm text-slate-600">Local preview:</span>
-      {(['form', 'pending', 'approved', 'rejected', 'needs_edit'] as const).map((value) => (
-        <button
-          key={value}
-          type="button"
-          disabled={isSubmitting}
-          aria-pressed={state === value}
-          onClick={() => setState(value)}
-          className={`rounded-lg border px-3 py-2 text-sm ${state === value ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
-        >
-          {
-            {
-              form: 'Back to registration',
-              pending: 'Pending Approval',
-              approved: 'Approved',
-              rejected: 'Rejected',
-              needs_edit: 'Needs Edit',
-            }[value]
-          }
-        </button>
-      ))}
-      <p className="w-full text-xs text-slate-500">
-        Preview only. Application details, decisions and contact information in status screens are
-        examples. No data is sent.
-      </p>
-    </nav>
-  ) : null
   if (state === 'pending')
     return <OrganizerApplicationStatus state={state} onStateChange={setState} />
   if (state !== 'form')
     return (
       <div className="organizer-status-preview">
-        {previewControls}
         <OrganizerApplicationStatus state={state} onStateChange={setState} />
       </div>
     )
   return (
     <>
-      {previewControls}
       <RegistrationLayout
         variant="organizer"
         headerContent={<OrganizerHeader signInPath={signInPath} />}
@@ -251,8 +217,8 @@ export default function OrganizerRegistration({
           <p role="status" aria-live="polite">{isSubmitting ? 'Submitting...' : ''}</p>
         </form>
         <AlreadyHaveAccount signInPath={signInPath} />
-        <Link className="back-link" to="/register">
-          Back to account selection
+        <Link className="back-link" to="/login">
+          Back to sign in
         </Link>
       </RegistrationLayout>
     </>
