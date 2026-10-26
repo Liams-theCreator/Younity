@@ -1,12 +1,13 @@
+import { Link } from 'react-router'
+import { useRegistration } from '../registration/useRegistration'
+import { registrationFieldErrors } from '../registration/errors'
 import { mapOrganizerPayload } from '../registration/payload'
 import type { FormEvent } from 'react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { AccountFields, PolicyAcceptance, RegistrationLayout } from '../components/RegistrationForm'
 import { emptyDraft, validateDraft } from '../registration/model'
 import type { RegistrationDraft, FieldErrors } from '../registration/model'
 import ReferenceIcon from '../components/ReferenceIcon'
-import OrganizerApplicationStatus from '../components/OrganizerApplicationStatus'
-import type { ApplicationState } from '../registration/applicationState'
 import AlreadyHaveAccount from '../components/AlreadyHaveAccount'
 import {
   OrganizationFields,
@@ -15,7 +16,7 @@ import {
   OrganizerHeader,
 } from '../components/OrganizerSections'
 import type { OrganizationDetails } from '../registration/organizationDraft'
-import { registerOrganizer, REGISTRATION_UNAVAILABLE } from '../registration/service'
+import { registerOrganizer } from '../registration/service'
 import type { RegistrationPageProps } from '../registration/service'
 import { emptyOrganizationDetails, validateOrganization } from '../registration/organizationDraft'
 
@@ -32,24 +33,15 @@ export default function OrganizerRegistration({
     Partial<Record<keyof OrganizationDetails, string>>
   >({})
   const fileInput = useRef<HTMLInputElement>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const submissionRequest = useRef<AbortController | null>(null)
-  const [submissionError, setSubmissionError] = useState('')
-  const [state, setState] = useState<ApplicationState>('form')
-
-  useEffect(() => {
-    return () => submissionRequest.current?.abort()
-  }, [])
-  useLayoutEffect(() => {
-    window.document.getElementById('page-title')?.focus()
-  }, [state])
+  const { submit, isSubmitting, accountCreated, error, clearError } = useRegistration()
 
   function selectDocument(file: File | undefined) {
-    if (!file || submissionRequest.current) return
+    if (!file || isSubmitting || accountCreated) return
     setDocument(file)
     if (fileInput.current) fileInput.current.value = ''
   }
   function changePolicies(value: boolean) {
+    clearError()
     setAcceptedPolicies(value)
     setErrors((current) => ({ ...current, acceptedPolicies: undefined }))
   }
@@ -62,39 +54,23 @@ export default function OrganizerRegistration({
   }
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
-    if (submissionRequest.current) return
+    if (isSubmitting || accountCreated) return
     const nextErrors = validateForm()
     const firstError = Object.keys(nextErrors)[0]
     if (firstError) {
       window.document.getElementById(firstError)?.focus()
       return
     }
-    setIsSubmitting(true)
-    setSubmissionError('')
-    const controller = new AbortController()
-    submissionRequest.current = controller
-    try {
-      const payload = mapOrganizerPayload(account, organization, document)
-      const nextState = await registerOrganizer(payload, controller.signal)
-      if (!controller.signal.aborted) setState(nextState)
-    } catch {
-      if (!controller.signal.aborted) setSubmissionError(REGISTRATION_UNAVAILABLE)
-    } finally {
-      if (!controller.signal.aborted) {
-        submissionRequest.current = null
-        setIsSubmitting(false)
-      }
+    const payload = mapOrganizerPayload(account, organization)
+    const failure = await submit((signal) => registerOrganizer(payload, signal), { email: payload.email, password: payload.password })
+    if (failure) {
+      const result = registrationFieldErrors(failure)
+      const { firstName, lastName, ...accountErrors } = result.fields
+      setErrors(accountErrors)
+      setOrganizationErrors({ ...result.organization, ...((firstName || lastName) ? { representativeName: firstName || lastName } : {}) })
     }
   }
 
-  if (state === 'pending')
-    return <OrganizerApplicationStatus state={state} onStateChange={setState} />
-  if (state !== 'form')
-    return (
-      <div className="organizer-status-preview">
-        <OrganizerApplicationStatus state={state} onStateChange={setState} />
-      </div>
-    )
   return (
     <>
       <RegistrationLayout
@@ -109,12 +85,13 @@ export default function OrganizerRegistration({
           onInvalid={validateForm}
           onSubmit={handleSubmit}
         >
-          <fieldset disabled={isSubmitting}>
+          <fieldset disabled={isSubmitting || accountCreated}>
             <legend className="sr-only">Organizer registration details</legend>
             <OrganizationFields
               details={organization}
               errors={organizationErrors}
               onChange={(field, value) => {
+                clearError()
                 setOrganization((current) => ({ ...current, [field]: value }))
                 setOrganizationErrors((current) => ({ ...current, [field]: undefined }))
               }}
@@ -124,6 +101,7 @@ export default function OrganizerRegistration({
                 draft={account}
                 errors={errors}
                 onChange={(field, value) => {
+                  clearError()
                   setAccount((current) => ({ ...current, [field]: value }))
                   setErrors((current) => ({ ...current, [field]: undefined }))
                 }}
@@ -173,8 +151,7 @@ export default function OrganizerRegistration({
                   onChange={(event) => selectDocument(event.target.files?.[0])}
                 />
                 <p className="helper" id="document-note">
-                  Optional preview selection only. Upload formats, size limits, and requirements are
-                  awaiting approval. No file is uploaded.
+                  Optional local selection only. Upload is not connected; this file will not be sent with registration.
                 </p>
                 {document && (
                   <div className="document-selection" aria-live="polite">
@@ -206,15 +183,18 @@ export default function OrganizerRegistration({
               />
             </div>
             <div className="actions">
-              <button className="primary" type="submit" disabled={isSubmitting}>
+              <button className="primary" type="submit" disabled={isSubmitting || accountCreated}>
                 <span>{isSubmitting ? 'Submitting...' : 'Submit Organization for Verification'}</span>
                 <ReferenceIcon name="arrow_forward" />
               </button>
             </div>
           </fieldset>
-          {submissionError && <p className="notice error" role="alert">{submissionError}</p>}
+          {error && <p className="notice error" role="alert">{error.message}</p>}
           <p role="status" aria-live="polite">{isSubmitting ? 'Submitting...' : ''}</p>
         </form>
+        {accountCreated && !isSubmitting && (
+          <p className="notice" role="status">Account created; please sign in. <Link to="/login">Sign in</Link></p>
+        )}
         <AlreadyHaveAccount signInPath={signInPath} />
       </RegistrationLayout>
     </>
