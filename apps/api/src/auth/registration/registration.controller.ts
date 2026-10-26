@@ -17,6 +17,7 @@ export class RegistrationController {
   constructor(private readonly registrationService: RegistrationService,) { }
 
   @Post('student')
+  /************************** Swagger Documentation ********************************************/
   @ApiBody({
     type: RegisterStudentDto,
   })
@@ -31,6 +32,10 @@ export class RegistrationController {
   @ApiConflictResponse({
     description: 'Email is already registered.',
   })
+
+  /*****************************************************************************/
+  /**                                                          **/
+  /*****************************************************************************/
   registerStudent(@Body() dto: RegisterStudentDto) {
     return this.registrationService.registerStudent(dto);
   }

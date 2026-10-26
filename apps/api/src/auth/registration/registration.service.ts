@@ -29,15 +29,15 @@ export class RegistrationService {
         lastName: dto.lastName,
         email: dto.email,
         passwordHash,
-        role: Role.STUDENT,
-        status: UserStatus.APPROVED,
+        role: UserRole.STUDENT,
+        status: UserStatus.ACTIVE,
 
-        student: {
+        studentProfile: {
           create: {
             university: dto.university,
             studyLevel: dto.studyLevel,
             academicField: dto.academicField,
-            interests: dto.interests,
+            interests: dto.interests ?? [],
             opportunityFormat: dto.opportunityFormat,
           },
         },

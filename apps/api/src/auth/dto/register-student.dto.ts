@@ -106,13 +106,13 @@ export class RegisterStudentDto {
   @ApiPropertyOptional({
     enum: Interests,
     enumName: 'Interests',
-    example: Interests.HACKATHONS,
+    example: ['HACKATHONS', 'AI'],
     nullable: true,
     description: 'One interest, matching the current database schema',
   })
   @IsOptional()
-  @IsEnum(Interests)
-  interests?: Interests | null;
+  @IsEnum(Interests, { each: true })
+  interests?: Interests[];
 
   @ApiPropertyOptional({
     enum: OpportunityFormat,
