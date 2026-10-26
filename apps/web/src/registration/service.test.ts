@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { emptyDraft } from './model'
+import { mapOrganizerPayload, mapStudentPayload } from './payload'
+import { emptyPreferences } from './studentPreferences'
 import { emptyOrganizationDetails } from './organizationDraft'
 import { mockRegisterOrganizer, registerOrganizer, registerStudent, REGISTRATION_UNAVAILABLE } from './service'
 
-const input = { account: emptyDraft, organization: emptyOrganizationDetails, document: null }
+const input = mapOrganizerPayload(emptyDraft, emptyOrganizationDetails, null)
 
 afterEach(() => {
   vi.useRealTimers()
@@ -17,7 +19,7 @@ describe('registration integration boundary', () => {
   })
 
   it('leaves student registration unavailable until the real API is connected', async () => {
-    await expect(registerStudent({ ...emptyDraft, lastName: '', university: '' }, new AbortController().signal))
+    await expect(registerStudent(mapStudentPayload({ ...emptyDraft, lastName: '', university: '' }, emptyPreferences), new AbortController().signal))
       .rejects.toThrow(REGISTRATION_UNAVAILABLE)
   })
 
