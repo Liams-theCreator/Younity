@@ -27,7 +27,7 @@ export function RegistrationLayout({
       <div className="registration-frame">
         {headerContent ?? (
           <header className="registration-header">
-            <Link className="brand" to="/register">
+            <Link className="brand" to="/login">
               Younity<span aria-hidden="true">.</span>
             </Link>
             <span className="registration-context">
