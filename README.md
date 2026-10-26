@@ -30,9 +30,14 @@ Build and start all services:
 ./run.sh
 ```
 
+`./run.sh` starts services detached and returns your shell prompt once they are
+ready. `-d` / `--detach` remain supported. View logs with `docker compose logs -f`
+and stop services with `docker compose stop`.
+Use `./run.sh --watch` for foreground source watching, or `./run.sh --help` for options.
+
 ### Local HTTPS certificate
 
-The API applies committed database migrations and seeds the category catalog before starting. The script waits for the API, frontend, and database, exports Caddy’s public root certificate to `.local/certs/root.crt`, then watches source changes. On the first run, trust that certificate in another terminal (Ubuntu/Debian):
+The API applies committed database migrations and seeds the category catalog before starting. The script waits for the API, frontend, and database, exports Caddy’s public root certificate to `.local/certs/root.crt`, then returns your shell prompt. On the first run, trust that certificate in another terminal (Ubuntu/Debian):
 
 ```bash
 sudo install -m 0644 \
@@ -51,9 +56,25 @@ Restart your browser. If it uses its own certificate store, import the certifica
 - Health: https://localhost/api/health
 - Swagger: https://localhost/api/docs
 
-Source changes update automatically while `./run.sh` is running.
+Source changes update automatically with `./run.sh --watch`. Stop that mode with
+`Ctrl+C`. Docker volumes preserve the database and certificates.
 
-Stop with `Ctrl+C`. Docker volumes preserve the database and certificates.
+### Cleanup
+
+Run `./clean` to remove Younity's containers, service images, networks, and volumes,
+including **all local database data and HTTPS certificates**. It also removes host
+dependencies (`node_modules`), builds, coverage, generated Prisma Client, and
+TypeScript build caches. Source files and `.env` are preserved. Stop any running
+foreground `run.sh` session before cleaning.
+
+Use `./clean --keep-data` to preserve database/certificate volumes and the exported
+certificate. Add `--docker-cache` to also prune unused Docker build cache across
+all projects. Unrelated containers, images, networks, and volumes are preserved;
+Docker may retain shared service images used by other containers.
+
+Restart with `./run.sh` or `./run.sh -d`. After a full cleanup, install the newly
+exported HTTPS certificate again. For host-side development, run `npm ci` in each
+app and `npm run prisma:generate` in `apps/api` to restore local dependencies.
 
 ### Troubleshooting
 

@@ -4,7 +4,7 @@ NestJS, TypeScript ES modules, Prisma 7, and PostgreSQL. The database foundation
 
 ## Full development stack
 
-From the repository root, run `./run.sh`. It creates local configuration when absent, builds the containers, applies committed migrations, seeds the category catalog, waits for readiness, and watches source changes. The root README describes local certificate trust.
+From the repository root, run `./run.sh`. It creates local configuration when absent, builds the containers, applies committed migrations, seeds the category catalog, waits for readiness, and returns your shell prompt with services running detached. Use `./run.sh --watch` for foreground source watching. The root README describes local certificate trust.
 
 - API root: https://localhost/api/
 - Database health: https://localhost/api/health
@@ -89,6 +89,6 @@ Inside Compose, `docker compose exec api npm test` runs unit tests. For integrat
 
 ## Watch and persistence
 
-Source files, test files, both Vitest configuration files, and `.oxlintrc.json` sync automatically. Changes to test or lint settings are available on the next check inside the running container. Dependency, Prisma, and build-configuration changes rebuild the API image. Rebuilds run committed migrations and seed before starting Nest. A schema edit requires a matching committed migration; Watch does not create migrations.
+With `./run.sh --watch`, source files, test files, both Vitest configuration files, and `.oxlintrc.json` sync automatically. Changes to test or lint settings are available on the next check inside the running container. Dependency, Prisma, and build-configuration changes rebuild the API image. Rebuilds run committed migrations and seed before starting Nest. A schema edit requires a matching committed migration; Watch does not create migrations.
 
-Ctrl+C in `./run.sh` stops services while retaining database and certificate volumes. Changing `.env` does not update an existing database password. Inspect `docker compose logs -f` for failures. Do not delete volumes to resolve errors unless you intend to discard their data.
+Ctrl+C in `./run.sh --watch` stops services while retaining database and certificate volumes. In detached mode, use `docker compose stop`. Changing `.env` does not update an existing database password. Inspect `docker compose logs -f` for failures. Do not delete volumes to resolve errors unless you intend to discard their data.

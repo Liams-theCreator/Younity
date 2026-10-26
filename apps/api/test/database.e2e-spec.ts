@@ -177,6 +177,27 @@ describe('database foundation', () => {
     ).rejects.toMatchObject({ code: 'P2002' });
   });
 
+  it('defaults profile interests to an empty array and persists multiple interests', async () => {
+    await expect(
+      prisma.$transaction(async (tx) => {
+        const { student } = await fixtures(tx);
+        const profile = await tx.studentProfile.findUniqueOrThrow({
+          where: { userId: student.id },
+        });
+        expect(profile.interests).toEqual([]);
+        await tx.studentProfile.update({
+          where: { userId: student.id },
+          data: { interests: ['HACKATHONS', 'AI_DATA'] },
+        });
+        const updated = await tx.studentProfile.findUniqueOrThrow({
+          where: { userId: student.id },
+        });
+        expect(updated.interests).toEqual(['HACKATHONS', 'AI_DATA']);
+        throw rollback;
+      }),
+    ).rejects.toBe(rollback);
+  });
+
   it('rejects profiles without a user', async () => {
     await expect(
       prisma.studentProfile.create({ data: { userId: randomUUID() } }),

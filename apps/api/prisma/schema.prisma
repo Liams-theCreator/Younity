@@ -148,7 +148,7 @@ model StudentProfile {
   university        String?            @db.VarChar(255)
   academicField     AcademicField?     @map("academic_field")
   studyLevel        AcademicLevel?     @map("study_level")
-  interests         Interests?
+  interests         Interests[]        @default([])
   opportunityFormat OpportunityFormat? @map("opportunity_format")
   createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamp(6)

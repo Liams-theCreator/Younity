@@ -79,7 +79,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./run.sh > /tmp/younity-startup.log 2>&1 &
+          ./run.sh --watch > /tmp/younity-startup.log 2>&1 &
           runner_pid=$!
           cleanup() {
             startup_status=$?
