@@ -1,3 +1,4 @@
+import { mapOrganizerPayload } from '../registration/payload'
 import type { FormEvent } from 'react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
@@ -74,11 +75,8 @@ export default function OrganizerRegistration({
     const controller = new AbortController()
     submissionRequest.current = controller
     try {
-      const nextState = await registerOrganizer({
-        account: { ...account, acceptedPolicies },
-        organization,
-        document,
-      }, controller.signal)
+      const payload = mapOrganizerPayload(account, organization, document)
+      const nextState = await registerOrganizer(payload, controller.signal)
       if (!controller.signal.aborted) setState(nextState)
     } catch {
       if (!controller.signal.aborted) setSubmissionError(REGISTRATION_UNAVAILABLE)
