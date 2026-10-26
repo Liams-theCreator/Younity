@@ -327,7 +327,7 @@ describe('AUTH-05 frontend journeys', () => {
     [
       'PENDING',
       'PENDING',
-      'Institutional Dossier Submitted',
+      'Organization verification pending',
       '/organizer/pending',
     ],
     [
