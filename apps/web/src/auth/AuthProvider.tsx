@@ -1,67 +1,207 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { AuthContext, type AuthState } from './AuthContext'
-import type { LoginCredentials } from './model'
-import * as authService from './service'
+import {
+  LoginError,
+  LogoutError,
+  type LoginCredentials,
+  type SessionUser,
+} from './model'
+import { getSession, login, logout } from './service'
+import { getAuthDestination } from './getAuthDestination'
+import { apiRequest } from '../api/client'
 
-export type AuthService = Pick<typeof authService, 'getSession' | 'login' | 'logout'>
-const loadingState: AuthState = { status: 'loading', user: null, error: null }
+const loadingState: AuthState = {
+  status: 'loading',
+  user: null,
+  error: null,
+}
 
-export default function AuthProvider({ children, service = authService }: {
+const anonymousState: AuthState = {
+  status: 'anonymous',
+  user: null,
+  error: null,
+}
+
+export default function AuthProvider({
+  children,
+}: {
   children: ReactNode
-  service?: AuthService
 }) {
   const [state, setState] = useState<AuthState>(loadingState)
   const requestId = useRef(0)
-  const mounted = useRef(false)
+  const pendingLogin = useRef<Promise<SessionUser> | null>(null)
+  const pendingLogout = useRef<Promise<void> | null>(null)
 
   const loadSession = useCallback(() => {
     const currentRequest = ++requestId.current
-    return service.getSession().then((user) => {
-      if (!mounted.current || currentRequest !== requestId.current) return
-      setState(user
-        ? { status: 'authenticated', user, error: null }
-        : { status: 'anonymous', user: null, error: null })
-    }, () => {
-      if (!mounted.current || currentRequest !== requestId.current) return
-      setState({ status: 'error', user: null, error: 'We could not check your session. Please try again.' })
-    })
-  }, [service])
+
+    return getSession().then(
+      (user) => {
+        if (currentRequest !== requestId.current) return
+
+        setState(
+          user === null
+            ? anonymousState
+            : {
+                status: 'authenticated',
+                user,
+                error: null,
+              },
+        )
+      },
+      () => {
+        if (currentRequest !== requestId.current) return
+
+        setState({
+          status: 'error',
+          user: null,
+          error: 'We could not check your session. Please try again.',
+        })
+      },
+    )
+  }, [])
 
   const refreshSession = useCallback(async () => {
+    if (pendingLogin.current || pendingLogout.current) return
+
     setState(loadingState)
     await loadSession()
   }, [loadSession])
 
   const signIn = useCallback(async (credentials: LoginCredentials) => {
-    const currentRequest = ++requestId.current
-    const user = await service.login(credentials)
-    if (!mounted.current || currentRequest !== requestId.current) return
-    setState({ status: 'authenticated', user, error: null })
-  }, [service])
-
-  const signOut = useCallback(async () => {
-    const currentRequest = ++requestId.current
-    setState(loadingState)
-    try {
-      await service.logout()
-      if (!mounted.current || currentRequest !== requestId.current) return
-      setState({ status: 'anonymous', user: null, error: null })
-    } catch (cause) {
-      if (mounted.current && currentRequest === requestId.current) {
-        setState({ status: 'error', user: null, error: 'We could not sign you out. Retry sign out or check your session.' })
-      }
-      throw cause
+    if (pendingLogin.current || pendingLogout.current) {
+      throw new LoginError('SERVICE_UNAVAILABLE')
     }
-  }, [service])
+
+    const currentRequest = ++requestId.current
+    const operation = login(credentials)
+    pendingLogin.current = operation
+
+    try {
+      const user = await operation
+
+      if (currentRequest !== requestId.current) return
+
+      setState({
+        status: 'authenticated',
+        user,
+        error: null,
+      })
+    } finally {
+      if (pendingLogin.current === operation) {
+        pendingLogin.current = null
+      }
+    }
+  }, [])
+
+  const signOut = useCallback((): Promise<void> => {
+    if (pendingLogout.current) return pendingLogout.current
+
+    const currentRequest = ++requestId.current
+    const loginToFinish = pendingLogin.current
+
+    setState(loadingState)
+
+    const operation: Promise<void> = (async () => {
+      try {
+        if (loginToFinish) {
+          await loginToFinish.catch(() => undefined)
+        }
+
+        await logout()
+
+        if (currentRequest === requestId.current) {
+          setState(anonymousState)
+        }
+      } catch (cause) {
+        if (currentRequest === requestId.current) {
+          setState({
+            status: 'error',
+            user: null,
+            error:
+              cause instanceof LogoutError
+                ? cause.message
+                : 'We could not confirm sign-out. Please try again.',
+          })
+        }
+
+        throw cause
+      }
+    })().finally(() => {
+      if (pendingLogout.current === operation) {
+        pendingLogout.current = null
+      }
+    })
+
+    pendingLogout.current = operation
+    return operation
+  }, [])
+
+  const requestProtected = useCallback(
+    async (
+      input: RequestInfo | URL,
+      options?: RequestInit,
+      request: typeof fetch = apiRequest,
+    ): Promise<Response> => {
+      const sessionRequest = requestId.current
+
+      const response = await request(input, {
+        ...options,
+        credentials: 'include',
+      })
+
+      if (
+        response.status === 401 &&
+        sessionRequest === requestId.current &&
+        !pendingLogin.current &&
+        !pendingLogout.current
+      ) {
+        requestId.current += 1
+
+        setState({
+          status: 'anonymous',
+          user: null,
+          error: null,
+          reason: 'expired',
+        })
+      }
+
+      return response
+    },
+    [],
+  )
 
   useEffect(() => {
-    mounted.current = true
     void loadSession()
+
     return () => {
-      mounted.current = false
       requestId.current += 1
     }
   }, [loadSession])
 
-  return <AuthContext.Provider value={{ ...state, refreshSession, signIn, signOut }}>{children}</AuthContext.Provider>
+  const destination =
+    state.status === 'authenticated'
+      ? getAuthDestination(state.user)
+      : null
+
+  return (
+    <AuthContext.Provider
+      value={{
+        ...state,
+        destination,
+        refreshSession,
+        signIn,
+        signOut,
+        requestProtected,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }

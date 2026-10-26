@@ -448,3 +448,35 @@ sign-in, not organizer role or approval status. AUTH-04's pending UI remains a
 preview; authentication does not validate the application details it displays.
 No new shared HTTP transport or pending UI was introduced.
 Registration API and onboarding integration limitations described above still apply.
+
+
+## AUTH-05 integration update - 26 October 2026
+
+The latest AUTH-05 implementation is merged into AUTH-04. `main.tsx` mounts
+one BrowserRouter, `App.tsx` mounts one AuthProvider, and `AuthRoutes.tsx`
+defines the single route table. The root continues to show account selection.
+AUTH-04 registration forms, provisional payload mappings and production
+unavailable behavior remain intact. The existing Vitest/jsdom configuration
+runs registration and auth suites together.
+
+`ProtectedRoute` and `getAuthDestination` replace the earlier sign-in-only guard.
+Active students reach `/student/dashboard`; approved active organizers reach
+`/organizer/dashboard`; pending organizers reach `/organizer/pending`; rejected
+or needs-changes organizers reach `/organizer/status`. Unsupported or suspended
+profiles are blocked. The one pending route renders AUTH-04's pending page:
+development can show the existing preview, while production explicitly reports
+that application details are not connected. Local registration preview states
+are not server authorization decisions.
+
+Auth startup and login parse an ID, email, role, user status and organization
+verification status. Protected requests returning 401 expire shared auth state.
+Logout verifies that `/api/auth/me` no longer returns a session. Earlier narrow
+auth tests are superseded by AUTH-05 flow/service coverage, with merged routing
+and production pending behavior tested in `App.test.tsx`.
+
+This frontend expects cookie-based `/api/auth/login`, `/api/auth/me` and
+`/api/auth/logout`. It is not proof of compatibility with the bearer-token
+backend branch or approval of a changed backend contract. Backend owners must
+confirm cookies, logout and the full session profile before real end-to-end
+acceptance. Registration and file upload remain unconnected. The jury PDF is a
+historical snapshot from before this merge.
