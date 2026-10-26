@@ -1,4 +1,3 @@
-import { mockRevisedDossier, REGISTRATION_UNAVAILABLE } from '../registration/service'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import ReferenceIcon from './ReferenceIcon'
@@ -7,7 +6,6 @@ import type { ApplicationState } from '../registration/applicationState'
 
 export default function OrganizerApplicationStatus({
   state,
-  onStateChange,
 }: {
   state: Exclude<ApplicationState, 'form'>
   onStateChange: (state: ApplicationState) => void
@@ -1100,8 +1098,7 @@ rounded-xl font-semibold text-sm text-white bg-[#2854D9] shadow-sm
 hover:bg-[#1E42B3] hover:shadow transition-all duration-150
 cursor-pointer w-full sm:w-auto whitespace-nowrap`}
                     onClick={() => {
-                      if (import.meta.env.DEV) onStateChange(mockRevisedDossier())
-                      else setSubmissionError(REGISTRATION_UNAVAILABLE)
+                      setSubmissionError('Application revisions are not connected yet. No changes were submitted.')
                     }}
                   >
                     <span>{'Submit Revised Dossier'}</span>
