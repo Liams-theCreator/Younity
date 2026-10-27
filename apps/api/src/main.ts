@@ -1,31 +1,14 @@
-import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
+import { configureApplication } from './config/application.js';
+import { validateEnvironment } from './config/environment.js';
 
 async function bootstrap() {
+  const environment = validateEnvironment();
   const app = await NestFactory.create(AppModule);
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
-  const config = new DocumentBuilder()
-    .setTitle('Younity API')
-    .setDescription('Student and organizer registration API')
-    .setVersion('0.1.0')
-    .addServer('/api')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-
-  SwaggerModule.setup('docs', app, document);
-
+  configureApplication(app, environment);
   app.enableShutdownHooks();
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(environment.port, '0.0.0.0');
 }
 
 await bootstrap();

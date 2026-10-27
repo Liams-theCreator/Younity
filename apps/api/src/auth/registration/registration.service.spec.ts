@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
 import * as argon2 from 'argon2';
+import { Prisma } from '../../generated/prisma/client.js';
 
 import { RegistrationService } from './registration.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
