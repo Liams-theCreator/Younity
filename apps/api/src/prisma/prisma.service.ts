@@ -1,17 +1,17 @@
-import 'dotenv/config';
-import { Injectable, Logger } from '@nestjs/common';
-import type {
-  OnModuleInit,
-  OnApplicationShutdown,
-} from '@nestjs/common';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../generated/prisma/client.js';
+	import 'dotenv/config';
+	import { Injectable, Logger } from '@nestjs/common';
+	import type {
+	  OnModuleInit,
+	  OnApplicationShutdown,
+	} from '@nestjs/common';
+	import { PrismaPg } from '@prisma/adapter-pg';
+	import { PrismaClient } from '../generated/prisma/client.js';
 
-@Injectable()
-export class PrismaService
-  extends PrismaClient
-  implements OnModuleInit, OnApplicationShutdown
-{
+	@Injectable()
+	export class PrismaService
+	  extends PrismaClient
+	  implements OnModuleInit, OnApplicationShutdown
+	{
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {

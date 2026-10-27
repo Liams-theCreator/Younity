@@ -1,7 +1,16 @@
-import type { OrganizerApprovalStatus, Role } from '../../generated/prisma/enums.js'
+import type {
+  UserRole,
+  UserStatus,
+  VerificationStatus,
+} from '../../generated/prisma/enums.js';
+
 export type AuthenticatedUser = {
-	id: number;
-	email: string;
-	role: Role;
-	organizerApprovalStatus: OrganizerApprovalStatus;
+  id: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  ownedOrganizations: {
+    id: string;
+    verificationStatus: VerificationStatus;
+  }[];
 };
