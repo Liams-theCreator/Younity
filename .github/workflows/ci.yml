@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: younity
+          POSTGRES_PASSWORD: ci_only_password
+          POSTGRES_DB: younity_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U younity -d younity_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://younity:ci_only_password@127.0.0.1:5432/younity_test
+      TEST_DATABASE_URL: postgresql://younity:ci_only_password@127.0.0.1:5432/younity_test
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+      - run: npm run prisma:validate
+      - run: npm run prisma:generate
+      - run: npm run lint
+      - run: npm test
+      - run: npm run db:setup
+      - run: npm run db:status
+      - name: Check migration and schema agree
+        run: npx prisma migrate diff --config ./prisma7.config.ts --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - run: npm run test:e2e
+      - run: npm run build
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up supported Docker Compose
+        uses: docker/setup-compose-action@v2
+        with:
+          version: v5.6.0
+      - run: bash -n run.sh
+      - run: python3 -m unittest discover -s tests -v
+      - name: Verify single-command startup and HTTPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./run.sh --watch > /tmp/younity-startup.log 2>&1 &
+          runner_pid=$!
+          cleanup() {
+            startup_status=$?
+            trap - EXIT
+            kill -TERM "$runner_pid" 2>/dev/null || true
+            wait "$runner_pid" 2>/dev/null || true
+            docker compose logs --no-color || true
+            cat /tmp/younity-startup.log
+            if [[ "$startup_status" != 0 ]]; then
+              details=$(tail -35 /tmp/younity-startup.log)
+              details=${details//'%'/'%25'}
+              details=${details//$'\r'/'%0D'}
+              details=${details//$'\n'/'%0A'}
+              echo "::error title=Application startup failed::$details"
+            fi
+            docker compose down || true
+            exit "$startup_status"
+          }
+          trap cleanup EXIT
+          for attempt in $(seq 1 120); do
+            if [[ -f .local/certs/root.crt ]]; then break; fi
+            if ! kill -0 "$runner_pid" 2>/dev/null; then exit 1; fi
+            sleep 5
+          done
+          test -f .local/certs/root.crt
+          curl --fail --silent --show-error --cacert .local/certs/root.crt https://localhost/api/health | jq -e '.status == "ok"'
+          curl --fail --silent --show-error --cacert .local/certs/root.crt https://localhost/ | grep -q '<title>Younity</title>'
+          curl --fail --silent --show-error --cacert .local/certs/root.crt https://localhost/api/docs-json | jq -e '.paths["/api/health"]'
+          docker compose exec -T api npm run db:status
+          docker compose exec -T api npm run db:seed

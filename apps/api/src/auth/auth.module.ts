@@ -8,9 +8,11 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
+import { RegistrationModule } from "./registration/registration.module.js";
 
 @Module({
 	imports: [
+		RegistrationModule,
 		PassportModule.register({
 			defaultStrategy: 'jwt',
 			session: false,

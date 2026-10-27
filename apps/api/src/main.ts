@@ -3,11 +3,14 @@ import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
 import  cookieParser  from 'cookie-parser';
 import { ConfigService } from '@nestjs/config';
+import { configureApplication } from './config/application.js';
+import { validateEnvironment } from './config/environment.js';
 
 
 
 //Enable validationPipe, allows DTO properties with validation decorators
 async function bootstrap() {
+  const environment = validateEnvironment();
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
   app.enableCors({
@@ -24,6 +27,8 @@ async function bootstrap() {
 	  }),
   );
   app.setGlobalPrefix('api');
-  await app.listen(process.env.PORT ?? 3000);
-}
+  configureApplication(app, environment);
+  await app.listen(environment.port, '0.0.0.0');
+};
+
 await bootstrap();
