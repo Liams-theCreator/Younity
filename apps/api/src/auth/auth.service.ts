@@ -4,6 +4,8 @@ import * as argon2 from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import type { OnModuleInit } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import { ForbiddenException } from '@nestjs/common';
+import { UserStatus } from '../generated/prisma/enums.js';
 
 @Injectable()
 export class AuthService implements OnModuleInit 
@@ -30,6 +32,7 @@ export class AuthService implements OnModuleInit
 					id: true,
 					email: true,
 					passwordHash: true,
+					status: true,
 				},
 			});
 	}
@@ -45,6 +48,8 @@ export class AuthService implements OnModuleInit
 		);
 		if (!passwordMatches || user == null)
 			throw new UnauthorizedException('Invalid credentials');
+		if (user.status === UserStatus.SUSPENDED)
+			throw new ForbiddenException('Account suspended');
 		return {
 			id: user.id,
 			email: user.email,

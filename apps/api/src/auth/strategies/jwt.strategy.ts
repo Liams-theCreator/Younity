@@ -4,6 +4,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
 
 import { PrismaService } from '../../prisma/prisma.service.js'
+import { ForbiddenException } from '@nestjs/common';
+import { UserStatus } from '../../generated/prisma/enums.js';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt')
@@ -48,11 +50,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt')
 				id: true,
 				email: true,
 				role: true,
+				status: true,
 				organizerApprovalStatus: true,
 			},
 		});
 		if (user === null)
 			throw new UnauthorizedException();
+		if (user.status === UserStatus.SUSPENDED)
+			throw new ForbiddenException('Account suspended');
 		return user;
 	}
 }
