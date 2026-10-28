@@ -42,10 +42,15 @@ export function validateDraft(
   for (const field of ['firstName', 'lastName'] as const) {
     if ((draft[field]?.length ?? 0) > 100) errors[field] = 'Use at most 100 characters.'
   }
+  for (const field of ['firstName', 'lastName'] as const) {
+    if (draft[field]?.trim() && !/^(?=.*\p{L})[\p{L}\p{M} _-]+$/u.test(draft[field]!.trim())) {
+      errors[field] = 'Use letters, spaces, hyphens or underscores.'
+    }
+  }
   if (draft.email.length > 255) errors.email = 'Use at most 255 characters.'
   if (!draft.password) errors.password = 'Enter a password.'
   else if (!meetsMinimumPasswordStrength(draft.password))
-    errors.password = 'Meet all 4 password checks: 8+ characters, a number, a special symbol, and an uppercase letter.'
+    errors.password = 'Meet all 5 password checks: 8-128 characters, a number, a special symbol, an uppercase letter, and a lowercase letter.'
   if (!draft.confirmPassword) errors.confirmPassword = 'Confirm your password.'
   else if (draft.password !== draft.confirmPassword)
     errors.confirmPassword = 'Passwords must match.'
