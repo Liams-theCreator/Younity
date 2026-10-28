@@ -9,6 +9,7 @@ import { emptyOrganizationDetails, validateOrganization } from './organizationDr
 import OrganizerRegisterPage from '../pages/OrganizerRegisterPage'
 import OrganizerPendingPage from '../pages/OrganizerPendingPage'
 import OrganizerApplicationStatus from '../components/OrganizerApplicationStatus'
+import { apiRequest } from '../api/client'
 
 function Location() {
   return <output aria-label="Current route">{useLocation().pathname}</output>
@@ -36,25 +37,14 @@ async function fillDetails(user: ReturnType<typeof userEvent.setup>) {
   }
   await user.selectOptions(screen.getByLabelText('Entity Category'), 'STUDENT_CLUB')
 }
-const submitName = 'Submit Organization for Verification'
+const submitName = 'Review application'
 
 describe('organizer local registration', () => {
-  it('requires a custom category only for Other and retains it when switching options', async () => {
+  it('uses the supported OTHER enum without collecting an unsupported custom category', async () => {
     const user = setup()
-    const select = screen.getByLabelText('Entity Category')
+    await user.selectOptions(screen.getByLabelText('Entity Category'), 'OTHER')
     expect(screen.queryByLabelText('Custom Entity Category')).not.toBeInTheDocument()
-    await user.selectOptions(select, 'OTHER')
-    expect(screen.getByLabelText('Custom Entity Category')).toBeRequired()
-    await user.click(screen.getByRole('button', { name: submitName }))
-    expect(screen.getByText('Enter your entity category.')).toBeVisible()
-    await user.type(screen.getByLabelText('Custom Entity Category'), 'Research Network')
-    await user.selectOptions(select, 'UNIVERSITY')
-    expect(screen.queryByLabelText('Custom Entity Category')).not.toBeInTheDocument()
-    await user.selectOptions(select, 'OTHER')
-    expect(screen.getByLabelText('Custom Entity Category')).toHaveValue('Research Network')
-    expect(validateOrganization({ ...emptyOrganizationDetails, category: 'OTHER', customCategory: '   ' }).customCategory).toBeDefined()
-    expect(validateOrganization({ ...emptyOrganizationDetails, category: 'OTHER', customCategory: 'Research Network' }).customCategory).toBeUndefined()
-    expect(validateOrganization({ ...emptyOrganizationDetails, category: 'UNIVERSITY' }).customCategory).toBeUndefined()
+    expect(validateOrganization({ ...emptyOrganizationDetails, category: 'OTHER' }).category).toBeUndefined()
   })
   it('validates required fields and policies before sending registration', async () => {
     const user = setup()
@@ -67,6 +57,8 @@ describe('organizer local registration', () => {
     expect(screen.queryByText('Status: Queued')).not.toBeInTheDocument()
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: submitName }))
+    expect(screen.getByRole('heading', { name: 'Review your organizer application' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Submit Organization for Verification' }))
     expect(screen.queryByText('Status: Queued')).not.toBeInTheDocument()
     expect(await screen.findByRole('alert')).toHaveTextContent('Registration is temporarily unavailable')
     expect(screen.queryByText('Status: Queued')).not.toBeInTheDocument()
@@ -91,6 +83,24 @@ describe('organizer local registration', () => {
     await user.click(screen.getByRole('button', { name: 'Submit Revised Dossier' }))
     expect(onStateChange).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toHaveTextContent('Application revisions are not connected yet')
+  })
+
+  it('retains the account, organization, policies and document when reviewing and returning', async () => {
+    const beforeReview = vi.mocked(apiRequest).mock.calls.length
+    const user = setup()
+    await fillDetails(user)
+    await user.upload(screen.getByLabelText('Affiliation or authorization document'), new File(['proof'], 'mandate.pdf'))
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Review application' }))
+    expect(screen.getByRole('heading', { name: 'Review your organizer application' })).toBeVisible()
+    expect(screen.getByText('mandate.pdf (local selection only, not uploaded)')).toBeVisible()
+    expect(vi.mocked(apiRequest).mock.calls.length).toBe(beforeReview)
+    expect(screen.queryByText('Abcdefg1!')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Back to application' }))
+    expect(screen.getByLabelText('Organization / University Entity Name')).toHaveValue('Campus Club')
+    expect(screen.getByLabelText('Account Password', { exact: true })).toHaveValue('Abcdefg1!')
+    expect(screen.getByRole('checkbox')).toBeChecked()
+    expect(screen.getByText('Selected: mandate.pdf')).toBeVisible()
   })
 
   it('supports keyboard browsing, dropping, replacement, cancellation, removal and reselecting a file', async () => {
@@ -153,6 +163,7 @@ describe('organizer local registration', () => {
     await fillDetails(user)
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: submitName }))
+    await user.click(screen.getByRole('button', { name: 'Submit Organization for Verification' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Registration is temporarily unavailable')
     expect(screen.getByLabelText('Current route')).toHaveTextContent('/register/organizer')
   })
