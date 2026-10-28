@@ -135,7 +135,7 @@ export function OrganizerReviewNotice() {
   )
 }
 
-export function OrganizerHeader({ step = 1 }: { step?: 1 | 2 }) {
+export function OrganizerHeader() {
   return (
     <div className="w-full flex flex-col gap-1">
       <div className="flex items-center justify-between">
@@ -145,17 +145,14 @@ export function OrganizerHeader({ step = 1 }: { step?: 1 | 2 }) {
 bg-primary-container text-pure-white font-label-sm text-caption
 font-bold`}
           >
-            {step}
+            1
           </span>
           <span className="font-label-md text-label-md text-primary font-bold tracking-tight">
-            {step === 1 ? 'Step 1 of 2: Institutional & Organizer Dossier' : 'Step 2 of 2: Review & Submit'}
+            Institutional &amp; Organizer Dossier
           </span>
         </div>
       </div>
-      <div className="w-full grid grid-cols-2 gap-2 mt-1">
-        <div className="h-1.5 w-full bg-primary-container rounded-full"></div>
-        <div className={`h-1.5 w-full ${step === 2 ? 'bg-primary-container' : 'bg-surface-container-highest'} rounded-full`}></div>
-      </div>
+
     </div>
   )
 }
