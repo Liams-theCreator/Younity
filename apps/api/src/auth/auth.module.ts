@@ -22,12 +22,22 @@ import { RegistrationModule } from "./registration/registration.module.js";
 			imports: [ConfigModule],
 			inject: [ConfigService],
 
-			useFactory: (config: ConfigService) => ({
-				secret: config.getOrThrow<string>('JWT_SECRET'),
-				signOptions: {
-					expiresIn: config.getOrThrow<number>('JWT_TTL_SECONDS'),
-				},
-			}),
+			useFactory: (config: ConfigService) => {
+				const ttlSeconds = Number(
+					config.getOrThrow<string | number>('JWT_TTL_SECONDS'),
+				);
+
+				if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds <= 0) {
+					throw new Error('JWT_TTL_SECONDS must be a positive integer');
+				}
+
+				return {
+					secret: config.getOrThrow<string>('JWT_SECRET'),
+					signOptions: {
+						expiresIn: ttlSeconds,
+					},
+				};
+			},
 		}),
 
 	],
