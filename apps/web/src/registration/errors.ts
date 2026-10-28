@@ -11,7 +11,10 @@ export function registrationFieldErrors(error: RegistrationError) {
     academicPosition: 'position', phoneNumber: 'phone',
   } as const
   for (const message of error.details) {
-    const field = accountNames.find((name) => new RegExp(`^${name}\\b`, 'i').test(message))
+    const field = accountNames.find((name) => {
+      const label = name.replace(/([a-z])([A-Z])/g, '$1 $2')
+      return new RegExp(`^(?:${name}|${label})\\b`, 'i').test(message)
+    })
     if (field) fields[field] = message
     for (const [name, target] of Object.entries(organizationNames)) {
       if (new RegExp(`^${name}\\b`, 'i').test(message)) organization[target] = message
