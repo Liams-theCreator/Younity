@@ -1,3 +1,16 @@
+# Current AUTH-04 status - 28 October 2026
+
+Registration and cookie authentication are now integrated with the real backend.
+Student registration supports optional preferences and all selected interests.
+Organizer registration has Application details -> Review & Submit, retains drafts
+on Back, and sends its only registration request from the final step.
+The shared AUTH-05 sign-in and verified role/status destinations are reused.
+
+See [AUTH-04 acceptance handoff](../../docs/auth-04-acceptance.md) for current
+implementation, live verification, reproducible commands and remaining manual
+browser/reviewer signoff. Older implementation records below are historical and
+may describe retired mocks or earlier contracts.
+
 # Younity frontend
 
 React 19, TypeScript, Vite, Tailwind CSS 4, and React Router. AUTH-04 owner:
