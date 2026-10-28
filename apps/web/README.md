@@ -2,8 +2,8 @@
 
 Registration and cookie authentication are now integrated with the real backend.
 Student registration supports optional preferences and all selected interests.
-Organizer registration has Application details -> Review & Submit, retains drafts
-on Back, and sends its only registration request from the final step.
+Organizer registration submits directly from its single form; the optional
+review page was removed at the owner's request.
 The shared AUTH-05 sign-in and verified role/status destinations are reused.
 
 See [AUTH-04 acceptance handoff](../../docs/auth-04-acceptance.md) for current
