@@ -92,7 +92,6 @@ export function OrganizationFields({
             onChange={(value) => onChange('category', value)}
           />
         </div>
-        {details.category === 'OTHER' && input('customCategory', 'Custom Entity Category', 'Enter your entity category')}
       </OrganizerSection>
       <OrganizerSection number={2} title="Lead organizer details">
         <div className="organizer-field-row">
@@ -136,7 +135,7 @@ export function OrganizerReviewNotice() {
   )
 }
 
-export function OrganizerHeader() {
+export function OrganizerHeader({ step = 1 }: { step?: 1 | 2 }) {
   return (
     <div className="w-full flex flex-col gap-1">
       <div className="flex items-center justify-between">
@@ -146,16 +145,16 @@ export function OrganizerHeader() {
 bg-primary-container text-pure-white font-label-sm text-caption
 font-bold`}
           >
-            1
+            {step}
           </span>
           <span className="font-label-md text-label-md text-primary font-bold tracking-tight">
-            Step 1 of 2: Institutional &amp; Organizer Dossier
+            {step === 1 ? 'Step 1 of 2: Institutional & Organizer Dossier' : 'Step 2 of 2: Review & Submit'}
           </span>
         </div>
       </div>
       <div className="w-full grid grid-cols-2 gap-2 mt-1">
         <div className="h-1.5 w-full bg-primary-container rounded-full"></div>
-        <div className="h-1.5 w-full bg-surface-container-highest rounded-full"></div>
+        <div className={`h-1.5 w-full ${step === 2 ? 'bg-primary-container' : 'bg-surface-container-highest'} rounded-full`}></div>
       </div>
     </div>
   )
