@@ -5,7 +5,7 @@ export default function PasswordFeedback({ password }: { password: string }) {
   const score = checks.filter((check) => check.met).length
   const feedback = !password
     ? 'Not entered'
-    : ['No checks met', 'Low', 'Medium', 'Good', 'All checks met'][score]
+    : ['No checks met', 'Low', 'Low', 'Medium', 'Good', 'All checks met'][score]
   return (
     <section className="password-feedback" aria-label="Password guidance">
       <div className="password-feedback-header">
@@ -19,9 +19,9 @@ export default function PasswordFeedback({ password }: { password: string }) {
         role="progressbar"
         aria-label="Suggested password checks met"
         aria-valuemin={0}
-        aria-valuemax={4}
+        aria-valuemax={checks.length}
         aria-valuenow={score}
-        aria-valuetext={`${score} of 4 suggested checks met`}
+        aria-valuetext={`${score} of ${checks.length} required checks met`}
       >
         {checks.map((check, index) => (
           <span key={check.label} className={index < score ? 'is-filled' : ''} />
@@ -37,7 +37,7 @@ export default function PasswordFeedback({ password }: { password: string }) {
         ))}
       </ul>
       <p className="password-guidance-note" id="password-guidance-note">
-        All 4 checks are required to continue.
+        All 5 checks are required to continue.
       </p>
     </section>
   )
