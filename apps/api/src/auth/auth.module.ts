@@ -1,3 +1,4 @@
+import { jwtSettings } from '../config/jwt.js';
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
@@ -22,12 +23,10 @@ import { RegistrationModule } from "./registration/registration.module.js";
 			imports: [ConfigModule],
 			inject: [ConfigService],
 
-			useFactory: (config: ConfigService) => ({
-				secret: config.getOrThrow<string>('JWT_SECRET'),
-				signOptions: {
-					expiresIn: config.getOrThrow<number>('JWT_TTL_SECONDS'),
-				},
-			}),
+			useFactory: (config: ConfigService) => {
+          const { secret, ttl } = jwtSettings(config);
+          return { secret, signOptions: { expiresIn: ttl } };
+        },
 		}),
 
 	],
