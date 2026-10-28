@@ -1,3 +1,4 @@
+import { jwtSettings } from '../config/jwt.js';
 import { Body, Controller, Post, Get, Res, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { LoginDto } from './dto/login.dto.js';
 import { AuthService } from './auth.service.js'
@@ -27,7 +28,7 @@ export class AuthController
 	)
 	{
 		const result = await this.authService.login(dto.email, dto.password);
-		const ttlSeconds = this.config.getOrThrow<number>('JWT_TTL_SECONDS');
+		const { ttl: ttlSeconds } = jwtSettings(this.config);
 		response.cookie('access_token', result.accessToken, {
 			httpOnly: true,
 			secure: true,
