@@ -3,7 +3,7 @@ import { useRegistration } from '../registration/useRegistration'
 import { registrationFieldErrors } from '../registration/errors'
 import { mapOrganizerPayload } from '../registration/payload'
 import type { FormEvent } from 'react'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { AccountFields, PolicyAcceptance, RegistrationLayout } from '../components/RegistrationForm'
 import { emptyDraft, validateDraft } from '../registration/model'
 import type { RegistrationDraft, FieldErrors } from '../registration/model'
@@ -32,11 +32,8 @@ export default function OrganizerRegistration({
   const [organizationErrors, setOrganizationErrors] = useState<
     Partial<Record<keyof OrganizationDetails, string>>
   >({})
-  const [step, setStep] = useState<1 | 2>(1)
   const fileInput = useRef<HTMLInputElement>(null)
   const { submit, isSubmitting, accountCreated, error, clearError } = useRegistration()
-
-  useLayoutEffect(() => { window.document.getElementById('page-title')?.focus() }, [step])
 
   function selectDocument(file: File | undefined) {
     if (!file || isSubmitting || accountCreated) return
@@ -61,18 +58,12 @@ export default function OrganizerRegistration({
     const nextErrors = validateForm()
     const firstError = Object.keys(nextErrors)[0]
     if (firstError) {
-      setStep(1)
       window.document.getElementById(firstError)?.focus()
-      return
-    }
-    if (step === 1) {
-      setStep(2)
       return
     }
     const payload = mapOrganizerPayload(account, organization)
     const failure = await submit((signal) => registerOrganizer(payload, signal), { email: payload.email, password: payload.password })
     if (failure) {
-      setStep(1)
       const result = registrationFieldErrors(failure)
       const { firstName, lastName, ...accountErrors } = result.fields
       setErrors(accountErrors)
@@ -84,9 +75,9 @@ export default function OrganizerRegistration({
     <>
       <RegistrationLayout
         variant="organizer"
-        headerContent={<OrganizerHeader step={step} />}
+        headerContent={<OrganizerHeader />}
         beforeCard={<OrganizerReviewNotice />}
-        title={step === 1 ? "Institutional Organizer Registration" : "Review your organizer application"}
+        title="Institutional Organizer Registration"
         introduction="Establish your official university or academic entity profile to publish certified campus initiatives, symposiums, and accredited programs on Younity."
       >
         <form
@@ -95,7 +86,6 @@ export default function OrganizerRegistration({
           onSubmit={handleSubmit}
         >
           <fieldset disabled={isSubmitting || accountCreated}>
-            {step === 1 ? <>
             <legend className="sr-only">Organizer registration details</legend>
             <OrganizationFields
               details={organization}
@@ -192,24 +182,9 @@ export default function OrganizerRegistration({
                 onChange={changePolicies}
               />
             </div>
-            </> : <section aria-label="Application review" className="organizer-section">
-              <h2>Confirm your details</h2>
-              <dl className="organizer-review-summary">
-                <dt>Organization</dt><dd>{organization.organizationName}</dd>
-                <dt>Category</dt><dd>{organization.category}</dd>
-                <dt>Representative</dt><dd>{organization.representativeName}</dd>
-                <dt>Academic position</dt><dd>{organization.position}</dd>
-                <dt>Contact phone</dt><dd>{organization.phone}</dd>
-                <dt>Account email</dt><dd>{account.email.trim().toLowerCase()}</dd>
-                <dt>Policies</dt><dd>Accepted</dd>
-                <dt>Document</dt><dd>{document ? `${document.name} (local selection only, not uploaded)` : 'None selected'}</dd>
-              </dl>
-              <p className="helper">Check these details before creating your account. Your password is not displayed in this review.</p>
-            </section>}
             <div className="actions">
-              {step === 2 && <button className="secondary" type="button" onClick={() => setStep(1)}>Back to application</button>}
               <button className="primary" type="submit" disabled={isSubmitting || accountCreated}>
-                <span>{isSubmitting ? 'Submitting...' : step === 1 ? 'Review application' : 'Submit Organization for Verification'}</span>
+                <span>{isSubmitting ? 'Submitting...' : 'Submit Organization for Verification'}</span>
                 <ReferenceIcon name="arrow_forward" />
               </button>
             </div>
