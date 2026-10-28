@@ -11,7 +11,7 @@ Reviewed on 28 October 2026. This records current evidence, not Trello approval.
 | Reusable form components | Complete | Shared layouts, labels, field errors, password feedback and selects. |
 | Account-type selection | Complete with approved navigation change | Login links directly to Student/Organizer; legacy `/register` redirects to login. |
 | Student registration | Complete | Optional preferences, all interests, real creation and shared sign-in/dashboard handoff. |
-| Multi-step organizer registration | Complete | Existing application form -> Review & Submit. Back retains drafts/file/policies; only final submission creates the account. |
+| Organizer registration | Single-page design requested by owner | Submits directly from the validated form. Review & Submit page removed; update the card's older multi-step wording. |
 | Validation/loading/success/errors | Complete | Backend-aligned password/name rules, server field messages, duplicate email, cancellation and duplicate prevention. Created-account login failure locks registration and links to sign in. |
 | Real registration endpoints | Complete | AUTH-02 plus AUTH-03/main integrated; HTTPS/database checks confirmed both real creations. |
 | Responsive/frontend tests | Implemented | Responsive CSS and review stacking exist. Automated DOM tests pass; final visual inspection is still required. |
@@ -83,8 +83,14 @@ API database tests require `TEST_DATABASE_URL` for a dedicated migrated `_test` 
 ## Remaining manual signoff
 
 1. Review the production UI at desktop, 390px and 320px widths; verify no horizontal overflow, clipped controls, unreadable review values or overlapping notices.
-2. Use keyboard-only navigation, check focus after Next/Back/errors and confirm labels/error announcements.
-3. Open DevTools Console and Network. Complete both real journeys; confirm no unexpected errors, one registration POST per final submission, and no POST while reviewing/backtracking.
-4. Confirm the assigned reviewer accepts the login-based account choice and two-step organizer workflow, then update the card and request review. No Trello state or PR approval was changed by this work.
+2. Use keyboard-only navigation, check focus and field errors and confirm labels/error announcements.
+3. Open DevTools Console and Network. Complete both real journeys; confirm no unexpected errors, one registration POST per final submission, and no duplicate POST during loading.
+4. Confirm the assigned reviewer accepts the login-based account choice and single-page organizer workflow, then update the card and request review. No Trello state or PR approval was changed by this work.
 
 Real document upload and real Terms/Privacy destinations require supplied backend/product contracts; the UI continues to disclose their current limitations. They must not be presented as implemented upload or approved policy documents.
+
+## Navigation revision
+
+The owner requested removal of the organizer review page after the verification
+record above. Organizer submission now validates and sends directly from the form.
+The historical test counts above refer to the reviewed two-step version.
