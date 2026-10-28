@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, } from '@nestjs/common';
 import type {CanActivate, ExecutionContext, } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { UserRole } from '../../generated/prisma/enums.js';
+import { UserRole, UserStatus, VerificationStatus } from '../../generated/prisma/enums.js';
 import type { AuthenticatedUser } from '../types/authenticated-user.type.js';
 import { ROLES_KEY } from '../decorators/roles.decorator.js';
 
@@ -27,6 +27,14 @@ export class RolesGuard implements CanActivate {
 			throw new UnauthorizedException();
 		}
 
-		return requiredRoles.includes(request.user.role);
+		const user = request.user;
+    if (user.status === UserStatus.SUSPENDED) return false;
+    if (user.role === UserRole.STUDENT && user.status !== UserStatus.ACTIVE) return false;
+    const approvedOrganizer = user.status === UserStatus.ACTIVE &&
+      user.ownedOrganizations.length === 1 &&
+      user.ownedOrganizations[0]?.verificationStatus === VerificationStatus.APPROVED;
+    const effectiveRole = user.role === UserRole.ORGANIZER && !approvedOrganizer
+      ? UserRole.STUDENT : user.role;
+    return requiredRoles.includes(effectiveRole);
 	}
 }
