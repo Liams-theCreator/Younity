@@ -50,7 +50,6 @@ function submitButton(account: 'student' | 'organizer') {
 }
 
 async function submitRegistration(account: 'student' | 'organizer') {
-  if (account === 'organizer') await userEvent.click(screen.getByRole('button', { name: 'Review application' }))
   await userEvent.click(submitButton(account))
 }
 
