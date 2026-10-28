@@ -34,11 +34,10 @@ export function validateOrganization(
   }
   if (!organizationTypes.some((value) => value === details.category))
     errors.category = 'Select an entity category.'
-  if (details.category === 'OTHER') {
-    if (!details.customCategory.trim()) errors.customCategory = 'Enter your entity category.'
-    else if (details.customCategory.length > 255) errors.customCategory = 'Use at most 255 characters.'
-  }
-  if (details.phone && !/^\+?[0-9 ()-]+$/.test(details.phone))
+  const names = details.representativeName.trim().replace(/\s+/g, ' ').split(' ')
+  if (details.representativeName.trim() && (names.length < 2 || names[0].length > 100 || names.slice(1).join(' ').length > 100 || !/^(?=.*\p{L})[\p{L}\p{M} _-]+$/u.test(details.representativeName.trim())))
+    errors.representativeName = 'Enter your first and last name using letters, spaces, hyphens or underscores.'
+  if (details.phone && !/^\+[1-9][0-9 ()-]{6,}$/.test(details.phone))
     errors.phone = 'Enter a valid contact phone number.'
   return errors
 }
