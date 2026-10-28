@@ -61,7 +61,6 @@ describe.skipIf(!base)('live registration UI using the isolated HTTPS API and da
     edit('Account Password', 'Real-api-password-2026!')
     edit('Confirm password', 'Real-api-password-2026!')
     await userEvent.click(screen.getByRole('checkbox'))
-    if (kind === 'organizer') await userEvent.click(screen.getByRole('button', { name: 'Review application' }))
     await userEvent.click(screen.getByRole('button', { name: kind === 'student' ? 'Create student account' : 'Submit Organization for Verification' }))
     expect(await screen.findByRole('heading', { name: kind === 'student' ? 'Student dashboard' : 'Organization verification pending' }, { timeout: 10000 })).toBeVisible()
     expect(vi.mocked(apiRequest).mock.calls.some(([input]) => input === `/api/auth/register/${kind}`)).toBe(true)
