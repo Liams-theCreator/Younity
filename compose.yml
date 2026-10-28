@@ -23,6 +23,9 @@ services:
     command: ["sh", "-c", "npm run db:setup && exec npm run start:dev"]
     init: true
     environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-900}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://localhost}
       NODE_ENV: development
       PORT: "3000"
       CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost,http://localhost:5173}
