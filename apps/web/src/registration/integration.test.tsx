@@ -49,6 +49,11 @@ function submitButton(account: 'student' | 'organizer') {
   return screen.getByRole('button', { name: account === 'student' ? 'Create student account' : 'Submit Organization for Verification' })
 }
 
+async function submitRegistration(account: 'student' | 'organizer') {
+  if (account === 'organizer') await userEvent.click(screen.getByRole('button', { name: 'Review application' }))
+  await userEvent.click(submitButton(account))
+}
+
 beforeEach(() => {
   session = null; registrationError = null; loginFails = false; delayRegistration = null
   request.mockReset().mockImplementation(async (input, options) => {
@@ -77,7 +82,7 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: /AI & Data Science/ }))
     await userEvent.click(screen.getByRole('checkbox', { name: /Robotics & Smart IoT/ }))
     await userEvent.click(screen.getByRole('checkbox', { name: /Hybrid Events/ }))
-    await userEvent.click(submitButton('student'))
+    await submitRegistration('student')
     expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeVisible()
     const payload = JSON.parse(String(posts('/api/auth/register/student')[0][1]?.body))
     expect(payload).toEqual({ firstName: 'Sara', lastName: 'Test', email, password, university: 'Test Institute', interests: ['AI_DATA', 'ROBOTICS_IOT'], academicField: 'COMPUTER_SCIENCE', studyLevel: 'SECOND_YEAR', opportunityFormat: 'HYBRID' })
@@ -88,7 +93,7 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
   it('registers an organizer without a fabricated proof URL, then uses verified pending routing', async () => {
     mount('organizer'); await fill('organizer')
     await userEvent.upload(screen.getByLabelText('Affiliation or authorization document'), new File(['proof'], 'proof.pdf', { type: 'application/pdf' }))
-    await userEvent.click(submitButton('organizer'))
+    await submitRegistration('organizer')
     expect(await screen.findByRole('heading', { name: 'Organization verification pending' })).toBeVisible()
     const payload = JSON.parse(String(posts('/api/auth/register/organizer')[0][1]?.body))
     expect(payload).toEqual({ firstName: 'Sara', lastName: 'Test', email, password, organizationName: 'Campus Club', type: 'STUDENT_CLUB', representativeFullName: 'Sara Test', academicPosition: 'Coordinator', phoneNumber: '+212612345678' })
@@ -98,19 +103,19 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
 
   it('shows duplicate-email errors without signing in, then supports correction', async () => {
     registrationError = { status: 409, message: ['Email already registered'] }
-    mount('student'); await fill('student'); await userEvent.click(submitButton('student'))
+    mount('student'); await fill('student'); await submitRegistration('student')
     expect(await screen.findByRole('alert')).toHaveTextContent('This email is already registered')
     expect(screen.getByLabelText('Email Address')).toHaveAttribute('aria-invalid', 'true')
     expect(posts('/api/auth/login')).toHaveLength(0)
     registrationError = null
     edit('Email Address', email)
-    await userEvent.click(submitButton('student'))
+    await submitRegistration('student')
     expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeVisible()
   })
 
   it('shows backend validation messages on the relevant organizer fields', async () => {
     registrationError = { status: 400, message: ['phoneNumber must be a valid phone number', 'lastName should not be empty'] }
-    mount('organizer'); await fill('organizer'); await userEvent.click(submitButton('organizer'))
+    mount('organizer'); await fill('organizer'); await submitRegistration('organizer')
     expect(await screen.findByRole('alert')).toHaveTextContent('phoneNumber must be a valid phone number')
     expect(screen.getByLabelText('Direct Contact Phone')).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByLabelText('Representative Full Name')).toHaveAttribute('aria-invalid', 'true')
@@ -119,7 +124,7 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
 
   it.each(['student', 'organizer'] as const)('does not repeat %s registration after successful creation but failed login', async (account) => {
     loginFails = true
-    mount(account); await fill(account); await userEvent.click(submitButton(account))
+    mount(account); await fill(account); await submitRegistration(account)
     expect(await screen.findByText(/Account created; please sign in/)).toBeVisible()
     const submit = submitButton(account)
     expect(submit).toBeDisabled()
@@ -136,7 +141,7 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
   it('locks duplicate submissions while registration is pending', async () => {
     let resolve!: () => void
     delayRegistration = new Promise<void>((done) => { resolve = done })
-    mount('organizer'); await fill('organizer'); await userEvent.click(submitButton('organizer'))
+    mount('organizer'); await fill('organizer'); await submitRegistration('organizer')
     const submit = screen.getByRole('button', { name: 'Submitting...' })
     expect(submit).toBeDisabled()
     fireEvent.submit(submit.closest('form')!)
@@ -149,7 +154,7 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
   it('cancels a registration when leaving and does not sign in from a stale response', async () => {
     let resolve!: () => void
     delayRegistration = new Promise<void>((done) => { resolve = done })
-    const view = mount('student'); await fill('student'); await userEvent.click(submitButton('student'))
+    const view = mount('student'); await fill('student'); await submitRegistration('student')
     const signal = posts('/api/auth/register/student')[0][1]?.signal
     view.unmount()
     expect(signal?.aborted).toBe(true)
