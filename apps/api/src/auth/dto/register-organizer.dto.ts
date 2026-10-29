@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, IsUrl, Matches, Max, MaxLength, MinLength } from 'class-validator'
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, IsUrl, Matches, MaxLength, MinLength } from 'class-validator'
 import { Transform } from 'class-transformer';
 import { OrganizationType } from '../../generated/prisma/enums.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';

@@ -24,6 +24,8 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       NODE_ENV: test
+      JWT_SECRET: ci_only_jwt_secret_for_isolated_test_execution
+      JWT_TTL_SECONDS: "900"
       DATABASE_URL: postgresql://younity:ci_only_password@127.0.0.1:5432/younity_test
       TEST_DATABASE_URL: postgresql://younity:ci_only_password@127.0.0.1:5432/younity_test
     defaults:
@@ -62,6 +64,7 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm test
       - run: npm run build
 
   startup:
@@ -105,8 +108,11 @@ jobs:
             sleep 5
           done
           test -f .local/certs/root.crt
-          curl --fail --silent --show-error --cacert .local/certs/root.crt https://localhost/api/health | jq -e '.status == "ok"'
-          curl --fail --silent --show-error --cacert .local/certs/root.crt https://localhost/ | grep -q '<title>Younity</title>'
-          curl --fail --silent --show-error --cacert .local/certs/root.crt https://localhost/api/docs-json | jq -e '.paths["/api/health"]'
+          https_port="$(docker compose port caddy 443 | awk -F: '{print $NF}')"
+          base_url="https://localhost:${https_port}"
+          curl --fail --silent --show-error --cacert .local/certs/root.crt "$base_url/api/health" | jq -e '.status == "ok"'
+          curl --fail --silent --show-error --cacert .local/certs/root.crt "$base_url/" | grep -q '<title>Younity</title>'
+          curl --fail --silent --show-error --cacert .local/certs/root.crt "$base_url/api/docs-json" | jq -e '.paths["/api/health"]'
+          AUTH_TEST_BASE_URL="$base_url" AUTH_TEST_CA_FILE=.local/certs/root.crt node tests/auth-journeys.mjs
           docker compose exec -T api npm run db:status
           docker compose exec -T api npm run db:seed

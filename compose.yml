@@ -23,6 +23,9 @@ services:
     command: ["sh", "-c", "npm run db:setup && exec npm run start:dev"]
     init: true
     environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-900}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://localhost}
       NODE_ENV: development
       PORT: "3000"
       CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost,http://localhost:5173}
@@ -41,16 +44,12 @@ services:
         - action: sync
           path: ./apps/api/src
           target: /app/src
-          initial_sync: true
           ignore:
             - generated/
-
         - action: rebuild
           path: ./apps/api/package.json
-
         - action: rebuild
           path: ./apps/api/package-lock.json
-
         - action: rebuild
           path: ./apps/api/prisma
 
@@ -108,28 +107,24 @@ services:
         - action: sync
           path: ./apps/web
           target: /app
-          initial_sync: true
           ignore:
             - node_modules/
             - dist/
             - package.json
             - package-lock.json
             - Dockerfile
-
         - action: rebuild
           path: ./apps/web/package.json
-
         - action: rebuild
           path: ./apps/web/package-lock.json
-
         - action: rebuild
           path: ./apps/web/Dockerfile
 
   caddy:
     image: caddy:2-alpine
     ports:
-      - "127.0.0.1:80:80"
-      - "127.0.0.1:443:443"
+      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8443:443"
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
