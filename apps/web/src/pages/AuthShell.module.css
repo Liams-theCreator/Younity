@@ -1,0 +1,111 @@
+.page {
+  min-height: 75svh;
+  display: grid;
+  align-content: center;
+  padding: 32px 16px;
+}
+
+.card {
+  width: 100%;
+  max-width: 620px;
+  margin: auto;
+  padding: 32px;
+  border-radius: 20px;
+  border: 1px solid #dce1eb;
+  background: white;
+  box-shadow: 0 12px 40px #17243d0a;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #003bba;
+  font-weight: 700;
+}
+
+.card h1 {
+  font-size: 28px;
+}
+
+.card p {
+  color: #434654;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.actions a,
+.actions button,
+.nav button,
+.demo button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #c4c5d7;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: white;
+  color: #003bba;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 24px;
+  border-bottom: 1px solid #dce1eb;
+  background: white;
+}
+
+.nav a {
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.nav span {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.demo {
+  padding: 12px 20px;
+  background: #fff7ed;
+  border-bottom: 1px solid #fed7aa;
+  font-size: 12px;
+}
+
+.demo summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.demo ul {
+  padding-left: 20px;
+}
+
+.demo select {
+  border: 1px solid #c4c5d7;
+  border-radius: 6px;
+  background: white;
+  padding: 8px;
+}
+
+.demo p {
+  max-width: 800px;
+}
+
+.demo button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

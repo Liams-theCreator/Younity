@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by imellali, asyani, aaferyad, oait-h-m and sboukiou.*
+*This project has been created as part of the 42 curriculum by imellali, asyani, aaferyad, oait-h-m and sboukiou*
 
 # :camel: Younity
 

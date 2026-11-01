@@ -64,9 +64,15 @@ if [[ ! -f .env ]]; then
     exit 1
   fi
   database_password=$(openssl rand -hex 24)
-  (umask 077; sed "s/REPLACE_WITH_LOCAL_PASSWORD/$database_password/g" .env.example > .env)
-  unset database_password
-  echo "Created .env with generated local database credentials."
+  jwt_secret=$(openssl rand -hex 48)
+  (umask 077; sed -e "s/REPLACE_WITH_LOCAL_PASSWORD/$database_password/g" -e "s/REPLACE_WITH_GENERATED_JWT_SECRET/$jwt_secret/g" .env.example > .env)
+  unset database_password jwt_secret
+  echo "Created .env with generated local database and JWT credentials."
+fi
+if ! grep -q '^JWT_SECRET=' .env; then
+  jwt_secret=$(openssl rand -hex 48)
+  (umask 077; printf '\nJWT_SECRET=%s\nJWT_TTL_SECONDS=900\n' "$jwt_secret" >> .env)
+  unset jwt_secret
 fi
 
 docker compose config --quiet
