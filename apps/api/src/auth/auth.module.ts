@@ -11,6 +11,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { RegistrationModule } from "./registration/registration.module.js";
 import { EmailVerificationModule } from './email-verification/email-verification.module.js';
+import { MailModule } from './mail/mail.module.js';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { EmailVerificationModule } from './email-verification/email-verification
         return { secret, signOptions: { expiresIn: ttl } };
       },
     }),
+    MailModule,
 
   ],
   controllers: [AuthController],
