@@ -344,7 +344,7 @@ describe('AUTH-05 role/status destinations', () => {
       'ADMIN',
       'ACTIVE',
       null,
-      null,
+      '/admin/applications',
     ],
   ] as const)(
     'routes %s / %s / %s',

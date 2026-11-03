@@ -571,3 +571,17 @@ from logout failures, preserving its own retry behavior. The combined routing
 tests cover pending-to-approved refresh, role redirects and session-check retry.
 The database foundation alone does not supply registration or authentication
 controllers; live end-to-end acceptance still needs those backend branches.
+
+# Administrator application reviews (S2-05)
+
+Active administrators now have protected list/detail routes at
+`/admin/applications` and `/admin/applications/:applicationId`.
+The review UI supports status/page navigation, submitted information, decision
+forms, permission/error states, and conflict recovery.
+
+The S2-06 and S2-09 endpoints/contracts are not present in this checkout, so the
+production routes currently show an unavailable state. There are no guessed
+review HTTP routes or production mock data. The injectable service in
+`src/admin/model.ts` is a frontend boundary; it is **not** the agreed API contract.
+See [S2-05 handoff and acceptance evidence](../../docs/s2-05-acceptance.md) for
+integration requirements, verification results, and outstanding acceptance work.

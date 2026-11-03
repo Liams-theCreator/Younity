@@ -12,16 +12,37 @@ import StudentRegisterPage from '../pages/StudentRegisterPage'
 import OrganizerRegisterPage from '../pages/OrganizerRegisterPage'
 import OrganizationStatusPage from '../pages/OrganizationStatusPage'
 import ProtectedRoute from './ProtectedRoute'
+import AdminApplicationsPage from '../admin/AdminApplicationsPage'
+import AdminApplicationDetailPage from '../admin/AdminApplicationDetailPage'
+import type { ApplicationReviewService } from '../admin/model'
 
 type AuthRoutesProps = {
   pendingPage: ReactNode
+  reviewService?: ApplicationReviewService
 }
 
 export default function AuthRoutes({
   pendingPage,
+  reviewService,
 }: AuthRoutesProps) {
   return (
     <Routes>
+      <Route
+        path="/admin/applications"
+        element={
+          <ProtectedRoute destination="/admin/applications" renderRedirect={(to) => <Navigate to={to} replace />}>
+            <AdminApplicationsPage service={reviewService} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/applications/:applicationId"
+        element={
+          <ProtectedRoute destination="/admin/applications" renderRedirect={(to) => <Navigate to={to} replace />}>
+            <AdminApplicationDetailPage service={reviewService} />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/"
         element={<Navigate to="/login" replace />}
