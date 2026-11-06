@@ -5,10 +5,11 @@ import { RegisterOrganizerDto } from "../dto/register-organizer.dto.js";
 import { RegisterStudentDto } from "../dto/register-student.dto.js";
 import { PrismaService } from "../../prisma/prisma.service.js";
 import { UserRole, UserStatus, VerificationStatus } from "../../generated/prisma/enums.js";
+import { EmailVerificationService } from "../email-verification/email-verification.service.js";
 
 @Injectable()
 export class RegistrationService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService, private readonly emailVerificationService: EmailVerificationService,) { }
 
   private isEmailConflict(error: unknown): boolean {
     if (
@@ -77,7 +78,7 @@ export class RegistrationService {
     });
 
     try {
-      return await this.prisma.user.create({
+      const user = await this.prisma.user.create({
         data: {
           firstName: dto.firstName,
           lastName: dto.lastName,
@@ -117,6 +118,8 @@ export class RegistrationService {
           },
         },
       });
+      await this.emailVerificationService.startVerification(user.id, user.email);
+      return user;
     } catch (error) {
       if (this.isEmailConflict(error)) {
         throw new ConflictException('Email is already registered');
@@ -133,14 +136,14 @@ export class RegistrationService {
       }
     })
     if (existingUser) {
-      throw new ConflictException('Email is already registred');
+      throw new ConflictException('Email is already registered');
     }
     const passwordHash = await argon2.hash(dto.password, {
       type: argon2.argon2id,
     });
 
     try {
-      return await this.prisma.user.create({
+      const user = await this.prisma.user.create({
         data: {
           firstName: dto.firstName,
           lastName: dto.lastName,
@@ -185,6 +188,8 @@ export class RegistrationService {
           },
         },
       });
+      await this.emailVerificationService.startVerification(user.id, user.email);
+      return user;
     } catch (error) {
       if (this.isEmailConflict(error)) {
         throw new ConflictException('Email is already registered');
