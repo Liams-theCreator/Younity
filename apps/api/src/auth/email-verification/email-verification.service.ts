@@ -1,14 +1,14 @@
 import { BadRequestException, Injectable, Post } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { Prisma } from '../../generated/prisma/client.js';
 import { createHash, randomBytes } from 'node:crypto';
+import { VerifyEmailDto } from '../dto/email-verification.dto.js';
 
 @Injectable()
 export class EmailVerificationService {
   constructor(private readonly prisma: PrismaService) { }
 
-  async verifyEmail(token: string) {
-    const tokenHash = createHash('sha256').update(token).digest('hex');
+  async verifyEmail(dto: VerifyEmailDto) {
+    const tokenHash = createHash('sha256').update(dto.token).digest('hex');
 
     await this.prisma.$transaction(async (tx) => {
       const now = new Date();
