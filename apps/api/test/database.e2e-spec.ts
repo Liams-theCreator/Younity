@@ -204,8 +204,28 @@ describe('database foundation', () => {
     ).rejects.toMatchObject({ code: 'P2003' });
   });
 
-  it('preserves referenced users until their dependents are handled explicitly', async () => {
+  it('rejects verification tokens without a user', async () => {
     await expect(
+      prisma.emailVerificationToken.create({ data: { userId: randomUUID(), tokenHash: `test-token-${randomUUID()}`, expiresAt: new Date(Date.now() + 60_000) } }),
+    ).rejects.toMatchObject({ code: 'P2003' });
+  });
+  it('rejects duplicate verification token hashes', async () => {
+	  await expect(
+		  prisma.$transaction(async (tx) => {
+			  const { student } = await fixtures(tx);
+			  const data = {
+				  userId: 	student.id,
+				  tokenHash: `test-token-${randomUUID()}`,
+				  expiresAt: new Date(Date.now() + 60_000),
+			  };
+			  await tx.emailVerificationToken.create({ data });
+			  await tx.emailVerificationToken.create({ data });
+		  }),
+	  ).rejects.toMatchObject({ code: 'P2002' });
+  });
+
+  it('preserves referenced users until their dependents are handled explicitly', async () => {
+	  await expect(
       prisma.$transaction(async (tx) => {
         const { student } = await fixtures(tx);
         await tx.user.delete({ where: { id: student.id } });
