@@ -114,3 +114,38 @@ Validated on 2026-11-03:
 Before Done: integrate actual dependencies, test real eligible/ineligible data
 and concurrent admins, attach real API/database evidence, update Swagger/API
 contract with endpoint owners, run hosted CI, and obtain Smail's PR approval.
+
+## Dashboard reference update — 2026-11-06
+
+The supplied HTML reference is now adapted to the Younity admin workspace:
+branded account header, current-page status summary, status buttons/dropdown,
+search toolbar, application table, page export, badges, pagination, and matching
+loading/empty/error states. Detail uses organization information, supporting
+document and review-history cards alongside a decision panel, which stacks on
+mobile. Controls use the existing review service boundary and authorization.
+
+Summary counts, search, and CSV export cover the loaded page only. Export uses
+explicit safe fields, quotes CSV values, and treats submitted formula prefixes
+as literal text. No risk scores, global totals, live-stream indicators, or
+unimplemented navigation from the reference were added.
+
+The reported missing `react/jsx-runtime` declaration was caused by absent app
+dependencies. `npm ci` in `apps/web` restored the already-declared React types and
+TypeScript tools. The real TypeScript build now passes; no ambient `any` module
+declarations or relaxed compiler checks were introduced. App dependency manifests
+and lockfiles are unchanged. The frontend README includes recovery instructions.
+
+Validation after this update:
+
+- `npm test -- --maxWorkers=1`: **154 passed**, 2 existing live tests skipped.
+- `npm run lint`, `npm run build`, and `git diff --check`: passed.
+- Chromium at 320px, 390px and 1440px: no page overflow or console/page errors;
+  mobile tables scroll within their container. Verified current-page search and
+  CSV download, native keyboard radio navigation, required-reason focus,
+  decision submission, and refreshed detail/list state using fixtures.
+- Visually inspected desktop/mobile list/detail and error states. Also captured
+  loading and empty states. New evidence is in `.local/s2-05-redesign/`, including
+  `list-1440.png`, `detail-1440.png`, `detail-390.png`, and `browser-results.json`.
+  These files are Git-ignored. The temporary browser QA entry point was removed.
+
+Real S2-06/S2-09 integration and acceptance remain pending as described above.

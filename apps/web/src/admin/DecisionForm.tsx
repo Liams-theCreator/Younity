@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { decisionLabels, type DecisionInput, type DecisionRule, type ReviewDecision } from './model'
 import styles from './review.module.css'
+import AdminIcon from './AdminIcon'
 
 type Props = {
   allowedDecisions: ReviewDecision[]
@@ -47,7 +48,7 @@ export default function DecisionForm({ allowedDecisions, rules, pending, onSubmi
   }
 
   if (!allowedDecisions.length) {
-    return <p>This application has no available review actions.</p>
+    return <p className={styles.reviewClosed}><AdminIcon name="task_alt" /><span>This application has no available review actions.</span></p>
   }
 
   return (
@@ -65,7 +66,8 @@ export default function DecisionForm({ allowedDecisions, rules, pending, onSubmi
                 checked={decision === value}
                 onChange={() => { setDecision(value); setError(null) }}
               />
-              {decisionLabels[value]}
+              <span>{decisionLabels[value]}</span>
+              <AdminIcon name={value === 'approve' ? 'check_circle' : value === 'reject' ? 'cancel' : 'edit_note'} />
             </label>
           ))}
         </div>
@@ -83,6 +85,7 @@ export default function DecisionForm({ allowedDecisions, rules, pending, onSubmi
         <p id="decision-help">Review the submitted information before confirming your decision.</p>
         {error && <p id="decision-error" role="alert">{error}</p>}
         <button type="submit" className={styles.primary} disabled={pending}>
+          <AdminIcon name={pending ? 'hourglass_top' : 'check'} />
           {pending ? 'Submitting decision…' : decision ? `Confirm: ${decisionLabels[decision]}` : 'Confirm decision'}
         </button>
       </fieldset>

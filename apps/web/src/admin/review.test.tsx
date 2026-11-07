@@ -129,6 +129,35 @@ describe('admin review access', () => {
 })
 
 describe('application list', () => {
+  it('searches only the current page without requesting another API page and preserves the search through details', async () => {
+    const service = makeService()
+    const other = { ...initial.application, id: 'another-fixture', orgName: 'Atlas Research', representativeFullName: 'Amine Example' }
+    service.list.mockResolvedValue({ items: [initial.application, other], pageLabel: 'Page 1', previousPage: null, nextPage: null })
+    mount(service)
+    const search = await screen.findByRole('searchbox', { name: 'Search this page' })
+    await screen.findByRole('link', { name: 'Atlas Research' })
+    await userEvent.type(search, 'sara')
+    expect(screen.queryByRole('link', { name: 'Atlas Research' })).not.toBeInTheDocument()
+    expect(service.list).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('link', { name: initial.application.orgName })).toHaveAttribute('href', '/admin/applications/application-fixture?q=sara')
+    await userEvent.click(screen.getByRole('link', { name: initial.application.orgName }))
+    await screen.findByRole('form')
+    await userEvent.click(screen.getByRole('link', { name: 'Back to applications' }))
+    expect(await screen.findByRole('searchbox')).toHaveValue('sara')
+    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }))
+    expect(await screen.findByRole('link', { name: 'Atlas Research' })).toBeInTheDocument()
+  })
+
+  it('connects status buttons to the agreed filter selection and clears the old page', async () => {
+    const service = makeService()
+    mount(service, '/admin/applications?page=old-page')
+    const filters = await screen.findByRole('navigation', { name: 'Application status filters' })
+    await userEvent.click(within(filters).getByRole('button', { name: 'Approved' }))
+    await waitFor(() => expect(service.list).toHaveBeenLastCalledWith({ status: 'APPROVED', page: null }, expect.anything()))
+    expect(screen.getByRole('combobox', { name: 'Review status' })).toHaveValue('APPROVED')
+    expect(within(filters).getByRole('button', { name: 'Approved' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('shows loading, submitted metadata and bounded page navigation', async () => {
     const response = deferred<Awaited<ReturnType<ApplicationReviewService['list']>>>()
     const service = makeService()

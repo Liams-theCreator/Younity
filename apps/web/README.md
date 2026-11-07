@@ -574,6 +574,17 @@ controllers; live end-to-end acceptance still needs those backend branches.
 
 # Administrator application reviews (S2-05)
 
+The admin workspace follows the supplied dashboard reference: summary cards for
+the current page, status filters, a searchable application table, CSV export of
+the displayed page, and matching detail/document/decision panels. Counts, search,
+and export are limited to the loaded page; they do not imply a registry-wide API.
+
+If the editor reports missing declarations for `react/jsx-runtime`, run `npm ci`
+from **`apps/web`**. This app already declares `@types/react` and `@types/react-dom`;
+installing only root dependencies does not restore frontend tooling or types.
+Restart the editor's TypeScript server if it retains the old diagnostic after
+installation. Confirm with `npm run build` in this directory.
+
 Active administrators now have protected list/detail routes at
 `/admin/applications` and `/admin/applications/:applicationId`.
 The review UI supports status/page navigation, submitted information, decision
