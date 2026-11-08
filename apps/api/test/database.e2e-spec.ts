@@ -224,6 +224,31 @@ describe('database foundation', () => {
 	  ).rejects.toMatchObject({ code: 'P2002' });
   });
 
+  it('allows multiple verification tokens for the same user', async () => {
+	  await expect(
+		  prisma.$transaction(async (tx) => {
+			  const { student } = await fixtures(tx);
+			  const firstTokenData = {
+				  userId: student.id,
+				  tokenHash: `test-token-${randomUUID()}`,
+				  expiresAt: new Date(Date.now() + 60_000),
+			  }
+			  const secondTokenData = {
+				  userId: student.id,
+				  tokenHash: `test-token-${randomUUID()}`,
+				  expiresAt: firstTokenData.expiresAt,
+			  }
+			  await tx.emailVerificationToken.create({ data: firstTokenData });
+			  await tx.emailVerificationToken.create({ data: secondTokenData });
+			  const tokenCount	= await tx.emailVerificationToken.count({
+				  where: { userId: student.id },
+			  });
+			  expect(tokenCount).toBe(2);
+			  throw rollback;
+		  }),
+	  ).rejects.toBe(rollback);
+  });
+
   it('preserves referenced users until their dependents are handled explicitly', async () => {
 	  await expect(
       prisma.$transaction(async (tx) => {
