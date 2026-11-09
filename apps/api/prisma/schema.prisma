@@ -139,8 +139,22 @@ model User {
   reviewedRegistrations EventRegistration[]       @relation("EventRegistrationReviewedById")
   notifications         Notification[]            @relation("NotificationUserId")
   organizationFollows   OrganizationFollow[]      @relation("OrganizationFollowFollowerId")
+  emailverifyTokens		EmailVerificationToken[]
 
   @@map("users")
+}
+
+model EmailVerificationToken {
+	id			String		@id @default(uuid()) @db.Uuid
+	userId		String		@map("user_id") @db.Uuid
+	tokenHash	String		@unique @map("token_hash")
+	createdAt	DateTime	@default(now()) @map("created_at") @db.Timestamp(6)
+	expiresAt	DateTime	@map("expires_at") @db.Timestamp(6)
+	usedAt		DateTime?	@map("used_at") @db.Timestamp(6)
+
+	user		User		@relation(fields: [userId], references: [id])
+	@@index([userId])
+	@@map("email_verification_tokens")
 }
 
 model StudentProfile {
