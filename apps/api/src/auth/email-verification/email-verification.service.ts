@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Post } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { createHash, randomBytes } from 'node:crypto';
 import { VerifyEmailDto } from '../dto/email-verification.dto.js';
@@ -16,7 +16,7 @@ export class EmailVerificationService {
 
     await this.prisma.$transaction(async (tx) => {
       const now = new Date();
-      const { count } = await tx.emailVerification.updateMany({
+      const { count } = await tx.emailVerificationToken.updateMany({
         where: {
           tokenHash,
           usedAt: null,
@@ -30,7 +30,7 @@ export class EmailVerificationService {
         throw new BadRequestException('Verification link is invalid, expired, or already used.');
       }
 
-      const verification = await tx.emailVerification.findUniqueOrThrow({
+      const verification = await tx.emailVerificationToken.findUniqueOrThrow({
         where: {
           tokenHash
         },
@@ -59,7 +59,7 @@ export class EmailVerificationService {
     const link = new URL('/verify-email', frontendOrigin);
     link.searchParams.set('token', token);
 
-    await this.prisma.emailVerification.create({
+    await this.prisma.emailVerificationToken.create({
       data: {
         userId,
         tokenHash,
