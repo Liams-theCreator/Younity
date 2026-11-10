@@ -1,3 +1,4 @@
+import { HttpException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { EmailVerificationService } from './email-verification.service.js';
@@ -13,7 +14,7 @@ describe('EmailVerificationService', () => {
     emailVerificationToken: { create: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
     user: { update: vi.fn() },
   };
-  const prisma = { $transaction: vi.fn(), emailVerificationToken: { deleteMany: vi.fn() } };
+  const prisma = { user: { findUnique: vi.fn() }, $transaction: vi.fn(), emailVerificationToken: { deleteMany: vi.fn() } };
   const mail = { sendVerificationEmail: vi.fn() };
   let service: EmailVerificationService;
 
@@ -21,7 +22,7 @@ describe('EmailVerificationService', () => {
     vi.resetAllMocks();
     vi.stubEnv('FRONTEND_ORIGIN', 'https://localhost:8443');
     prisma.$transaction.mockImplementation((callback) => callback(tx));
-    tx.$queryRaw.mockResolvedValue([{ email_verified_at: null }]);
+    tx.$queryRaw.mockResolvedValue([{ email_verified_at: null, status: 'ACTIVE', email: 'student@example.test' }]);
     tx.emailVerificationToken.findFirst.mockResolvedValue(null);
     tx.emailVerificationToken.findUnique.mockResolvedValue({ userId: 'user-id' });
     tx.emailVerificationToken.updateMany.mockResolvedValue({ count: 1 });
@@ -31,7 +32,7 @@ describe('EmailVerificationService', () => {
 
   it('sends a frontend link, stores only its hash and expires it in 10 minutes', async () => {
     const before = Date.now();
-    await service.startVerification('user-id', 'student@example.test');
+    await service.startVerification('user-id');
     const link = new URL(mail.sendVerificationEmail.mock.calls[0]![1]);
     expect(link.origin).toBe('https://localhost:8443');
     expect(link.pathname).toBe('/verify-email');
@@ -45,22 +46,48 @@ describe('EmailVerificationService', () => {
 
   it('rate limits recent requests without creating another token or sending mail', async () => {
     tx.emailVerificationToken.findFirst.mockResolvedValue({ id: 'recent' });
-    await expect(service.startVerification('user-id', 'student@example.test')).rejects.toMatchObject({ status: 429 });
+    await expect(service.startVerification('user-id')).rejects.toMatchObject({ status: 429 });
     expect(tx.emailVerificationToken.create).not.toHaveBeenCalled();
     expect(mail.sendVerificationEmail).not.toHaveBeenCalled();
   });
 
   it('does not send mail for an already verified account', async () => {
     tx.$queryRaw.mockResolvedValue([{ email_verified_at: new Date() }]);
-    await expect(service.startVerification('user-id', 'student@example.test')).rejects.toMatchObject({ status: 400 });
+    await expect(service.startVerification('user-id')).rejects.toMatchObject({ status: 400 });
     expect(mail.sendVerificationEmail).not.toHaveBeenCalled();
   });
 
   it('removes only the failed delivery token and returns a retryable error', async () => {
     mail.sendVerificationEmail.mockRejectedValue(new Error('SMTP unavailable'));
-    await expect(service.startVerification('user-id', 'student@example.test')).rejects.toMatchObject({ status: 503 });
+    await expect(service.startVerification('user-id')).rejects.toMatchObject({ status: 503 });
     const data = tx.emailVerificationToken.create.mock.calls[0]![0].data;
     expect(prisma.emailVerificationToken.deleteMany).toHaveBeenCalledWith({ where: { tokenHash: data.tokenHash, usedAt: null } });
+  });
+
+  it.each([null, { id: 'id', emailVerifiedAt: new Date() }, { id: 'id', status: 'SUSPENDED' }])('does not send to ineligible addresses', async (user) => {
+    prisma.user.findUnique.mockResolvedValue(user);
+    await expect(service.resendVerification('unknown@example.test')).resolves.toEqual({ message: 'If this address belongs to an account awaiting verification, check your inbox.' });
+    expect(mail.sendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('normalizes lookup and sends only to the locked registered address without a password lookup', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-id', email: 'student@example.test', emailVerifiedAt: null, status: 'ACTIVE' });
+    await service.resendVerification(' Student@Example.Test ');
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: 'student@example.test' }, select: { id: true, email: true, emailVerifiedAt: true, status: true } });
+    expect(mail.sendVerificationEmail).toHaveBeenCalledWith('student@example.test', expect.any(String));
+  });
+
+  it.each([429, 503, 400])('hides account-specific resend outcomes (%s)', async (status) => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-id', email: 'student@example.test', emailVerifiedAt: null, status: 'ACTIVE' });
+    vi.spyOn(service, 'startVerification').mockRejectedValueOnce(new HttpException('Private account outcome', status));
+    await expect(service.resendVerification('student@example.test')).resolves.toEqual({ message: 'If this address belongs to an account awaiting verification, check your inbox.' });
+  });
+
+  it('rechecks suspension under the row lock', async () => {
+    tx.$queryRaw.mockResolvedValue([{ email_verified_at: null, status: 'SUSPENDED', email: 'student@example.test' }]);
+    await expect(service.startVerification('user-id')).rejects.toMatchObject({ status: 400 });
+    expect(tx.emailVerificationToken.create).not.toHaveBeenCalled();
+    expect(mail.sendVerificationEmail).not.toHaveBeenCalled();
   });
 
   it('atomically consumes a valid token, verifies the user and invalidates other links', async () => {

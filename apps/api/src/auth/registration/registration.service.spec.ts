@@ -88,7 +88,7 @@ describe('RegistrationService', () => {
           email: dto.email,
         });
 
-        await register();
+        expect((await register()).verificationEmailSent).toBe(true);
 
         expect(prismaMock.user.create).toHaveBeenCalledTimes(1);
 
@@ -156,7 +156,7 @@ describe('RegistrationService', () => {
         prismaMock.user.create.mockResolvedValue({ id: 'created-user', email: dto.email });
         emailVerification.startVerification.mockRejectedValue(new Error('SMTP unavailable'));
         await expect(register()).resolves.toEqual({ id: 'created-user', email: dto.email, verificationEmailSent: false });
-        expect(emailVerification.startVerification).toHaveBeenCalledWith('created-user', dto.email);
+        expect(emailVerification.startVerification).toHaveBeenCalledWith('created-user');
         expect(prismaMock.user.create).toHaveBeenCalledTimes(1);
       });
 

@@ -38,7 +38,7 @@ export class AuthService implements OnModuleInit
 			});
 	}
 
-	async validateCredentials(email: string, password: string, requireVerified = true)
+	async validateCredentials(email: string, password: string)
 	{
 		const user = await this.findUserForLogin(email);
 
@@ -51,7 +51,7 @@ export class AuthService implements OnModuleInit
 			throw new UnauthorizedException('Invalid credentials');
 		if (user.status === UserStatus.SUSPENDED)
 			throw new ForbiddenException('Account suspended');
-		if (requireVerified && !user.emailVerifiedAt)
+		if (!user.emailVerifiedAt)
 			throw new ForbiddenException({ code: 'EMAIL_NOT_VERIFIED', message: 'Verify your email before signing in.' });
 		return {
 			id: user.id,

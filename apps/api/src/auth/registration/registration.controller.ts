@@ -28,7 +28,7 @@ export class RegistrationController {
   })
   @ApiCreatedResponse({
     description:
-      'Account created. verificationEmailSent indicates delivery success; if false, use /auth/resend-verification. Email verification is required before login. Password hash is excluded.',
+      'Account created. verificationEmailSent indicates delivery success; if false, immediately retry POST /api/auth/resend-verification with only { email }. Links expire after 10 minutes; successful sends have a 60-second cooldown. Email verification is required before login. Password hash is excluded.',
   })
   @ApiBadRequestResponse({
     description:
@@ -56,7 +56,7 @@ export class RegistrationController {
   })
   @ApiCreatedResponse({
     description:
-      'Account and pending organization created. verificationEmailSent indicates delivery success; if false, use /auth/resend-verification. Email verification is required before login and does not approve the organization. Password hash is excluded.',
+      'Account and pending organization created. verificationEmailSent indicates delivery success; if false, immediately retry POST /api/auth/resend-verification with only { email }. Links expire after 10 minutes; successful sends have a 60-second cooldown. Email verification is required before login and does not approve the organization. Password hash is excluded.',
   })
   @ApiBadRequestResponse({
     description: 'Invalid, missing, or unexpected request fields.',

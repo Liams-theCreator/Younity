@@ -14,7 +14,7 @@ export class RegistrationService {
 
   private async sendVerification(user: { id: string; email: string }): Promise<boolean> {
     try {
-      await this.emailVerificationService.startVerification(user.id, user.email);
+      await this.emailVerificationService.startVerification(user.id);
       return true;
     } catch {
       // Account creation succeeded. Let the client recover through resend instead

@@ -1,4 +1,5 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { UserStatus } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { createHash, randomBytes } from 'node:crypto';
 import { VerifyEmailDto } from '../dto/email-verification.dto.js';
@@ -55,7 +56,24 @@ export class EmailVerificationService {
     return { message: 'Email verified successfully.' };
   }
 
-  async startVerification(userId: string, email: string) {
+  async resendVerification(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+      select: { id: true, email: true, emailVerifiedAt: true, status: true },
+    });
+    if (user && !user.emailVerifiedAt && user.status !== UserStatus.SUSPENDED) {
+      try {
+        await this.startVerification(user.id);
+      } catch (error) {
+        // Public responses cannot expose account status, cooldown or SMTP failure.
+        // Failed SMTP attempts are removed by startVerification for immediate retry.
+        if (!(error instanceof HttpException) || ![400, 429, 503].includes(error.getStatus())) throw error;
+      }
+    }
+    return { message: 'If this address belongs to an account awaiting verification, check your inbox.' };
+  }
+
+  async startVerification(userId: string) {
     const token = randomBytes(32).toString('hex');
 
     const tokenHash = createHash('sha256').update(token).digest('hex');
@@ -67,13 +85,13 @@ export class EmailVerificationService {
     const link = new URL('/verify-email', frontendOrigin);
     link.searchParams.set('token', token);
 
-    await this.prisma.$transaction(async (tx) => {
+    const registeredEmail = await this.prisma.$transaction(async (tx) => {
       // Serialize requests for this account so concurrent resends cannot bypass
       // the cooldown. The SMTP call runs after the transaction releases the lock.
-      const users = await tx.$queryRaw<{ email_verified_at: Date | null }[]>`
-        SELECT email_verified_at FROM users WHERE id = ${userId}::uuid FOR UPDATE
+      const users = await tx.$queryRaw<{ email_verified_at: Date | null; email: string; status: string }[]>`
+        SELECT email_verified_at, email, status FROM users WHERE id = ${userId}::uuid FOR UPDATE
       `;
-      if (users.length !== 1 || users[0]!.email_verified_at) {
+      if (users.length !== 1 || users[0]!.email_verified_at || users[0]!.status === UserStatus.SUSPENDED) {
         throw new BadRequestException('Email is already verified. Please sign in.');
       }
       const recent = await tx.emailVerificationToken.findFirst({
@@ -93,10 +111,11 @@ export class EmailVerificationService {
           expiresAt: new Date(Date.now() + VERIFICATION_TTL_MINUTES * 60 * 1000),
         },
       });
+      return users[0]!.email;
     });
 
     try {
-      await this.mailService.sendVerificationEmail(email, link.toString());
+      await this.mailService.sendVerificationEmail(registeredEmail, link.toString());
     } catch {
       // Remove only this failed attempt, allowing an immediate retry. Other
       // delivered links remain usable until verification or expiry.

@@ -1,6 +1,8 @@
 import { jwtSettings } from '../config/jwt.js';
 import { Body, Controller, Post, Get, Res, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { LoginDto } from './dto/login.dto.js';
+import { ResendVerificationDto } from './dto/resend-verification.dto.js';
+import { ResendRateLimitGuard } from './guards/resend-rate-limit.guard.js';
 import { AuthService } from './auth.service.js'
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { CurrentUser } from './decorators/current-user.decorator.js'
@@ -24,17 +26,15 @@ export class AuthController
 
 	) {}
 	@Post('resend-verification')
-	@ApiOperation({ summary: 'Resend email verification using account email and password' })
-	@ApiResponse({ status: 200, description: 'Verification email sent; links expire after 10 minutes.' })
-	@ApiResponse({ status: 401, description: 'Invalid credentials.' })
-	@ApiResponse({ status: 429, description: 'Wait 60 seconds between successful email requests.' })
-	@ApiResponse({ status: 503, description: 'Delivery failed; the account is retained and the request can be retried.' })
+	@ApiOperation({ summary: 'Request a verification email using only the account email' })
+	@ApiResponse({ status: 200, description: 'Identical response for eligible, unknown, verified, suspended, cooldown-suppressed and failed-delivery addresses.', schema: { example: { message: 'If this address belongs to an account awaiting verification, check your inbox.' } } })
+	@ApiResponse({ status: 400, description: 'Invalid email or unexpected fields, including password.' })
+	@ApiResponse({ status: 429, description: 'Request limit exceeded (30 requests per IP per minute), independent of account status. Retry-After is provided.' })
+	@UseGuards(ResendRateLimitGuard)
 	@HttpCode(HttpStatus.OK)
 	@Header('Cache-Control', 'no-store')
-	async resendVerification(@Body() dto: LoginDto) {
-		const user = await this.authService.validateCredentials(dto.email, dto.password, false);
-		await this.emailVerification.startVerification(user.id, user.email);
-		return { message: 'Verification email sent. Check your inbox.' };
+	async resendVerification(@Body() dto: ResendVerificationDto) {
+		return this.emailVerification.resendVerification(dto.email);
 	}
 	@Post('login')
 	@HttpCode(HttpStatus.OK)

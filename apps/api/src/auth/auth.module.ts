@@ -8,6 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
+import { ResendRateLimitGuard } from './guards/resend-rate-limit.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { RegistrationModule } from "./registration/registration.module.js";
 import { EmailVerificationModule } from './email-verification/email-verification.module.js';
@@ -35,6 +36,6 @@ import { MailModule } from './mail/mail.module.js';
 
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, ResendRateLimitGuard],
 })
 export class AuthModule { }

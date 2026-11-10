@@ -50,13 +50,12 @@ describe('AuthService.validateCredentials', () => {
 		await service.onModuleInit();
 		await expect (service.validateCredentials(databaseUser.email, 'wrong-password'),).rejects.toThrow(UnauthorizedException);
 	});
-	it('blocks login for unverified accounts but allows credential checks for resend', async () => {
+	it('blocks login for unverified accounts and still validates passwords', async () => {
 		const user = { id: 'user-id', email: 'student@example.test', passwordHash: await argon2.hash('password'), emailVerifiedAt: null, status: 'ACTIVE' };
 		const service = new AuthService({ user: { findUnique: vi.fn().mockResolvedValue(user) } } as unknown as PrismaService, new JwtService());
 		await service.onModuleInit();
 		await expect(service.login(user.email, 'password')).rejects.toMatchObject({ response: { code: 'EMAIL_NOT_VERIFIED' } });
-		await expect(service.validateCredentials(user.email, 'password', false)).resolves.toEqual({ id: user.id, email: user.email });
-		await expect(service.validateCredentials(user.email, 'wrong', false)).rejects.toBeInstanceOf(UnauthorizedException);
+		await expect(service.validateCredentials(user.email, 'wrong')).rejects.toBeInstanceOf(UnauthorizedException);
 	});
 	it('rejects an unknown email with a generic error', async () => {
 		const prismaMock = {

@@ -50,7 +50,7 @@ Configuration is validated before application startup. All future request DTOs u
 Registration creates an unverified account and returns `verificationEmailSent`.
 The web app directs the user to `/verify-email`. A failed email send preserves the
 account and returns `verificationEmailSent: false`, allowing recovery through
-`POST /api/auth/resend-verification` with the account email and password. Successful
+`POST /api/auth/resend-verification` with only `{ "email": "student@example.com" }` (no password). Successful
 email requests have a 60-second per-account cooldown. Mailpit captures development
 emails at http://localhost:8025; it does not deliver them to real inboxes.
 
@@ -59,7 +59,19 @@ Verification links expire after 10 minutes. The page asks the user to press
 `POST /api/email-verification/verify-email`. Verification consumes all outstanding
 links for that user. Login and existing JWT cookies require a verified email;
 email verification does not approve an organizer's organization. Previously
-created unverified accounts can use the resend form with their existing password.
+created unverified accounts can use the resend form with only their email.
+
+The public resend endpoint returns HTTP 200 and
+`{"message":"If this address belongs to an account awaiting verification, check your inbox."}`
+for unknown, already verified, suspended, cooldown-suppressed and eligible addresses,
+including failed delivery. Invalid DTOs return 400; passwords are rejected as extra
+fields. Only the registered address of an unverified, non-suspended account receives
+mail. Failed sends remove their token so an immediate backend retry is possible.
+PostgreSQL row locks preserve the 60-second account cooldown across API instances.
+A separate per-process IP limiter allows 30 requests per minute and returns 429
+with `Retry-After`, irrespective of account status. Only Caddy should be publicly
+exposed: Express trusts one proxy hop for client IPs. Multiple API replicas should
+also enforce an aggregate IP limit at the edge.
 
 See [email verification changes](../../docs/email-verification-fix.md) for the full
 change list, recovery behavior and checks.
