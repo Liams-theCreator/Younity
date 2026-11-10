@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,7 +10,7 @@ const request = vi.mocked(apiRequest)
 let kind: 'student' | 'organizer'
 let session: object | null
 let registrationError: { status: number; message: string[] } | null
-let loginFails: boolean
+let mailFails: boolean
 let delayRegistration: Promise<void> | null
 const email = 'sara@example.test'
 const password = 'Abcdefg1!'
@@ -54,16 +54,17 @@ async function submitRegistration(account: 'student' | 'organizer') {
 }
 
 beforeEach(() => {
-  session = null; registrationError = null; loginFails = false; delayRegistration = null
+  sessionStorage.clear()
+  session = null; registrationError = null; mailFails = false; delayRegistration = null
   request.mockReset().mockImplementation(async (input, options) => {
     if (input === '/api/auth/me') return session ? Response.json(session) : new Response(null, { status: 401 })
     if (String(input).startsWith('/api/auth/register/')) {
       if (delayRegistration) await delayRegistration
       if (registrationError) return Response.json({ message: registrationError.message }, { status: registrationError.status })
-      return Response.json({ id: 'registered-user', email }, { status: 201 })
+      return Response.json({ id: 'registered-user', email, verificationEmailSent: !mailFails }, { status: 201 })
     }
+    if (input === '/api/auth/resend-verification') return Response.json({ message: 'If this address belongs to an account awaiting verification, check your inbox.' })
     if (input === '/api/auth/login') {
-      if (loginFails) return new Response(null, { status: 401 })
       expect(JSON.parse(String(options?.body))).toEqual({ email, password })
       session = { id: 'registered-user', email, role: kind === 'student' ? 'STUDENT' : 'ORGANIZER', status: kind === 'student' ? 'ACTIVE' : 'PENDING', organization: kind === 'student' ? null : { verificationStatus: 'PENDING' } }
       return Response.json({})
@@ -72,8 +73,8 @@ beforeEach(() => {
   })
 })
 
-describe('registration handoff to shared AUTH-05 authentication', () => {
-  it('registers all student preferences, signs in and reaches the student dashboard', async () => {
+describe('registration handoff to email verification', () => {
+  it('registers all student preferences and waits for email verification', async () => {
     mount('student'); await fill('student')
     await userEvent.click(screen.getByRole('button', { name: 'Continue to preferences' }))
     await userEvent.click(screen.getByRole('checkbox', { name: /Computer Science & AI/ }))
@@ -82,21 +83,21 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: /Robotics & Smart IoT/ }))
     await userEvent.click(screen.getByRole('checkbox', { name: /Hybrid Events/ }))
     await submitRegistration('student')
-    expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
     const payload = JSON.parse(String(posts('/api/auth/register/student')[0][1]?.body))
     expect(payload).toEqual({ firstName: 'Sara', lastName: 'Test', email, password, university: 'Test Institute', interests: ['AI_DATA', 'ROBOTICS_IOT'], academicField: 'COMPUTER_SCIENCE', studyLevel: 'SECOND_YEAR', opportunityFormat: 'HYBRID' })
-    expect(posts('/api/auth/login')).toHaveLength(1)
-    expect(screen.getByLabelText('Current route')).toHaveTextContent('/student/dashboard')
+    expect(posts('/api/auth/login')).toHaveLength(0)
+    expect(screen.getByLabelText('Current route')).toHaveTextContent('/verify-email')
   })
 
-  it('registers an organizer without a fabricated proof URL, then uses verified pending routing', async () => {
+  it('registers an organizer without a fabricated proof URL and waits for email verification', async () => {
     mount('organizer'); await fill('organizer')
     await userEvent.upload(screen.getByLabelText('Affiliation or authorization document'), new File(['proof'], 'proof.pdf', { type: 'application/pdf' }))
     await submitRegistration('organizer')
-    expect(await screen.findByRole('heading', { name: 'Organization verification pending' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
     const payload = JSON.parse(String(posts('/api/auth/register/organizer')[0][1]?.body))
     expect(payload).toEqual({ firstName: 'Sara', lastName: 'Test', email, password, organizationName: 'Campus Club', type: 'STUDENT_CLUB', representativeFullName: 'Sara Test', academicPosition: 'Coordinator', phoneNumber: '+212612345678' })
-    expect(screen.getByLabelText('Current route')).toHaveTextContent('/organizer/pending')
+    expect(screen.getByLabelText('Current route')).toHaveTextContent('/verify-email')
     expect(screen.queryByText(/YNT-ORG-2025/)).not.toBeInTheDocument()
   })
 
@@ -109,7 +110,7 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
     registrationError = null
     edit('Email Address', email)
     await submitRegistration('student')
-    expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
   })
 
   it('shows backend validation messages on the relevant organizer fields', async () => {
@@ -121,20 +122,32 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
     expect(posts('/api/auth/login')).toHaveLength(0)
   })
 
-  it.each(['student', 'organizer'] as const)('does not repeat %s registration after successful creation but failed login', async (account) => {
-    loginFails = true
+  it.each(['student', 'organizer'] as const)('recovers a created %s account when email delivery fails', async (account) => {
+    mailFails = true
     mount(account); await fill(account); await submitRegistration(account)
-    expect(await screen.findByText(/Account created; please sign in/)).toBeVisible()
-    const submit = submitButton(account)
-    expect(submit).toBeDisabled()
-    fireEvent.submit(submit.closest('form')!)
-    await waitFor(() => expect(posts(`/api/auth/register/${account}`)).toHaveLength(1))
-    loginFails = false
-    await userEvent.click(screen.getByRole('link', { name: 'Sign in' }))
-    edit('Email Address', email); edit('Password', password)
-    await userEvent.click(screen.getByRole('button', { name: /^Sign In to Younity$/i }))
-    expect(await screen.findByRole('heading', { name: account === 'student' ? 'Student dashboard' : 'Organization verification pending' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
+    expect(screen.getByText(/Your account was created, but we could not send/)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Retry sending' })).toBeVisible()
+    expect(screen.getByText('s***@example.test')).toBeVisible()
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
+    expect(sessionStorage.getItem('younity.emailVerification')).not.toContain(password)
+    await userEvent.click(screen.getByRole('button', { name: 'Retry sending' }))
+    expect(JSON.parse(String(posts('/api/auth/resend-verification')[0][1]?.body))).toEqual({ email })
     expect(posts(`/api/auth/register/${account}`)).toHaveLength(1)
+    expect(posts('/api/auth/login')).toHaveLength(0)
+  })
+
+  it.each(['student', 'organizer'] as const)('hands off a successful %s registration with only email context', async (account) => {
+    mount(account); await fill(account); await submitRegistration(account)
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
+    expect(screen.getByText('s***@example.test')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Resend email' })).not.toBeInTheDocument()
+    const context = JSON.parse(sessionStorage.getItem('younity.emailVerification')!)
+    expect(context.email).toBe(email)
+    expect(context.deliveryFailed).toBe(false)
+    expect(context.resendAvailableAt).toBeGreaterThan(Date.now() + 58000)
+    expect(JSON.stringify(context)).not.toContain(password)
+    expect(posts('/api/auth/login')).toHaveLength(0)
   })
 
   it('locks duplicate submissions while registration is pending', async () => {
@@ -146,7 +159,7 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
     fireEvent.submit(submit.closest('form')!)
     expect(posts('/api/auth/register/organizer')).toHaveLength(1)
     await act(async () => { resolve(); await delayRegistration })
-    expect(await screen.findByRole('heading', { name: 'Organization verification pending' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
   })
 
 
@@ -165,7 +178,7 @@ describe('registration handoff to shared AUTH-05 authentication', () => {
     mount('student'); await fill('student')
     await userEvent.click(screen.getByRole('button', { name: 'Continue to preferences' }))
     await userEvent.click(screen.getByRole('button', { name: /Skip for now/ }))
-    expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
     expect(JSON.parse(String(posts('/api/auth/register/student')[0][1]?.body)).interests).toEqual([])
   })
 })

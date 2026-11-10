@@ -8,29 +8,34 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
+import { ResendRateLimitGuard } from './guards/resend-rate-limit.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { RegistrationModule } from "./registration/registration.module.js";
+import { EmailVerificationModule } from './email-verification/email-verification.module.js';
+import { MailModule } from './mail/mail.module.js';
 
 @Module({
-	imports: [
-		RegistrationModule,
-		PassportModule.register({
-			defaultStrategy: 'jwt',
-			session: false,
-		}),
-		PrismaModule,
-		JwtModule.registerAsync({
-			imports: [ConfigModule],
-			inject: [ConfigService],
+  imports: [
+    RegistrationModule,
+    EmailVerificationModule,
+    PassportModule.register({
+      defaultStrategy: 'jwt',
+      session: false,
+    }),
+    PrismaModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
 
-			useFactory: (config: ConfigService) => {
-          const { secret, ttl } = jwtSettings(config);
-          return { secret, signOptions: { expiresIn: ttl } };
-        },
-		}),
+      useFactory: (config: ConfigService) => {
+        const { secret, ttl } = jwtSettings(config);
+        return { secret, signOptions: { expiresIn: ttl } };
+      },
+    }),
+    MailModule,
 
-	],
-	controllers: [AuthController],
-	providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, ResendRateLimitGuard],
 })
-export class AuthModule {}
+export class AuthModule { }

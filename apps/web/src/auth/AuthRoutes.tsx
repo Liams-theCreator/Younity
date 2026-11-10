@@ -13,6 +13,7 @@ import StudentRegisterPage from '../pages/StudentRegisterPage'
 import OrganizerRegisterPage from '../pages/OrganizerRegisterPage'
 import OrganizationStatusPage from '../pages/OrganizationStatusPage'
 import ProtectedRoute from './ProtectedRoute'
+import EmailVerificationPage from '../pages/EmailVerificationPage'
 
 type AuthRoutesProps = {
   pendingPage: ReactNode
@@ -23,6 +24,7 @@ export default function AuthRoutes({
 }: AuthRoutesProps) {
   return (
     <Routes>
+      <Route path="/verify-email" element={<EmailVerificationPage />} />
       <Route
         path="/"
         element={<Navigate to="/login" replace />}

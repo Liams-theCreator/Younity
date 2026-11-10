@@ -40,12 +40,15 @@ function edit(label: string, value: string) {
 
 beforeEach(() => {
   cookie = ''
+  sessionStorage.clear()
   vi.mocked(apiRequest).mockReset().mockImplementation(realRequest)
 })
 
 describe.skipIf(!base)('live registration UI using the isolated HTTPS API and database', () => {
-  it.each(['student', 'organizer'] as const)('creates a real %s account, signs in and displays the expected destination', async (kind) => {
-    render(<MemoryRouter initialEntries={[`/register/${kind}`]}><App /></MemoryRouter>)
+  it.each(['student', 'organizer'] as const)('registers, receives mail, verifies and signs in a real %s account', async (kind) => {
+    const view = render(<MemoryRouter initialEntries={[`/register/${kind}`]}><App /></MemoryRouter>)
+    const email = `auth04-ui-${randomUUID()}@example.test`
+    const password = 'Real-api-password-2026!'
     if (kind === 'student') {
       edit('First Name', 'Sara'); edit('Last Name', 'Verification')
       fireEvent.change(screen.getByLabelText('University / Academic Institution'), { target: { value: 'Other' } })
@@ -57,12 +60,44 @@ describe.skipIf(!base)('live registration UI using the isolated HTTPS API and da
       edit('Direct Contact Phone', '+212612345678')
       fireEvent.change(screen.getByLabelText('Entity Category'), { target: { value: 'STUDENT_CLUB' } })
     }
-    edit('Email Address', `auth04-ui-${randomUUID()}@example.test`)
+    edit('Email Address', email)
     edit('Account Password', 'Real-api-password-2026!')
     edit('Confirm password', 'Real-api-password-2026!')
     await userEvent.click(screen.getByRole('checkbox'))
     await userEvent.click(screen.getByRole('button', { name: kind === 'student' ? 'Create student account' : 'Submit Organization for Verification' }))
-    expect(await screen.findByRole('heading', { name: kind === 'student' ? 'Student dashboard' : 'Organization verification pending' }, { timeout: 10000 })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Check your email' }, { timeout: 10000 })).toBeVisible()
     expect(vi.mocked(apiRequest).mock.calls.some(([input]) => input === `/api/auth/register/${kind}`)).toBe(true)
-  }, 15000)
+    expect(screen.getByText('a***@example.test')).toBeVisible()
+    await userEvent.click(screen.getByRole('link', { name: 'Back to sign in' }))
+    edit('Email Address', email); edit('Password', password)
+    await userEvent.click(screen.getByRole('button', { name: 'Sign In to Younity' }))
+    expect(await screen.findByRole('alert', {}, { timeout: 10000 })).toHaveTextContent('Verify your email before signing in')
+    expect(cookie).toBe('')
+    const search = new URL('http://127.0.0.1:8025/api/v1/search')
+    search.searchParams.set('query', `to:${email}`)
+    const inbox = await (await fetch(search)).json() as { messages: { ID: string; Subject: string }[] }
+    const message = inbox.messages.find((item) => item.Subject === 'Verify your Younity email')
+    expect(message).toBeDefined()
+    const mail = await (await fetch(`http://127.0.0.1:8025/api/v1/message/${message!.ID}`)).json() as { Text: string }
+    expect(mail.Text).toContain('expires in 10 minutes')
+    const link = new URL(mail.Text.match(/https?:\/\/\S+\/verify-email\?token=[a-f0-9]{64}/)![0])
+    expect(link.origin).toBe(base)
+    view.unmount()
+    // A link opened on a fresh device has no registration context or password.
+    sessionStorage.clear()
+    render(<MemoryRouter initialEntries={[`${link.pathname}${link.search}`]}><App /></MemoryRouter>)
+    const before = vi.mocked(apiRequest).mock.calls.filter(([input]) => input === '/api/email-verification/verify-email').length
+    expect(before).toBe(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Verify email' }))
+    expect(await screen.findByRole('heading', { name: 'Email verified' }, { timeout: 10000 })).toBeVisible()
+    await userEvent.click(screen.getByRole('link', { name: 'Go to sign in' }))
+    edit('Email Address', email); edit('Password', password)
+    await userEvent.click(screen.getByRole('button', { name: 'Sign In to Younity' }))
+    if (kind === 'student') expect(await screen.findByRole('heading', { name: 'Student dashboard' }, { timeout: 10000 })).toBeVisible()
+    else {
+      expect(await screen.findByRole('heading', { name: 'Organization verification pending' }, { timeout: 10000 })).toBeVisible()
+      expect((await realRequest('/api/auth/organizer-check')).status).toBe(403)
+    }
+    expect(cookie).toMatch(/^access_token=/)
+  }, 30000)
 })

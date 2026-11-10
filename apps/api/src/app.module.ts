@@ -26,4 +26,4 @@ import { StudentModule } from './student/student.module.js';
     AppService,
   ],
 })
-export class AppModule {}
+export class AppModule { }

@@ -571,3 +571,30 @@ from logout failures, preserving its own retry behavior. The combined routing
 tests cover pending-to-approved refresh, role redirects and session-check retry.
 The database foundation alone does not supply registration or authentication
 controllers; live end-to-end acceptance still needs those backend branches.
+
+
+## Email verification and recovery
+
+Both registration forms hand off to `/verify-email` with the email address in
+router state and tab session storage. The page displays a masked address and
+**Back to sign in**, then offers **Didn’t receive it? Resend email** after 60 seconds.
+A `verificationEmailSent: false` response retains the created account and offers
+**Retry sending** immediately. Passwords are never carried to recovery.
+
+Email links remain valid for 10 minutes. Opening `/verify-email?token=...` does
+not submit anything: **Verify email** explicitly posts the token. Success shows
+**Email verified** and **Go to sign in**. Invalid, expired and used links show
+**This link is no longer valid** and **Request a new link**. Known addresses need
+one click; fresh devices ask only for an email. Unverified login links to the
+same recovery flow. Resend posts `{ "email": "..." }` and uses the API's generic
+response without claiming that mail was sent to an existing account. Browser
+cooldowns survive reload within the same tab. API account cooldowns remain
+independent of browser storage. Frontend timing constants live in
+`src/auth/emailVerification.ts` and match the backend shared settings; they are
+presentation hints, with PostgreSQL enforcing cooldown and expiry.
+
+Run `npm test -- --maxWorkers=1`, `npm run lint`, and `npm run build`.
+The opt-in `src/registration/live.test.tsx` connects the rendered registration,
+verification and login forms to local HTTPS API and Mailpit using
+`AUTH_TEST_BASE_URL` and `AUTH_TEST_CA_FILE`. It is a DOM integration check,
+not a browser layout audit.

@@ -1,4 +1,9 @@
 services:
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
   db:
     image: postgres:17
     environment:
@@ -25,11 +30,14 @@ services:
     environment:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-900}
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://localhost}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://localhost:8443}
       NODE_ENV: development
       PORT: "3000"
       CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost,http://localhost:5173}
       DATABASE_URL: ${API_DATABASE_URL:?Set API_DATABASE_URL in root .env}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      MAIL_FROM: "Younity <no-reply@younity.test>"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 5s
@@ -37,6 +45,8 @@ services:
       retries: 20
       start_period: 20s
     depends_on:
+      mailpit:
+        condition: service_started
       db:
         condition: service_healthy
     develop:

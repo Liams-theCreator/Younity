@@ -98,7 +98,6 @@ export default function StudentRegisterPage({
       (signal) => registerStudent(payload, signal),
       {
         email: payload.email,
-        password: payload.password,
       },
     )
 
@@ -318,8 +317,7 @@ export default function StudentRegisterPage({
 
       {accountCreated && !isSubmitting && (
         <p className="notice" role="status">
-          Account created; please sign in.{' '}
-          <Link to="/login">Sign in</Link>
+          Account created. Check your email to verify your account.
         </p>
       )}
     </RegistrationLayout>
