@@ -5,6 +5,7 @@ import * as argon2 from 'argon2';
 
 import { RegistrationService } from './registration.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { EmailVerificationService } from '../email-verification/email-verification.service.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import {
   OrganizationType,
@@ -15,6 +16,7 @@ import {
 
 describe('RegistrationService', () => {
   let service: RegistrationService;
+  const emailVerification = { startVerification: vi.fn() };
 
   const prismaMock = {
     user: {
@@ -46,6 +48,7 @@ describe('RegistrationService', () => {
     const module = await Test.createTestingModule({
       providers: [
         RegistrationService,
+        { provide: EmailVerificationService, useValue: emailVerification },
         {
           provide: PrismaService,
           useValue: prismaMock,
@@ -146,6 +149,15 @@ describe('RegistrationService', () => {
         await expect(register()).rejects.toBeInstanceOf(
           ConflictException,
         );
+      });
+
+      it('reports account creation with a resend recovery path when mail delivery fails', async () => {
+        prismaMock.user.findUnique.mockResolvedValue(null);
+        prismaMock.user.create.mockResolvedValue({ id: 'created-user', email: dto.email });
+        emailVerification.startVerification.mockRejectedValue(new Error('SMTP unavailable'));
+        await expect(register()).resolves.toEqual({ id: 'created-user', email: dto.email, verificationEmailSent: false });
+        expect(emailVerification.startVerification).toHaveBeenCalledWith('created-user', dto.email);
+        expect(prismaMock.user.create).toHaveBeenCalledTimes(1);
       });
 
       it('preserves unrelated uniqueness errors', async () => {

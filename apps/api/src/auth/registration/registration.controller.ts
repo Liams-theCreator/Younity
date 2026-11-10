@@ -28,7 +28,7 @@ export class RegistrationController {
   })
   @ApiCreatedResponse({
     description:
-      'Student account and profile created successfully. Password hash is excluded.',
+      'Account created. verificationEmailSent indicates delivery success; if false, use /auth/resend-verification. Email verification is required before login. Password hash is excluded.',
   })
   @ApiBadRequestResponse({
     description:
@@ -56,7 +56,7 @@ export class RegistrationController {
   })
   @ApiCreatedResponse({
     description:
-      'Organizer account and pending organization created. Password hash is excluded.',
+      'Account and pending organization created. verificationEmailSent indicates delivery success; if false, use /auth/resend-verification. Email verification is required before login and does not approve the organization. Password hash is excluded.',
   })
   @ApiBadRequestResponse({
     description: 'Invalid, missing, or unexpected request fields.',

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from "@nestjs/common";
+import { ConflictException, Injectable, Logger } from "@nestjs/common";
 import * as argon2 from 'argon2';
 import { Prisma } from "../../generated/prisma/client.js";
 import { RegisterOrganizerDto } from "../dto/register-organizer.dto.js";
@@ -9,7 +9,20 @@ import { EmailVerificationService } from "../email-verification/email-verificati
 
 @Injectable()
 export class RegistrationService {
+  private readonly logger = new Logger(RegistrationService.name);
   constructor(private readonly prisma: PrismaService, private readonly emailVerificationService: EmailVerificationService,) { }
+
+  private async sendVerification(user: { id: string; email: string }): Promise<boolean> {
+    try {
+      await this.emailVerificationService.startVerification(user.id, user.email);
+      return true;
+    } catch {
+      // Account creation succeeded. Let the client recover through resend instead
+      // of reporting a failed registration and encouraging a duplicate signup.
+      this.logger.error(`Verification email could not be sent for user ${user.id}; resend is available.`);
+      return false;
+    }
+  }
 
   private isEmailConflict(error: unknown): boolean {
     if (
@@ -71,7 +84,7 @@ export class RegistrationService {
       }
     })
     if (existingUser) {
-      throw new ConflictException('Email is already registred')
+      throw new ConflictException('Email is already registered')
     }
     const passwordHash = await argon2.hash(dto.password, {
       type: argon2.argon2id,
@@ -118,8 +131,8 @@ export class RegistrationService {
           },
         },
       });
-      await this.emailVerificationService.startVerification(user.id, user.email);
-      return user;
+      const verificationEmailSent = await this.sendVerification(user);
+      return { ...user, verificationEmailSent };
     } catch (error) {
       if (this.isEmailConflict(error)) {
         throw new ConflictException('Email is already registered');
@@ -188,8 +201,8 @@ export class RegistrationService {
           },
         },
       });
-      await this.emailVerificationService.startVerification(user.id, user.email);
-      return user;
+      const verificationEmailSent = await this.sendVerification(user);
+      return { ...user, verificationEmailSent };
     } catch (error) {
       if (this.isEmailConflict(error)) {
         throw new ConflictException('Email is already registered');

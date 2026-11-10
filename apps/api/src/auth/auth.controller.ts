@@ -11,6 +11,8 @@ import { RolesGuard } from './guards/roles.guard.js';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { InternalServerErrorException, Header } from '@nestjs/common';
+import { EmailVerificationService } from './email-verification/email-verification.service.js';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController
@@ -18,8 +20,22 @@ export class AuthController
 	constructor(
 		private readonly authService: AuthService,
 		private readonly config: ConfigService,
+		private readonly emailVerification: EmailVerificationService,
 
 	) {}
+	@Post('resend-verification')
+	@ApiOperation({ summary: 'Resend email verification using account email and password' })
+	@ApiResponse({ status: 200, description: 'Verification email sent; links expire after 10 minutes.' })
+	@ApiResponse({ status: 401, description: 'Invalid credentials.' })
+	@ApiResponse({ status: 429, description: 'Wait 60 seconds between successful email requests.' })
+	@ApiResponse({ status: 503, description: 'Delivery failed; the account is retained and the request can be retried.' })
+	@HttpCode(HttpStatus.OK)
+	@Header('Cache-Control', 'no-store')
+	async resendVerification(@Body() dto: LoginDto) {
+		const user = await this.authService.validateCredentials(dto.email, dto.password, false);
+		await this.emailVerification.startVerification(user.id, user.email);
+		return { message: 'Verification email sent. Check your inbox.' };
+	}
 	@Post('login')
 	@HttpCode(HttpStatus.OK)
 	async login(

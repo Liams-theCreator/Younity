@@ -1,4 +1,4 @@
-import { Body, Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Post, HttpCode, HttpStatus, Header } from '@nestjs/common';
 import { EmailVerificationService } from './email-verification.service.js';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiBadRequestResponse } from '@nestjs/swagger';
 import { VerifyEmailDto } from '../dto/email-verification.dto.js';
@@ -20,6 +20,7 @@ export class EmailVerificationController {
     description: 'Malformed, invalid, expired, or already-used token',
   })
   @Post('verify-email')
+  @Header('Cache-Control', 'no-store')
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     return this.emailverificationService.verifyEmail(dto);
   }
