@@ -7,6 +7,7 @@ import {
 } from 'react-router'
 import LoginPage from '../pages/LoginPage'
 import StudentDashboardPage from '../pages/StudentDashboardPage'
+import StudentPreferencesPage from '../pages/StudentPreferencesPage'
 import OrganizerDashboardPage from '../pages/OrganizerDashboardPage'
 import StudentRegisterPage from '../pages/StudentRegisterPage'
 import OrganizerRegisterPage from '../pages/OrganizerRegisterPage'
@@ -48,6 +49,20 @@ export default function AuthRoutes({
         path="/register/organizer"
         element={
           <OrganizerRegisterPage signInPath="/login" />
+        }
+      />
+
+      <Route
+        path="/student/preferences"
+        element={
+          <ProtectedRoute
+            destination="/student/dashboard"
+            renderRedirect={(to) => (
+              <Navigate to={to} replace />
+            )}
+          >
+            <StudentPreferencesPage />
+          </ProtectedRoute>
         }
       />
 
@@ -112,9 +127,7 @@ export default function AuthRoutes({
         element={
           <main>
             <h1>Page not found</h1>
-            <Link to="/login">
-              Go to sign in
-            </Link>
+            <Link to="/login">Go to sign in</Link>
           </main>
         }
       />

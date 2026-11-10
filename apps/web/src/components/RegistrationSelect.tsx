@@ -1,6 +1,9 @@
 import ReferenceIcon from './ReferenceIcon'
 
-type SelectOption = { value: string; label: string }
+type SelectOption = {
+  value: string
+  label: string
+}
 
 export default function RegistrationSelect({
   id,
@@ -10,6 +13,7 @@ export default function RegistrationSelect({
   value,
   error,
   onChange,
+  required = true,
 }: {
   id: string
   label: string
@@ -18,33 +22,45 @@ export default function RegistrationSelect({
   value: string
   error?: string
   onChange: (value: string) => void
+  required?: boolean
 }) {
   return (
     <div className="form-field registration-select-field">
       <div className="field-label">
         <label htmlFor={id}>{label}</label>
-        <span className="required-hint">Required</span>
+        <span className="required-hint">
+          {required ? 'Required' : 'Optional'}
+        </span>
       </div>
+
       <div className="reference-select">
         <select
           id={id}
           name={id}
-          required
+          required={required}
           value={value}
           onMouseDown={(event) => {
-            if (event.button === 0 && typeof event.currentTarget.showPicker === 'function') {
+            if (
+              event.button === 0 &&
+              typeof event.currentTarget.showPicker === 'function'
+            ) {
               event.preventDefault()
               event.currentTarget.focus()
             }
           }}
           onClick={(event) => {
-            if (event.detail > 0 && typeof event.currentTarget.showPicker === 'function') {
+            if (
+              event.detail > 0 &&
+              typeof event.currentTarget.showPicker === 'function'
+            ) {
               event.currentTarget.showPicker()
             }
           }}
           onChange={(event) => onChange(event.target.value)}
           aria-invalid={Boolean(error)}
-          aria-describedby={error ? `${id}-error` : undefined}
+          aria-describedby={
+            error ? `${id}-error` : undefined
+          }
         >
           <option value="">{placeholder}</option>
           {options.map((option) => (
@@ -53,8 +69,10 @@ export default function RegistrationSelect({
             </option>
           ))}
         </select>
+
         <ReferenceIcon name="arrow_drop_down" />
       </div>
+
       {error && (
         <p className="field-error" id={`${id}-error`}>
           {error}
