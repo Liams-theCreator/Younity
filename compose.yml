@@ -30,7 +30,7 @@ services:
     environment:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-900}
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://localhost}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://localhost:8443}
       NODE_ENV: development
       PORT: "3000"
       CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost,http://localhost:5173}
@@ -45,6 +45,8 @@ services:
       retries: 20
       start_period: 20s
     depends_on:
+      mailpit:
+        condition: service_started
       db:
         condition: service_healthy
     develop:

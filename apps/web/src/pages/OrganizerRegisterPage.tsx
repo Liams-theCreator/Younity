@@ -1,4 +1,3 @@
-import { Link } from 'react-router'
 import { useRegistration } from '../registration/useRegistration'
 import { registrationFieldErrors } from '../registration/errors'
 import { mapOrganizerPayload } from '../registration/payload'
@@ -62,7 +61,7 @@ export default function OrganizerRegistration({
       return
     }
     const payload = mapOrganizerPayload(account, organization)
-    const failure = await submit((signal) => registerOrganizer(payload, signal), { email: payload.email, password: payload.password })
+    const failure = await submit((signal) => registerOrganizer(payload, signal), { email: payload.email })
     if (failure) {
       const result = registrationFieldErrors(failure)
       const { firstName, lastName, ...accountErrors } = result.fields
@@ -193,7 +192,7 @@ export default function OrganizerRegistration({
           <p role="status" aria-live="polite">{isSubmitting ? 'Submitting...' : ''}</p>
         </form>
         {accountCreated && !isSubmitting && (
-          <p className="notice" role="status">Account created; please sign in. <Link to="/login">Sign in</Link></p>
+          <p className="notice" role="status">Account created. Check your email to verify your account.</p>
         )}
         <AlreadyHaveAccount signInPath={signInPath} />
       </RegistrationLayout>

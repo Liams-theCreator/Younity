@@ -63,7 +63,7 @@ export default function StudentRegisterPage({
       return
     }
     const payload = mapStudentPayload(draft, selectedPreferences)
-    const failure = await submit((signal) => registerStudent(payload, signal), { email: payload.email, password: payload.password })
+    const failure = await submit((signal) => registerStudent(payload, signal), { email: payload.email })
     if (failure) {
       const nextErrors = registrationFieldErrors(failure).fields
       setErrors(nextErrors)
@@ -205,7 +205,7 @@ export default function StudentRegisterPage({
       )}
       <SubmissionStatus pending={isSubmitting} message={error?.message ?? ''} />
       {accountCreated && !isSubmitting && (
-        <p className="notice" role="status">Account created; please sign in. <Link to="/login">Sign in</Link></p>
+        <p className="notice" role="status">Account created. Check your email to verify your account.</p>
       )}
     </RegistrationLayout>
   )
