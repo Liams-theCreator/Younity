@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { validateEnvironment } from './config/environment.js';
 import { AuthModule } from './auth/auth.module.js';
 import { StudentModule } from './student/student.module.js';
+import { OrganizerApplicationsModule } from './organizer-applications/organizer-applications.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { StudentModule } from './student/student.module.js';
     PrismaModule,
     AuthModule,
     StudentModule,
+    OrganizerApplicationsModule,
   ],
   controllers: [
     AppController,
