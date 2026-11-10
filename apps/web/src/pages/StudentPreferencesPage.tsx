@@ -13,6 +13,7 @@ import {
   PreferencesError,
   requestPreferences,
 } from '../student/preferences'
+import './StudentPreferencesPage.css'
 
 export default function StudentPreferencesPage() {
   const { requestProtected, refreshSession } = useAuth()
