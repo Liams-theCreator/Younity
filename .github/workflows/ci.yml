@@ -26,6 +26,7 @@ jobs:
       NODE_ENV: test
       JWT_SECRET: ci_only_jwt_secret_for_isolated_test_execution
       JWT_TTL_SECONDS: "900"
+      FRONTEND_ORIGIN: https://localhost:8443
       DATABASE_URL: postgresql://younity:ci_only_password@127.0.0.1:5432/younity_test
       TEST_DATABASE_URL: postgresql://younity:ci_only_password@127.0.0.1:5432/younity_test
     defaults:

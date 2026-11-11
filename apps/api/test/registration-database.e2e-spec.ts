@@ -76,7 +76,7 @@ describe('Registration database integration', () => {
     process.env.DATABASE_URL = testUrl;
 
     module = await Test.createTestingModule({
-      providers: [RegistrationService, PrismaService, { provide: EmailVerificationService, useValue: { startVerification: vi.fn() } }],
+      providers: [RegistrationService, PrismaService, { provide: EmailVerificationService, useValue: { startVerification: vi.fn(), createRecoveryToken: vi.fn() } }],
     }).compile();
 
     prisma = module.get(PrismaService);

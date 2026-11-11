@@ -12,15 +12,16 @@ export class RegistrationService {
   private readonly logger = new Logger(RegistrationService.name);
   constructor(private readonly prisma: PrismaService, private readonly emailVerificationService: EmailVerificationService,) { }
 
-  private async sendVerification(user: { id: string; email: string }): Promise<boolean> {
+  private async sendVerification(user: { id: string; email: string }) {
+    const verificationRecoveryToken = await this.emailVerificationService.createRecoveryToken(user.id);
     try {
-      await this.emailVerificationService.startVerification(user.id);
-      return true;
+      const verificationExpiresAt = await this.emailVerificationService.startVerification(user.id);
+      return { verificationEmailSent: true, verificationExpiresAt, verificationRecoveryToken };
     } catch {
       // Account creation succeeded. Let the client recover through resend instead
       // of reporting a failed registration and encouraging a duplicate signup.
       this.logger.error(`Verification email could not be sent for user ${user.id}; resend is available.`);
-      return false;
+      return { verificationEmailSent: false, verificationExpiresAt: null, verificationRecoveryToken };
     }
   }
 
@@ -131,8 +132,7 @@ export class RegistrationService {
           },
         },
       });
-      const verificationEmailSent = await this.sendVerification(user);
-      return { ...user, verificationEmailSent };
+      return { ...user, ...await this.sendVerification(user) };
     } catch (error) {
       if (this.isEmailConflict(error)) {
         throw new ConflictException('Email is already registered');
@@ -201,8 +201,7 @@ export class RegistrationService {
           },
         },
       });
-      const verificationEmailSent = await this.sendVerification(user);
-      return { ...user, verificationEmailSent };
+      return { ...user, ...await this.sendVerification(user) };
     } catch (error) {
       if (this.isEmailConflict(error)) {
         throw new ConflictException('Email is already registered');
