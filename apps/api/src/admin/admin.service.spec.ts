@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConflictException } from '@nestjs/common';
 import { AdminService } from './admin.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -15,6 +16,9 @@ describe('AdminService', () => {
 					  findUnique: vi.fn().mockResolvedValue({
 						  id: 'application-123',
 						  status: 'PENDING',
+					  }),
+					  updateMany: vi.fn().mockResolvedValue({
+						  count: 1,
 					  }),
 				  },
 			  },
@@ -49,7 +53,62 @@ describe('AdminService', () => {
 	  });
 	  expect(result).toBeNull();
   });
-  it('should propagate database errors', () => {
-    expect(service).toBeDefined();
+  it('should propagate database errors', async () => {
+	  const mockFunction = service['prisma'].organizationApplication.findUnique;
+	  vi.mocked(mockFunction).mockRejectedValueOnce(
+		  new Error('Database unavailable'),
+	  );
+	  await expect(service.findApplication('application-123'),
+				  ).rejects.toThrow('Database unavailable');
+  });
+  it('should approve a pending application', async () => {
+	  const result = await service.approveApplication('application-123');
+	  const mockFunction = service['prisma'].organizationApplication.updateMany;
+	  expect(mockFunction).toHaveBeenCalledWith({
+		  where: {
+			  id: 'application-123',
+			  status: 'PENDING',
+		  },
+		  data: { status: 'APPROVED', },
+	  });
+	  expect(result).toEqual(1);
+  });
+  it('should reject approval when application is not pending', async () => {
+	  const mockFunction = service['prisma'].organizationApplication.updateMany;
+	  vi.mocked(mockFunction).mockResolvedValueOnce({ count: 0 });
+	  await expect(service.approveApplication('application-123'),
+				  ).rejects.toThrow(ConflictException);
+	  expect(mockFunction).toHaveBeenCalledWith({
+		  where: {
+			  id: 'application-123',
+			  status: 'PENDING',
+		  },
+		  data: { status: 'APPROVED', },
+	  });
+  });
+  it('should reject a pending application', async () => {
+	  const result = await service.rejectApplication('application-123');
+	  const mockFunction = service['prisma'].organizationApplication.updateMany;
+	  expect(mockFunction).toHaveBeenCalledWith({
+		  where: {
+			  id: 'application-123',
+			  status: 'PENDING',
+		  },
+		  data: { status: 'REJECTED', },
+	  });
+	  expect(result).toEqual(1);
+  });
+  it('should reject rejection when application is not pending', async () => {
+	  const mockFunction = service['prisma'].organizationApplication.updateMany;
+	  vi.mocked(mockFunction).mockResolvedValueOnce({ count: 0 });
+	  await expect(service.rejectApplication('application-123'),
+				  ).rejects.toThrow(ConflictException);
+	  expect(mockFunction).toHaveBeenCalledWith({
+		  where: {
+			  id: 'application-123',
+			  status: 'PENDING',
+		  },
+		  data: { status: 'REJECTED', },
+	  });
   });
 });

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
@@ -12,5 +12,41 @@ export class AdminService {
 		} catch(error) {
 			throw error;
 		}
+	}
+	async approveApplication(applicationId: string) {
+		try {
+			const result = await this.prisma.organizationApplication.updateMany({
+				where: {
+					id: applicationId,
+					status: 'PENDING',
+				},
+				data: {
+					status: 'APPROVED',
+				},
+			});
+			if (result.count === 0) {
+				throw new ConflictException('Application cannot be approved');
+			}
+			else
+				return result.count;
+		} catch (error) { throw(error); }
+	}
+	async rejectApplication(applicationId: string) {
+		try {
+			const result = await this.prisma.organizationApplication.updateMany({
+				where: {
+					id: applicationId,
+					status: 'PENDING',
+				},
+				data: {
+					status: 'REJECTED',
+				},
+			});
+			if (result.count === 0) {
+				throw new ConflictException('Application cannot be rejected');
+			}
+			else
+				return result.count;
+		} catch (error) { throw(error); }
 	}
 }
