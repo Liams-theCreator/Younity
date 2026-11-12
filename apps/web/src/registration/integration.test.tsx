@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect } from 'react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation, type Location as RouterLocation } from 'react-router'
@@ -15,7 +15,7 @@ let mailFails: boolean
 let delayRegistration: Promise<void> | null
 const email = 'sara@example.test'
 const password = 'Abcdefg1!'
-let currentLocation: RouterLocation
+let currentLocation: RouterLocation | undefined
 let verificationStates: Map<string, { verified: boolean; unavailable: boolean; expiresAt: string | null }>
 
 function Location() {
@@ -60,6 +60,7 @@ async function submitRegistration(account: 'student' | 'organizer') {
 
 beforeEach(() => {
   sessionStorage.clear()
+  currentLocation = undefined
   verificationStates = new Map()
   session = null; registrationError = null; mailFails = false; delayRegistration = null
   request.mockReset().mockImplementation(async (input, options) => {
@@ -96,6 +97,11 @@ describe('registration handoff to email verification', () => {
     expect(await screen.findByText(/Your account was created, but we could not send/)).toBeVisible()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     const recoveryToken = JSON.parse(sessionStorage.getItem('younity.emailVerification')!).recoveryToken
+    // The waiting page can render before Location's effect records the handoff.
+    await waitFor(() => expect(currentLocation).toMatchObject({
+      pathname: '/verify-email',
+      state: { verification: { recoveryToken, deliveryFailed: true, resendAvailableAt: 0 } },
+    }))
     const originalHandoff = currentLocation!
     await userEvent.click(await screen.findByRole('button', { name: 'Retry sending' }))
     expect(screen.queryByText(/Your account was created, but we could not send/)).not.toBeInTheDocument()
