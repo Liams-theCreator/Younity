@@ -54,6 +54,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt')
 				email: true,
 				role: true,
 				status: true,
+				emailVerifiedAt: true,
 				ownedOrganizations: {
 					select: {
 						id: true,
@@ -69,6 +70,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt')
 
 		if (user.status === UserStatus.SUSPENDED) {
 			throw new ForbiddenException('Account suspended');
+		}
+
+		if (!user.emailVerifiedAt) {
+			throw new ForbiddenException({ code: 'EMAIL_NOT_VERIFIED', message: 'Verify your email before signing in.' });
 		}
 
 		return user;

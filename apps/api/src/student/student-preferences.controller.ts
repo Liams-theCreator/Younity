@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Header,
   Patch,
   UseGuards,
@@ -29,6 +30,26 @@ export class StudentPreferencesController {
     private readonly preferences: StudentPreferencesService,
   ) {}
 
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({
+    summary: 'Read the signed-in student’s saved preferences',
+  })
+  @ApiOkResponse({
+    description:
+      'The five saved preference fields; academic values may be null and interests may be incomplete.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid or expired session cookie.',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'Requires an active, email-verified student with an existing profile.',
+  })
+  get(@CurrentUser() user: AuthenticatedUser) {
+    return this.preferences.get(user.id);
+  }
+
   @Patch()
   @Header('Cache-Control', 'no-store')
   @ApiOperation({
@@ -44,8 +65,7 @@ export class StudentPreferencesController {
       'Requires at least two distinct supported interests; unknown fields are rejected. Optional fields may be omitted; null clears them.',
   })
   @ApiUnauthorizedResponse({
-    description:
-      'Missing, invalid or expired session cookie.',
+    description: 'Missing, invalid or expired session cookie.',
   })
   @ApiForbiddenResponse({
     description:

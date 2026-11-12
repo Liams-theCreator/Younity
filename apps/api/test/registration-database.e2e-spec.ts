@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { RegistrationService } from '../src/auth/registration/registration.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { OrganizationType } from '../src/generated/prisma/enums.js';
+import { EmailVerificationService } from '../src/auth/email-verification/email-verification.service.js';
 
 describe('Registration database integration', () => {
   let module: TestingModule | undefined;
@@ -75,7 +76,7 @@ describe('Registration database integration', () => {
     process.env.DATABASE_URL = testUrl;
 
     module = await Test.createTestingModule({
-      providers: [RegistrationService, PrismaService],
+      providers: [RegistrationService, PrismaService, { provide: EmailVerificationService, useValue: { startVerification: vi.fn() } }],
     }).compile();
 
     prisma = module.get(PrismaService);

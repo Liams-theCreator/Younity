@@ -28,6 +28,7 @@ export type SessionUser = {
 }
 
 type LoginErrorCode =
+  | 'EMAIL_NOT_VERIFIED'
   | 'INVALID_CREDENTIALS'
   | 'ACCOUNT_UNAVAILABLE'
   | 'NETWORK_ERROR'
@@ -35,6 +36,7 @@ type LoginErrorCode =
   | 'SESSION_NOT_ESTABLISHED'
 
 const loginMessages: Record<LoginErrorCode, string> = {
+  EMAIL_NOT_VERIFIED: 'Verify your email before signing in. You can request another verification email.',
   INVALID_CREDENTIALS: 'Email or password is incorrect.',
   ACCOUNT_UNAVAILABLE: 'Your account cannot sign in. Please contact support.',
   NETWORK_ERROR: 'Unable to connect. Check your connection and try again.',

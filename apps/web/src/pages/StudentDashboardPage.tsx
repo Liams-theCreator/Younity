@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import styles from './AuthShell.module.css'
 
@@ -14,6 +15,12 @@ export default function StudentDashboardPage() {
         <h1>Student dashboard</h1>
 
         <p>Welcome, {user?.email}.</p>
+
+        <div className={styles.actions}>
+          <Link to="/student/preferences">
+            Edit discovery preferences
+          </Link>
+        </div>
 
         <p>
           You are signed in. Event discovery will be

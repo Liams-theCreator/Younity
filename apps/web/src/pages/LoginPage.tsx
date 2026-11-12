@@ -57,6 +57,14 @@ export default function LoginPage() {
                     </p>
                   )}
 
+                {auth.status === 'anonymous' &&
+                  auth.reason === 'email-unverified' && (
+                    <div className={styles.notice} role="status">
+                      <p>Verify your email before signing in.</p>
+                      <Link to="/verify-email">Resend verification email</Link>
+                    </div>
+                  )}
+
                 {auth.status === 'error' && (
                   <div className={styles.notice}>
                     <p role="alert">{auth.error}</p>

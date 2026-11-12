@@ -14,6 +14,36 @@ import type { UpdatePreferencesDto } from './update-preferences.dto.js';
 export class StudentPreferencesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async get(userId: string) {
+    const profile = await this.prisma.studentProfile.findFirst({
+      where: {
+        userId,
+        user: {
+          is: {
+            role: UserRole.STUDENT,
+            status: UserStatus.ACTIVE,
+            emailVerifiedAt: { not: null },
+          },
+        },
+      },
+      select: {
+        interests: true,
+        university: true,
+        academicField: true,
+        studyLevel: true,
+        opportunityFormat: true,
+      },
+    });
+
+    if (!profile) {
+      throw new ForbiddenException(
+        'An active student account with a verified email and student profile is required',
+      );
+    }
+
+    return profile;
+  }
+
   async update(userId: string, dto: UpdatePreferencesDto) {
     try {
       return await this.prisma.studentProfile.update({
