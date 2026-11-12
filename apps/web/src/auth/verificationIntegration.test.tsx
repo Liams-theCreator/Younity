@@ -36,7 +36,8 @@ describe('verification integration with shared authentication', () => {
     expect(request.mock.calls.some(([url]) => url === '/api/student/preferences')).toBe(false)
 
     await userEvent.click(screen.getByRole('link', { name: 'Resend verification email' }))
-    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Request a verification email' })).toBeVisible()
+    expect(screen.getByLabelText('Enter the email you registered with.')).toHaveValue('')
   })
 
   it.each(['STUDENT', 'ORGANIZER'] as const)('verifies then signs in a %s without treating verification as login or approval', async (role) => {
@@ -59,6 +60,9 @@ describe('verification integration with shared authentication', () => {
         verified = true
         return Response.json({ message: 'Email verified successfully.' })
       }
+      if (url === '/api/auth/resend-verification') {
+        return Response.json({ message: 'If this address belongs to an account awaiting verification, check your inbox.' })
+      }
       throw new Error(`Unexpected request: ${String(url)}`)
     })
 
@@ -70,7 +74,13 @@ describe('verification integration with shared authentication', () => {
     expect(screen.getByLabelText('Password')).toHaveValue('')
 
     await userEvent.click(screen.getByRole('link', { name: 'Resend verification email' }))
-    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Request a verification email' })).toBeVisible()
+    expect(screen.getByLabelText('Enter the email you registered with.')).toHaveValue(email)
+    await userEvent.click(screen.getByRole('button', { name: 'Send verification email' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('If this address belongs to an account awaiting verification, check your inbox.')
+    expect(request).toHaveBeenCalledWith('/api/auth/resend-verification', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ email }),
+    }))
     await userEvent.click(screen.getByRole('button', { name: 'Open test email link' }))
     await userEvent.click(screen.getByRole('button', { name: 'Verify email' }))
     expect(await screen.findByRole('heading', { name: 'Email verified' })).toBeVisible()
@@ -85,10 +95,18 @@ describe('verification integration with shared authentication', () => {
     })).toBeVisible()
   })
 
-  it('registers a student with no academic fields and hands off only email recovery context', async () => {
+  it('registers a student with no academic fields and hands off verification recovery context without credentials', async () => {
+    const recoveryToken = 'registration-recovery-token'
+    const expiresAt = new Date(Date.now() + 600000).toISOString()
     request.mockImplementation(async (url) => {
       if (url === '/api/auth/me') return new Response(null, { status: 401 })
-      if (url === '/api/auth/register/student') return Response.json({ id: 'new-student', email, verificationEmailSent: true }, { status: 201 })
+      if (url === '/api/auth/register/student') return Response.json({
+        id: 'new-student', email, verificationEmailSent: true,
+        verificationRecoveryToken: recoveryToken, verificationExpiresAt: expiresAt,
+      }, { status: 201 })
+      if (url === '/api/email-verification/recovery-status') {
+        return Response.json({ verified: false, unavailable: false, expiresAt })
+      }
       throw new Error(`Unexpected request: ${String(url)}`)
     })
     mount('/register/student')
@@ -99,10 +117,17 @@ describe('verification integration with shared authentication', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create student account' }))
     expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
     const registration = request.mock.calls.find(([url]) => url === '/api/auth/register/student')!
-    expect(JSON.parse(String(registration[1]?.body))).not.toHaveProperty('university')
+    const payload = JSON.parse(String(registration[1]?.body))
+    expect(payload).not.toHaveProperty('university')
+    expect(payload).not.toHaveProperty('academicField')
+    expect(payload).not.toHaveProperty('studyLevel')
     expect(request.mock.calls.some(([url]) => url === '/api/auth/login')).toBe(false)
+    expect(request).toHaveBeenCalledWith('/api/email-verification/recovery-status', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ recoveryToken }),
+    }))
     expect(JSON.parse(sessionStorage.getItem('younity.emailVerification')!)).toEqual({
-      email, deliveryFailed: false, resendAvailableAt: expect.any(Number),
+      email, recoveryToken, flowId: expect.any(String),
+      deliveryFailed: false, resendAvailableAt: Date.parse(expiresAt),
     })
   })
 })
