@@ -14,6 +14,7 @@ import OrganizerRegisterPage from '../pages/OrganizerRegisterPage'
 import OrganizationStatusPage from '../pages/OrganizationStatusPage'
 import ProtectedRoute from './ProtectedRoute'
 import EmailVerificationPage from '../pages/EmailVerificationPage'
+import OrganizerDraftPage from '../pages/OrganizerDraftPage'
 
 type AuthRoutesProps = {
   pendingPage: ReactNode
@@ -24,6 +25,7 @@ export default function AuthRoutes({
 }: AuthRoutesProps) {
   return (
     <Routes>
+      <Route path="/organizer/application" element={<OrganizerDraftPage />} />
       <Route path="/verify-email" element={<EmailVerificationPage />} />
       <Route
         path="/"

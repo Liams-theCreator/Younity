@@ -1,5 +1,6 @@
 import { useAuth } from '../auth/useAuth'
 import styles from './AuthShell.module.css'
+import { Link } from 'react-router'
 
 export default function OrganizationStatusPage() {
   const {
@@ -35,6 +36,9 @@ export default function OrganizationStatusPage() {
         <p>{message}</p>
 
         <div className={styles.actions}>
+          {(status === 'PENDING' || status === 'NEEDS_CHANGES') && (
+            <Link to="/organizer/application">View application</Link>
+          )}
           <button
             type="button"
             onClick={() => {
