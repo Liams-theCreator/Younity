@@ -24,6 +24,9 @@ export class AdminService {
 				},
 				data: {
 					status: 'APPROVED',
+					reviewerId: adminId,
+					reviewerNote: reason,
+					reviewedAt: new Date(),
 				},
 			});
 			if (result.count === 0) {

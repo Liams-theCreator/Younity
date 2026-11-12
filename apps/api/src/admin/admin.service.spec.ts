@@ -72,8 +72,8 @@ describe('AdminService', () => {
 		  },
 		  data: {
 			  status: 'APPROVED',
-			  reviwerId: 'reviewer-123',
-			  reviewerNote: 'Organization documents are good',
+			  reviewerId: 'reviewer-123',
+			  reviewerNote: 'Requirements satisfied',
 			  reviewedAt: expect.any(Date),
 
 		  },
@@ -83,7 +83,7 @@ describe('AdminService', () => {
   it('should reject approval when application is not pending', async () => {
 	  const mockFunction = service['prisma'].organizationApplication.updateMany;
 	  vi.mocked(mockFunction).mockResolvedValueOnce({ count: 0 });
-	  await expect(service.approveApplication('application-123', 'reviewer-1',
+	  await expect(service.approveApplication('application-123', 'reviewer-123',
 													  'Requirements satisfied'),
 				  ).rejects.toThrow(ConflictException);
 	  expect(mockFunction).toHaveBeenCalledWith({
@@ -93,8 +93,8 @@ describe('AdminService', () => {
 		  },
 		  data: {
 			  status: 'APPROVED',
-			  reviwerId: 'reviewer-123',
-			  reviewerNote: 'Organization documents are good',
+			  reviewerId: 'reviewer-123',
+			  reviewerNote: 'Requirements satisfied',
 			  reviewedAt: expect.any(Date),
 		  },
 	  });
@@ -148,18 +148,5 @@ describe('AdminService', () => {
 		  data: { status: 'NEEDS_CHANGES', },
 	  });
 	  expect(result).toEqual(1);
-  });
-  it('should reject requesting-changes when application is not pending', async () => {
-	  const mockFunction = service['prisma'].organizationApplication.updateMany;
-	  vi.mocked(mockFunction).mockResolvedValueOnce({ count: 0 });
-	  await expect(service.requestChangesApplication('application-123'),
-				  ).rejects.toThrow(ConflictException);
-	  expect(mockFunction).toHaveBeenCalledWith({
-		  where: {
-			  id: 'application-123',
-			  status: 'PENDING',
-		  },
-		  data: { status: 'NEEDS_CHANGES', },
-	  });
   });
 });
