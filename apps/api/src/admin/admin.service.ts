@@ -13,7 +13,9 @@ export class AdminService {
 			throw error;
 		}
 	}
-	async approveApplication(applicationId: string) {
+	async approveApplication(applicationId: string,
+							adminId: string,
+							reason: string) {
 		try {
 			const result = await this.prisma.organizationApplication.updateMany({
 				where: {
@@ -44,6 +46,24 @@ export class AdminService {
 			});
 			if (result.count === 0) {
 				throw new ConflictException('Application cannot be rejected');
+			}
+			else
+				return result.count;
+		} catch (error) { throw(error); }
+	}
+	async requestChangesApplication(applicationId: string) {
+		try {
+			const result = await this.prisma.organizationApplication.updateMany({
+				where: {
+					id: applicationId,
+					status: 'PENDING',
+				},
+				data: {
+					status: 'NEEDS_CHANGES',
+				},
+			});
+			if (result.count === 0) {
+				throw new ConflictException('Application cannot be requested for changes');
 			}
 			else
 				return result.count;
