@@ -594,7 +594,5 @@ independent of browser storage. Frontend timing constants live in
 presentation hints, with PostgreSQL enforcing cooldown and expiry.
 
 Run `npm test -- --maxWorkers=1`, `npm run lint`, and `npm run build`.
-The opt-in `src/registration/live.test.tsx` connects the rendered registration,
-verification and login forms to local HTTPS API and Mailpit using
-`AUTH_TEST_BASE_URL` and `AUTH_TEST_CA_FILE`. It is a DOM integration check,
-not a browser layout audit.
+Database/HTTP and Mailpit delivery coverage runs through
+`node tests/email-verification-db-check.mjs` from the repository root.

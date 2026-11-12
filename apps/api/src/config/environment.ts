@@ -26,6 +26,15 @@ export function validateEnvironment(
     throw new Error('PORT must be an integer between 1 and 65535');
   }
   const databaseUrl = validateDatabaseUrl(env.DATABASE_URL);
+  if (!env.FRONTEND_ORIGIN?.trim()) {
+    throw new Error('FRONTEND_ORIGIN is required');
+  }
+  try {
+    const url = new URL(env.FRONTEND_ORIGIN);
+    if (!['http:', 'https:'].includes(url.protocol) || url.origin !== env.FRONTEND_ORIGIN || url.username || url.password) throw new Error();
+  } catch {
+    throw new Error('FRONTEND_ORIGIN must be an HTTP(S) origin without credentials, a path, query, or fragment');
+  }
   if (nodeEnv === 'production' && !env.CORS_ORIGINS?.trim()) {
     throw new Error('CORS_ORIGINS is required in production');
   }

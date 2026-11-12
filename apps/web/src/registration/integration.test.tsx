@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { useEffect } from 'react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, useLocation } from 'react-router'
+import { MemoryRouter, useLocation, type Location as RouterLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { apiRequest } from '../api/client'
@@ -14,9 +15,13 @@ let mailFails: boolean
 let delayRegistration: Promise<void> | null
 const email = 'sara@example.test'
 const password = 'Abcdefg1!'
+let currentLocation: RouterLocation
+let verificationStates: Map<string, { verified: boolean; unavailable: boolean; expiresAt: string | null }>
 
 function Location() {
-  return <output aria-label="Current route">{useLocation().pathname}</output>
+  const location = useLocation()
+  useEffect(() => { currentLocation = location }, [location])
+  return <output aria-label="Current route">{location.pathname}</output>
 }
 function mount(account: 'student' | 'organizer') {
   kind = account
@@ -55,13 +60,24 @@ async function submitRegistration(account: 'student' | 'organizer') {
 
 beforeEach(() => {
   sessionStorage.clear()
+  verificationStates = new Map()
   session = null; registrationError = null; mailFails = false; delayRegistration = null
   request.mockReset().mockImplementation(async (input, options) => {
     if (input === '/api/auth/me') return session ? Response.json(session) : new Response(null, { status: 401 })
     if (String(input).startsWith('/api/auth/register/')) {
       if (delayRegistration) await delayRegistration
       if (registrationError) return Response.json({ message: registrationError.message }, { status: registrationError.status })
-      return Response.json({ id: 'registered-user', email, verificationEmailSent: !mailFails }, { status: 201 })
+      const address = JSON.parse(String(options?.body)).email
+      const recoveryToken = `registration-${verificationStates.size}-${address}`
+      const expiresAt = mailFails ? null : new Date(Date.now() + 540000).toISOString()
+      verificationStates.set(recoveryToken, { verified: false, unavailable: false, expiresAt })
+      return Response.json({ id: 'registered-user', email: address, verificationEmailSent: !mailFails, verificationExpiresAt: expiresAt, verificationRecoveryToken: recoveryToken }, { status: 201 })
+    }
+    if (input === '/api/email-verification/recovery-status') return Response.json(verificationStates.get(JSON.parse(String(options?.body)).recoveryToken))
+    if (input === '/api/email-verification/retry') {
+      const state = verificationStates.get(JSON.parse(String(options?.body)).recoveryToken)!
+      state.expiresAt = new Date(Date.now() + 600000).toISOString()
+      return Response.json({ ...state, deliveryFailed: false })
     }
     if (input === '/api/auth/resend-verification') return Response.json({ message: 'If this address belongs to an account awaiting verification, check your inbox.' })
     if (input === '/api/auth/login') {
@@ -74,6 +90,31 @@ beforeEach(() => {
 })
 
 describe('registration handoff to email verification', () => {
+  it.each(['student', 'organizer'] as const)('retries failed delivery for the saved %s registration and preserves success after refresh', async (account) => {
+    mailFails = true
+    const view = mount(account); await fill(account); await submitRegistration(account)
+    expect(await screen.findByText(/Your account was created, but we could not send/)).toBeVisible()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    const recoveryToken = JSON.parse(sessionStorage.getItem('younity.emailVerification')!).recoveryToken
+    const originalHandoff = currentLocation!
+    await userEvent.click(await screen.findByRole('button', { name: 'Retry sending' }))
+    expect(screen.queryByText(/Your account was created, but we could not send/)).not.toBeInTheDocument()
+    expect(posts(`/api/auth/register/${account}`)).toHaveLength(1)
+    expect(JSON.parse(String(posts('/api/email-verification/retry')[0][1]?.body))).toEqual({ recoveryToken })
+    const deadlineAfterRetry = JSON.parse(sessionStorage.getItem('younity.emailVerification')!).resendAvailableAt
+    expect(deadlineAfterRetry).toBeGreaterThan(Date.now())
+    view.unmount()
+    render(<MemoryRouter initialEntries={[originalHandoff]}><App /><Location /></MemoryRouter>)
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
+    expect(screen.queryByText(/Your account was created, but we could not send/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry sending' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Email verified' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to sign in' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: /edit.*email/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /edit.*email|request a verification email/i })).not.toBeInTheDocument()
+    expect(JSON.parse(sessionStorage.getItem('younity.emailVerification')!).resendAvailableAt).toBe(deadlineAfterRetry)
+  })
   it('registers all student preferences and waits for email verification', async () => {
     mount('student'); await fill('student')
     await userEvent.click(screen.getByRole('button', { name: 'Continue to preferences' }))
@@ -122,32 +163,23 @@ describe('registration handoff to email verification', () => {
     expect(posts('/api/auth/login')).toHaveLength(0)
   })
 
-  it.each(['student', 'organizer'] as const)('recovers a created %s account when email delivery fails', async (account) => {
-    mailFails = true
-    mount(account); await fill(account); await submitRegistration(account)
-    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
-    expect(screen.getByText(/Your account was created, but we could not send/)).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Retry sending' })).toBeVisible()
-    expect(screen.getByText('s***@example.test')).toBeVisible()
-    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
-    expect(sessionStorage.getItem('younity.emailVerification')).not.toContain(password)
-    await userEvent.click(screen.getByRole('button', { name: 'Retry sending' }))
-    expect(JSON.parse(String(posts('/api/auth/resend-verification')[0][1]?.body))).toEqual({ email })
-    expect(posts(`/api/auth/register/${account}`)).toHaveLength(1)
-    expect(posts('/api/auth/login')).toHaveLength(0)
-  })
-
-  it.each(['student', 'organizer'] as const)('hands off a successful %s registration with only email context', async (account) => {
+  it.each(['student', 'organizer'] as const)('shows the saved %s registration address without edit controls and returns to sign in', async (account) => {
     mount(account); await fill(account); await submitRegistration(account)
     expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
     expect(screen.getByText('s***@example.test')).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Resend email' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /edit.*email/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /edit.*email|request a verification email/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Resend verification email' })).not.toBeInTheDocument()
     const context = JSON.parse(sessionStorage.getItem('younity.emailVerification')!)
     expect(context.email).toBe(email)
     expect(context.deliveryFailed).toBe(false)
-    expect(context.resendAvailableAt).toBeGreaterThan(Date.now() + 58000)
+    expect(context.resendAvailableAt).toBe(Date.parse(verificationStates.get(context.recoveryToken)!.expiresAt!))
     expect(JSON.stringify(context)).not.toContain(password)
     expect(posts('/api/auth/login')).toHaveLength(0)
+    await userEvent.click(screen.getByRole('link', { name: 'Back to sign in' }))
+    expect(screen.getByLabelText('Current route')).toHaveTextContent('/login')
+    expect(screen.getByRole('button', { name: 'Sign In to Younity' })).toBeVisible()
   })
 
   it('locks duplicate submissions while registration is pending', async () => {
@@ -161,7 +193,6 @@ describe('registration handoff to email verification', () => {
     await act(async () => { resolve(); await delayRegistration })
     expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
   })
-
 
   it('cancels a registration when leaving and does not sign in from a stale response', async () => {
     let resolve!: () => void

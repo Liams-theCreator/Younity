@@ -1,3 +1,4 @@
+import { JwtService } from '@nestjs/jwt';
 import { HttpException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +8,7 @@ import type { MailService } from '../mail/mail.service.js';
 
 const token = 'a'.repeat(64);
 const tokenHash = createHash('sha256').update(token).digest('hex');
+const jwt = new JwtService({ secret: 'test-recovery-secret' });
 
 describe('EmailVerificationService', () => {
   const tx = {
@@ -20,19 +22,22 @@ describe('EmailVerificationService', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-11T12:00:00Z'));
+    tx.emailVerificationToken.create.mockImplementation(({ data }) => Promise.resolve(data));
     vi.stubEnv('FRONTEND_ORIGIN', 'https://localhost:8443');
     prisma.$transaction.mockImplementation((callback) => callback(tx));
     tx.$queryRaw.mockResolvedValue([{ email_verified_at: null, status: 'ACTIVE', email: 'student@example.test' }]);
     tx.emailVerificationToken.findFirst.mockResolvedValue(null);
     tx.emailVerificationToken.findUnique.mockResolvedValue({ userId: 'user-id' });
     tx.emailVerificationToken.updateMany.mockResolvedValue({ count: 1 });
-    service = new EmailVerificationService(prisma as unknown as PrismaService, mail as unknown as MailService);
+    service = new EmailVerificationService(prisma as unknown as PrismaService, mail as unknown as MailService, jwt);
   });
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
 
   it('sends a frontend link, stores only its hash and expires it in 10 minutes', async () => {
     const before = Date.now();
-    await service.startVerification('user-id');
+    const expiresAt = await service.startVerification('user-id');
     const link = new URL(mail.sendVerificationEmail.mock.calls[0]![1]);
     expect(link.origin).toBe('https://localhost:8443');
     expect(link.pathname).toBe('/verify-email');
@@ -42,6 +47,7 @@ describe('EmailVerificationService', () => {
     expect(data.tokenHash).toBe(createHash('sha256').update(rawToken).digest('hex'));
     expect(data.expiresAt.getTime()).toBeGreaterThanOrEqual(before + 600000);
     expect(data.expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + 600000);
+    expect(expiresAt).toBe(data.expiresAt.toISOString());
   });
 
   it('rate limits recent requests without creating another token or sending mail', async () => {
@@ -49,6 +55,7 @@ describe('EmailVerificationService', () => {
     await expect(service.startVerification('user-id')).rejects.toMatchObject({ status: 429 });
     expect(tx.emailVerificationToken.create).not.toHaveBeenCalled();
     expect(mail.sendVerificationEmail).not.toHaveBeenCalled();
+    expect(tx.emailVerificationToken.findFirst).toHaveBeenCalledWith({ where: { userId: 'user-id', usedAt: null, expiresAt: { gt: new Date() } } });
   });
 
   it('does not send mail for an already verified account', async () => {
@@ -107,5 +114,23 @@ describe('EmailVerificationService', () => {
     tx.emailVerificationToken.findUnique.mockResolvedValue(null);
     await expect(service.verifyEmail({ token })).rejects.toMatchObject({ status: 400 });
     expect(tx.user.update).not.toHaveBeenCalled();
+  });
+
+  it('reads private deadlines only with a valid, scoped recovery token', async () => {
+    const userId = '722efdfb-8a14-46a9-aefd-7fc87bc11b1c';
+    const recoveryToken = await service.createRecoveryToken(userId);
+    const expiry = new Date(Date.now() + 123000);
+    tx.emailVerificationToken.findFirst.mockResolvedValue({ expiresAt: expiry });
+    await expect(service.recoveryStatus(recoveryToken)).resolves.toEqual({ verified: false, unavailable: false, expiresAt: expiry.toISOString() });
+    expect(jwt.decode(recoveryToken)).not.toHaveProperty('sub');
+  });
+
+  it.each(['wrong-audience', 'expired', 'invalid-id', 'missing-expiry'])('rejects a %s recovery capability before reading account data', async (kind) => {
+    const recoveryToken = await jwt.signAsync({ userId: kind === 'invalid-id' ? 'not-a-uuid' : '722efdfb-8a14-46a9-aefd-7fc87bc11b1c' }, {
+      audience: kind === 'wrong-audience' ? 'access' : 'email-verification-recovery',
+      ...(kind === 'missing-expiry' ? {} : { expiresIn: kind === 'expired' ? -1 : 60 }),
+    });
+    await expect(service.recoveryStatus(recoveryToken)).rejects.toMatchObject({ status: 401 });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

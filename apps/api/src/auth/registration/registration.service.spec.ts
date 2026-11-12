@@ -16,7 +16,7 @@ import {
 
 describe('RegistrationService', () => {
   let service: RegistrationService;
-  const emailVerification = { startVerification: vi.fn() };
+  const emailVerification = { startVerification: vi.fn(), createRecoveryToken: vi.fn() };
 
   const prismaMock = {
     user: {
@@ -44,6 +44,8 @@ describe('RegistrationService', () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
+    emailVerification.createRecoveryToken.mockResolvedValue('scoped-recovery');
+    emailVerification.startVerification.mockResolvedValue('2026-11-11T12:10:00.000Z');
 
     const module = await Test.createTestingModule({
       providers: [
@@ -155,7 +157,7 @@ describe('RegistrationService', () => {
         prismaMock.user.findUnique.mockResolvedValue(null);
         prismaMock.user.create.mockResolvedValue({ id: 'created-user', email: dto.email });
         emailVerification.startVerification.mockRejectedValue(new Error('SMTP unavailable'));
-        await expect(register()).resolves.toEqual({ id: 'created-user', email: dto.email, verificationEmailSent: false });
+        await expect(register()).resolves.toEqual({ id: 'created-user', email: dto.email, verificationEmailSent: false, verificationExpiresAt: null, verificationRecoveryToken: 'scoped-recovery' });
         expect(emailVerification.startVerification).toHaveBeenCalledWith('created-user');
         expect(prismaMock.user.create).toHaveBeenCalledTimes(1);
       });

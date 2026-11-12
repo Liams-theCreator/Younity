@@ -8,7 +8,7 @@ export interface RegistrationPageProps {
 
 export const REGISTRATION_UNAVAILABLE = 'Registration is temporarily unavailable. Please try again later.'
 
-export type RegistrationResult = { verificationEmailSent: boolean }
+export type RegistrationResult = { verificationEmailSent: boolean; verificationExpiresAt: string | null; verificationRecoveryToken: string }
 
 export class RegistrationError extends Error {
   readonly status?: number
@@ -42,8 +42,14 @@ async function register(
     const account: unknown = await response.json().catch(() => null)
     if (typeof account === 'object' && account !== null && 'id' in account && 'email' in account &&
         ((typeof account.id === 'string' && account.id.trim()) || (typeof account.id === 'number' && Number.isSafeInteger(account.id) && account.id > 0)) &&
-        account.email === payload.email) return {
-          verificationEmailSent: !('verificationEmailSent' in account) || account.verificationEmailSent !== false,
+        account.email === payload.email && 'verificationEmailSent' in account && typeof account.verificationEmailSent === 'boolean' &&
+        'verificationRecoveryToken' in account && typeof account.verificationRecoveryToken === 'string' && account.verificationRecoveryToken.length > 0 &&
+        'verificationExpiresAt' in account && (account.verificationEmailSent
+          ? typeof account.verificationExpiresAt === 'string' && Number.isFinite(Date.parse(account.verificationExpiresAt))
+          : account.verificationExpiresAt === null)) return {
+          verificationEmailSent: account.verificationEmailSent,
+          verificationRecoveryToken: account.verificationRecoveryToken,
+          verificationExpiresAt: account.verificationExpiresAt as string | null,
         }
     throw new RegistrationError('Registration response could not be verified. Please sign in before trying to register again.')
   }

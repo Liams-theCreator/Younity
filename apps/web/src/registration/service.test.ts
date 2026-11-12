@@ -13,8 +13,9 @@ describe('registration HTTP boundary', () => {
     ['student', student, registerStudent], ['organizer', organizer, registerOrganizer],
   ] as const)('posts a real %s request with cookies, JSON and cancellation', async (kind, payload, register) => {
     const signal = new AbortController().signal
-    const request = vi.fn().mockResolvedValue(Response.json({ id: 'created-user', email: payload.email }, { status: 201 }))
-    await register(payload as typeof student & typeof organizer, signal, request)
+    const verification = { verificationEmailSent: true, verificationExpiresAt: '2026-11-11T12:10:00.000Z', verificationRecoveryToken: 'scoped-recovery' }
+    const request = vi.fn().mockResolvedValue(Response.json({ id: 'created-user', email: payload.email, ...verification }, { status: 201 }))
+    expect(await register(payload as typeof student & typeof organizer, signal, request)).toEqual(verification)
     expect(request).toHaveBeenCalledOnce()
     expect(request).toHaveBeenCalledWith(`/api/auth/register/${kind}`, { method: 'POST', credentials: 'include', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
   })
@@ -26,6 +27,15 @@ describe('registration HTTP boundary', () => {
     for (const response of [new Response('<html>Vite fallback</html>'), Response.json({ id: 1, email: 'another@example.test' })]) {
       await expect(registerStudent(student, new AbortController().signal, vi.fn().mockResolvedValue(response))).rejects.toThrow('could not be verified')
     }
+  })
+  it.each([undefined, 'not-a-date', null])('rejects successful delivery without a valid backend expiry (%s)', async (expiry) => {
+    const response = Response.json({ id: 'created-user', email: student.email, verificationEmailSent: true, verificationRecoveryToken: 'scoped', verificationExpiresAt: expiry })
+    await expect(registerStudent(student, new AbortController().signal, vi.fn().mockResolvedValue(response))).rejects.toThrow('could not be verified')
+  })
+  it('retains recovery context after a known delivery failure', async () => {
+    const verification = { verificationEmailSent: false, verificationExpiresAt: null, verificationRecoveryToken: 'scoped' }
+    const response = Response.json({ id: 'created-user', email: student.email, ...verification })
+    await expect(registerStudent(student, new AbortController().signal, vi.fn().mockResolvedValue(response))).resolves.toEqual(verification)
   })
   it('reports network uncertainty and server failure without inventing success', async () => {
     await expect(registerStudent(student, new AbortController().signal, vi.fn().mockRejectedValue(new TypeError('network')))).rejects.toThrow('Unable to confirm registration')

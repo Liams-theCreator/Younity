@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
@@ -35,6 +35,8 @@ describe('registration and email verification with PostgreSQL', () => {
   }
   const verify = (token: string) => request(app.getHttpServer()).post('/api/email-verification/verify-email').send({ token });
   const resend = (credentials: { email: string }) => request(app.getHttpServer()).post('/api/auth/resend-verification').send({ email: credentials.email });
+  const status = (recoveryToken: string) => request(app.getHttpServer()).post('/api/email-verification/recovery-status').send({ recoveryToken });
+  const retry = (recoveryToken: string) => request(app.getHttpServer()).post('/api/email-verification/retry').send({ recoveryToken });
 
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
@@ -50,6 +52,7 @@ describe('registration and email verification with PostgreSQL', () => {
     jwt = app.get(JwtService);
   });
   beforeEach(() => { mail.sendVerificationEmail.mockReset().mockResolvedValue(undefined); });
+  afterEach(() => vi.restoreAllMocks());
   afterAll(async () => {
     try {
       if (prisma) {
@@ -91,14 +94,73 @@ describe('registration and email verification with PostgreSQL', () => {
     await resend(credentials).expect(200);
   });
 
-  it('keeps a created account recoverable with email alone immediately after delivery failure', async () => {
+  it('returns the stored expiry privately, suppresses resends for the whole link lifetime and serializes two tabs at expiry', async () => {
+    const { credentials, user } = await register();
+    const recoveryToken = user.verificationRecoveryToken;
+    const oldToken = lastToken();
+    const saved = await prisma.emailVerificationToken.findUniqueOrThrow({ where: { tokenHash: hash(oldToken) } });
+    expect(user.verificationExpiresAt).toBe(saved.expiresAt.toISOString());
+    const expected = { verified: false, unavailable: false, expiresAt: saved.expiresAt.toISOString() };
+    expect((await status(recoveryToken).expect(200)).body).toEqual(expected);
+    // More than the retired 60-second cooldown has elapsed, but the link is live.
+    await prisma.emailVerificationToken.update({ where: { id: saved.id }, data: { createdAt: new Date(Date.now() - 61000) } });
+    await resend(credentials).set('X-Forwarded-For', '192.0.2.31').expect(200);
+    expect((await retry(recoveryToken).expect(200)).body).toEqual({ ...expected, deliveryFailed: false });
+    expect(mail.sendVerificationEmail).toHaveBeenCalledTimes(1);
+
+    // A controlled database fixture crosses the deadline without a real wait.
+    await prisma.emailVerificationToken.update({ where: { id: saved.id }, data: { expiresAt: new Date(Date.now() - 1) } });
+    const tabs = await Promise.all([retry(recoveryToken), retry(recoveryToken)]);
+    expect(tabs.map((tab) => tab.status)).toEqual([200, 200]);
+    expect(tabs[0]!.body).toEqual(tabs[1]!.body);
+    expect(mail.sendVerificationEmail).toHaveBeenCalledTimes(2);
+    const active = await prisma.emailVerificationToken.findMany({ where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date() } } });
+    expect(active).toHaveLength(1);
+    expect(tabs[0]!.body.expiresAt).toBe(active[0]!.expiresAt.toISOString());
+    await verify(oldToken).expect(400);
+    const verified = await Promise.all([verify(lastToken()), verify(lastToken())]);
+    expect(verified.map((result) => result.status).sort((a, b) => a - b)).toEqual([200, 400]);
+    expect(await prisma.emailVerificationToken.count({ where: { userId: user.id, usedAt: null } })).toBe(0);
+    expect((await status(recoveryToken).expect(200)).body).toEqual({ verified: true, unavailable: false, expiresAt: null });
+    expect((await retry(recoveryToken).expect(200)).body.verified).toBe(true);
+    expect(mail.sendVerificationEmail).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows immediate scoped retry after delivery failure without creating another account', async () => {
     mail.sendVerificationEmail.mockRejectedValueOnce(new Error('SMTP unavailable'));
     const { credentials, user } = await register();
+    expect(user.verificationExpiresAt).toBeNull();
     expect(user.verificationEmailSent).toBe(false);
-    expect(await prisma.emailVerificationToken.count({ where: { userId: user.id } })).toBe(0);
-    await resend({ email: credentials.email }).expect(200);
+    mail.sendVerificationEmail.mockRejectedValueOnce(new Error('SMTP unavailable again'));
+    expect((await retry(user.verificationRecoveryToken).expect(200)).body).toEqual({ verified: false, unavailable: false, expiresAt: null, deliveryFailed: true });
+    const sent = await retry(user.verificationRecoveryToken).expect(200);
+    expect(sent.body.deliveryFailed).toBe(false);
+    expect(Date.parse(sent.body.expiresAt)).toBeGreaterThan(Date.now());
+    expect((await status(user.verificationRecoveryToken).expect(200)).body.expiresAt).toBe(sent.body.expiresAt);
+    expect(await prisma.user.count({ where: { email: credentials.email } })).toBe(1);
     await verify(lastToken()).expect(200);
     await request(app.getHttpServer()).post('/api/auth/login').send({ email: credentials.email, password }).expect(200);
+  });
+
+  it('rejects user IDs, email overrides, login tokens and forged/expired recovery capabilities as private ownership proof', async () => {
+    const { user, credentials } = await register();
+    const before = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    for (const path of ['recovery-status', 'retry']) {
+      await request(app.getHttpServer()).post(`/api/email-verification/${path}`).send({ userId: user.id }).expect(400);
+      await request(app.getHttpServer()).post(`/api/email-verification/${path}`).send({ recoveryToken: user.verificationRecoveryToken, email: 'override@example.test' }).expect(400);
+      await request(app.getHttpServer()).post(`/api/email-verification/${path}`).send({ recoveryToken: await jwt.signAsync({ sub: user.id }) }).expect(401);
+      await request(app.getHttpServer()).post(`/api/email-verification/${path}`).send({ recoveryToken: await jwt.signAsync({ userId: user.id }, { audience: 'email-verification-recovery', expiresIn: -1 }) }).expect(401);
+      const fake = user.verificationRecoveryToken.split('.');
+      fake[2] = 'a'.repeat(43);
+      await request(app.getHttpServer()).post(`/api/email-verification/${path}`).send({ recoveryToken: fake.join('.') }).expect(401);
+    }
+    await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', `access_token=${user.verificationRecoveryToken}`).expect(401);
+    await request(app.getHttpServer()).post('/api/auth/resend-verification').set('X-Forwarded-For', '192.0.2.32').send({ email: credentials.email, userId: user.id }).expect(400);
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toBe(before.email);
+    expect(after.passwordHash).toBe(before.passwordHash);
+    expect(after.emailVerifiedAt).toBeNull();
+    expect(mail.sendVerificationEmail).toHaveBeenCalledTimes(1);
   });
 
   it('rejects expired, unknown and malformed tokens without verifying an account', async () => {
@@ -109,22 +171,6 @@ describe('registration and email verification with PostgreSQL', () => {
     await verify('f'.repeat(64)).expect(400);
     await verify('bad').expect(400);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).emailVerifiedAt).toBeNull();
-  });
-
-  it('serializes concurrent resends and invalidates all outstanding links after verification', async () => {
-    const { user, credentials } = await register();
-    const oldToken = lastToken();
-    await resend({ email: credentials.email }).expect(200);
-    await prisma.emailVerificationToken.updateMany({ where: { userId: user.id }, data: { createdAt: new Date(Date.now() - 61000) } });
-    const results = await Promise.all([resend({ email: credentials.email }), resend({ email: credentials.email })]);
-    expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([200, 200]);
-    expect(mail.sendVerificationEmail).toHaveBeenCalledTimes(2);
-    expect(results[0]!.body).toEqual(results[1]!.body);
-    const newToken = lastToken();
-    expect(newToken).not.toBe(oldToken);
-    const verified = await Promise.all([verify(oldToken), verify(newToken)]);
-    expect(verified.map((r) => r.status).sort((a, b) => a - b)).toEqual([200, 400]);
-    expect(await prisma.emailVerificationToken.count({ where: { userId: user.id, usedAt: null } })).toBe(0);
   });
 
   it('returns the same response for unknown, verified, suspended, cooling-down and failed-delivery addresses', async () => {
@@ -149,7 +195,7 @@ describe('registration and email verification with PostgreSQL', () => {
   });
 
   it('validates an email-only DTO while keeping password validation on login', async () => {
-    for (const body of [{}, { email: 'bad' }, { email: 123 }, { email: 'a'.repeat(256) + '@example.test' }, { email: 'student@example.test', password }]) {
+    for (const body of [{}, { email: 'bad' }, { email: 123 }, { email: 'a'.repeat(256) + '@example.test' }, { email: 'student@example.test', password }, { email: 'student@example.test', userId: randomUUID() }]) {
       await request(app.getHttpServer()).post('/api/auth/resend-verification').send(body).expect(400);
     }
     await request(app.getHttpServer()).post('/api/auth/login').send({ email: 'student@example.test' }).expect(400);
@@ -167,22 +213,36 @@ describe('registration and email verification with PostgreSQL', () => {
     expect(response.headers['cache-control']).toBe('no-store');
   });
 
-  it.skipIf(process.env.EMAIL_VERIFICATION_SMTP_TEST !== '1')('delivers a real verification email through local Mailpit and completes verification', async () => {
+  it.skipIf(process.env.EMAIL_VERIFICATION_SMTP_TEST !== '1')('delivers only to the corrected registered email after a public typo request, preserving credentials', async () => {
+    mail.sendVerificationEmail.mockRejectedValueOnce(new Error('Initial SMTP failure'));
+    const { credentials, user } = await register();
+    expect(user.verificationEmailSent).toBe(false);
+    const before = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const typo = `typo-${randomUUID()}@example.test`;
     const transport = new MailService();
     mail.sendVerificationEmail.mockImplementation((email, link) => transport.sendVerificationEmail(email, link));
-    const { credentials, user } = await register();
-    expect(user.verificationEmailSent).toBe(true);
-    const search = new URL('http://127.0.0.1:8025/api/v1/search');
-    search.searchParams.set('query', `to:${credentials.email}`);
-    const searchResponse = await fetch(search, { signal: AbortSignal.timeout(5000) });
-    expect(searchResponse.ok).toBe(true);
-    const inbox = await searchResponse.json() as { messages: { ID: string; Subject: string }[] };
-    const message = inbox.messages.find((item) => item.Subject === 'Verify your Younity email');
-    expect(message).toBeDefined();
-    const response = await fetch(`http://127.0.0.1:8025/api/v1/message/${message!.ID}`, { signal: AbortSignal.timeout(5000) });
+    const first = await resend({ email: typo }).set('X-Forwarded-For', '192.0.2.33').expect(200);
+    const second = await resend({ email: ` ${credentials.email.toUpperCase()} ` }).set('X-Forwarded-For', '192.0.2.33').expect(200);
+    expect(second.body).toEqual(first.body);
+    expect(Object.keys(second.body)).toEqual(['message']);
+    expect(mail.sendVerificationEmail).toHaveBeenLastCalledWith(before.email, expect.any(String));
+    const search = async (email: string) => {
+      const url = new URL('http://127.0.0.1:8025/api/v1/search');
+      url.searchParams.set('query', `to:${email}`);
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      expect(response.ok).toBe(true);
+      return response.json() as Promise<{ messages: { ID: string }[] }>;
+    };
+    expect((await search(typo)).messages).toHaveLength(0);
+    const inbox = await search(before.email);
+    expect(inbox.messages).toHaveLength(1);
+    const response = await fetch(`http://127.0.0.1:8025/api/v1/message/${inbox.messages[0]!.ID}`, { signal: AbortSignal.timeout(5000) });
     const content = await response.json() as { Text: string };
     expect(content.Text).toContain(`https://localhost:8443/verify-email?token=${lastToken()}`);
     expect(content.Text).toContain('expires in 10 minutes');
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toBe(before.email);
+    expect(after.passwordHash).toBe(before.passwordHash);
     await verify(lastToken()).expect(200);
     await request(app.getHttpServer()).post('/api/auth/login').send({ email: credentials.email, password }).expect(200);
   });

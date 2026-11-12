@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { rememberVerification, VERIFICATION_RESEND_SECONDS } from '../auth/emailVerification'
+import { rememberVerification } from '../auth/emailVerification'
 import { RegistrationError, REGISTRATION_UNAVAILABLE, type RegistrationResult } from './service'
 
 export function useRegistration() {
@@ -26,8 +26,9 @@ export function useRegistration() {
       setAccountCreated(true)
       const verification = rememberVerification({
         email: credentials.email,
+        recoveryToken: result.verificationRecoveryToken,
         deliveryFailed: !result.verificationEmailSent,
-        resendAvailableAt: result.verificationEmailSent ? Date.now() + VERIFICATION_RESEND_SECONDS * 1000 : 0,
+        resendAvailableAt: result.verificationExpiresAt ? Date.parse(result.verificationExpiresAt) : 0,
       })
       navigate('/verify-email', { replace: true, state: { verification } })
     } catch (cause) {

@@ -1,105 +1,132 @@
 # Email verification and password-free recovery
 
-## Contract and behavior
+## Registration and waiting state
 
-Both student and organizer registration return 201 with `verificationEmailSent`.
-Account creation is retained after SMTP failure. Successful delivery hands off to
-**Check your email**, a masked address and **Back to sign in**. After 60 seconds,
-**Didn’t receive it? Resend email** becomes available. Failed delivery instead
-shows the account-created explanation and **Retry sending** immediately, using
-the existing account. The browser carries only email and timing context in router
-state and tab session storage; registration passwords never enter resend state,
-storage or URLs. Existing query-based email handoffs remain compatible.
+Student and organizer registration return HTTP 201 after saving the account,
+including when SMTP delivery fails. The response includes:
 
-`POST /api/auth/resend-verification` accepts an email-only DTO:
+- `verificationEmailSent`: known delivery success or failure.
+- `verificationExpiresAt`: the stored verification token's expiry, or `null` after
+  failed delivery. Links last 10 minutes from token creation.
+- `verificationRecoveryToken`: a signed, scoped 24-hour recovery capability for
+  this newly created account. It cannot sign in or verify the email address.
+
+Successful delivery shows **Check your email**, a masked address, and **Back to
+sign in**. **Resend verification email** becomes available when the backend's
+stored deadline expires and the account still needs verification. Known failure
+shows the account-created explanation and **Retry sending** immediately.
+For both students and organizers, this waiting page has no **Edit email** button,
+address input, or link to an address form. Resend and retry use the scoped
+registration capability to send to the account's stored address without asking
+the user to enter it again.
+
+The browser saves the registration's flow identifier, email, recovery capability,
+deadline, and failure flag in router history and tab session storage. Updates are
+reconciled only within the same flow. A successful retry replaces the old failure
+state in both places, so refresh preserves **Check your email** without the old
+warning. A later registration starts its own flow and cannot inherit another
+account's result. Passwords and raw verification-link tokens never enter this
+recovery context or its URLs.
+
+`POST /api/email-verification/recovery-status` and
+`POST /api/email-verification/retry` accept only `{ "recoveryToken": "..." }`.
+The backend verifies the signature, audience, expiry, and user ID claim before
+reading account state. A bare user ID, a login JWT, or an email override is not
+ownership proof. The private response contains `verified`, `unavailable`, and
+`expiresAt`; retry additionally returns `deliveryFailed`. Status is checked on
+mount, focus, and at expiry, including after another tab verifies the account.
+An expired capability keeps the masked address visible and directs the user back
+to sign in for assistance, without opening an address form from the waiting page.
+
+## Public email-only recovery
+
+The separate public form, also offered for expired or invalid verification links,
+labels its field **Enter the email you registered with.** and provides an explicit
+**Send verification email** button. Typing or correcting text never sends mail. Each
+submission reads the address currently visible in the input, even after a previous
+request used a typo. No password, account ID, or registration capability is sent.
+The form only requests mail; it never changes the stored email or password.
+Changing an address entered incorrectly during registration is outside this flow.
+
+`POST /api/auth/resend-verification` accepts only:
 
 ```json
 { "email": "student@example.com" }
 ```
 
-Emails are validated, trimmed, lowercased and limited to 255 characters. Extra
-fields, including passwords, return 400. Login still requires a password and
-verified email. Eligible recipients are registered, unverified and non-suspended;
-organizers pending moderator approval are eligible. Recipient and eligibility
-are checked again under the PostgreSQL user row lock.
+Emails are validated, trimmed, lowercased, and limited to 255 characters. Extra
+fields, including passwords and user IDs, return 400. The backend looks up that
+address and sends only to the eligible account's stored email. Eligible accounts
+are unverified and non-suspended; organizers pending moderator approval qualify.
 
-Every valid resend request below the IP limit returns HTTP 200 with:
+Every valid request below the IP limit returns the same HTTP 200 body:
 
 ```json
 { "message": "If this address belongs to an account awaiting verification, check your inbox." }
 ```
 
-The same status/message covers unknown, already verified, suspended,
-cooldown-suppressed and failed-delivery addresses. SMTP failure must not identify
-an eligible account. The browser repeats this conditional message without
-claiming successful delivery. Failed SMTP attempts delete only their own token,
-preserving immediate backend retry and any older delivered links. The explicit
-registration failure flag provides immediate UI retry of a known delivery failure.
-After a generic resend response, the browser waits 60 seconds before another try.
+Unknown, verified, suspended, unexpired-link, eligible, and failed-delivery cases
+have the same response. No account-specific deadline, status, or delivery result
+is returned. The form repeats the conditional message and stays editable. The
+backend decides whether another email can be sent, including when the client
+calls the API directly.
 
-The existing PostgreSQL row lock and 60-second per-account cooldown serialize
-concurrent resends across API instances. SMTP runs after the transaction. The new
-request-level guard allows 30 attempts per IP per minute, independent of account
-existence; exhausted clients receive 429 with `Retry-After`. It is bounded and
-per-process. Express trusts one proxy hop; the deployed topology must expose only
-Caddy, which supplies the client IP. Multi-instance deployment should additionally
-apply an aggregate IP limit at the edge. There was no existing app-level request
-limiter. No schema migration is required.
+## Expiry, verification, and concurrency
 
-Verification links expire after 10 minutes. Opening the page does not consume a
-token, including under React StrictMode; **Verify email** explicitly submits to
-the existing `POST /api/email-verification/verify-email` endpoint. Success shows
-**Email verified** and **Go to sign in**. The grouped invalid/expired/used 400
-shows **This link is no longer valid**, **Request a new link** and **Go to sign in**.
-Known email context enables one-click resend; fresh browsers/devices ask only for
-the email. The client does not infer email from a token. Unverified login clears
-the password and hands the email to the same recovery page.
+Issuance and verification take a PostgreSQL user row lock with the same lock order.
+Any unused, unexpired link blocks issuance of another link until its stored
+`expiresAt`; the retired 60-second cooldown is no longer used. Concurrent requests
+across tabs or API instances cannot issue multiple live links. SMTP runs after
+the transaction; a failed attempt removes only its own token so retry is immediate.
 
-Only token hashes are stored. Raw tokens and passwords are excluded from API
-responses and application logs. Login and existing-cookie protected routes still
-require email verification. Organizer approval remains a separate moderator
-requirement for organizer-only event operations.
+Opening `/verify-email?token=...` never consumes a token, including under React
+StrictMode. **Verify email** explicitly posts to
+`POST /api/email-verification/verify-email`. Success shows **Email verified** and
+**Go to sign in**, separately from the registration waiting screen. Malformed,
+invalid, expired, and used links offer the editable public recovery form. The
+client does not infer email ownership from a verification token.
 
-## Development and validation
+Only verification-link hashes are stored in PostgreSQL. Raw verification links,
+recovery capabilities, and passwords are excluded from application logs. Login
+and existing-cookie protected routes require verified email. Organizer moderator
+approval remains separate and is still required for organizer-only operations.
 
-Compose starts Mailpit before the API. Links use `FRONTEND_ORIGIN`, defaulting to
-`https://localhost:8443`. Mailpit at http://localhost:8025 captures local test mail;
-it does not deliver to external inboxes. Environment examples include host SMTP
-settings. Frontend presentation timings match the API's existing verification
-settings; API timing and locking remain authoritative.
+The public request limiter permits 30 attempts per IP per minute and returns 429
+with `Retry-After`, independent of account existence. It is bounded and per process;
+Express trusts Caddy's single proxy hop. Aggregate edge limiting for multiple API
+replicas remains deployment work. No additional schema migration is needed.
 
-- In each app: `npm test -- --maxWorkers=1`, `npm run lint`, `npm run build`.
-- `node tests/email-verification-db-check.mjs` provisions a unique `_test` database,
-  migrates/seeds it, runs API database/HTTP tests including real SMTP to Mailpit,
-  then drops only that database. It requires the root `.env`, local API
-  dependencies, Docker access, and running Compose PostgreSQL and Mailpit.
-- `tests/auth-journeys.mjs` checks HTTPS registration, Mailpit, verification,
-  unverified-login rejection, sign-in and role protection.
-- `apps/web/src/registration/live.test.tsx` runs the real API/Mailpit journey
-  through rendered React forms when local HTTPS test variables are supplied.
+## Local validation
 
-Automated coverage includes both registration outcomes and roles, email-only
-validation, generic public responses, cooldown and concurrent resends, expiry and
-single use, unverified sessions, moderator approval separation, page confirmation,
-masked handoff, timing across reload, one-click known-address recovery and
-email-only recovery on another device.
+`FRONTEND_ORIGIN` is required and validated during API startup as an HTTP(S)
+origin without credentials, path, query, or fragment. `https://localhost:8443`
+passes. Missing or malformed values produce an error naming `FRONTEND_ORIGIN`.
+Compose supplies the local default. Mailpit at http://localhost:8025 captures test
+mail and does not deliver to external inboxes.
 
-## Verified on 10 November 2026
+In each app, run `npm test -- --maxWorkers=1`, `npm run lint`, and `npm run build`.
+For isolated database/HTTP and real SMTP tests, run:
 
-- API: all 105 unit tests and all 49 isolated PostgreSQL/HTTP integration tests
-  passed, including real Mailpit SMTP, email-only DTO/Swagger validation,
-  public response equivalence, concurrent resend locking and request limiting.
-  The temporary test database was removed after the run.
-- Frontend: all 134 standard tests passed with one worker. The first parallel
-  run had one 5-second timeout in an existing registration test; the full serial
-  rerun passed. The two normally skipped live tests were then explicitly enabled
-  and both passed against the running HTTPS stack and Mailpit.
-- Both live form journeys completed registration → Mailpit delivery → explicit
-  verification on a fresh context → sign-in. Both rejected unverified sign-in;
-  the organizer remained pending approval and organizer-only access returned 403.
-- The existing HTTPS authentication smoke script passed for both roles, including
-  Mailpit, token reuse rejection, cookies, role protection and logout.
-- API and frontend lint and production builds passed.
-- Browser inventory was empty. Real browser layout, screenshots and console
-  inspection could not be verified; the live UI checks used rendered React DOM
-  forms with real HTTP/SMTP, not an interactive browser.
+```sh
+node tests/email-verification-db-check.mjs
+```
+
+The checker requires the root `.env`, local app dependencies, Docker access,
+and running Compose PostgreSQL and Mailpit. It creates a unique `_test` database,
+applies migrations and seed, runs the API database/HTTP tests, and drops only
+that database afterward. The development database is untouched.
+
+The focused UI tests cover both account types reaching the waiting page without
+edit controls, returning to sign in, immediate retry after delivery failure, and
+refresh after a successful retry. Page tests cover resend at the stored expiry,
+explicit verification, and public recovery using the entered registered address.
+
+API tests retain token hashing and expiry, single use, concurrent issuance and
+verification, recovery capability validation, generic public responses, and
+unchanged account credentials. One Mailpit test checks actual replacement-email
+delivery and successful verification. Expiry fixtures avoid ten-minute waits.
+
+The duplicate optional rendered live suite and its temporary HTTPS/API helper
+have been removed. There is no `--live-ui` mode; use the regular frontend tests
+and the existing database checker. These checks do not establish browser layout
+or browser-console signoff.

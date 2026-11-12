@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import EmailVerificationPage from './EmailVerificationPage'
 import { apiRequest } from '../api/client'
-import { rememberVerification, VERIFICATION_RESEND_SECONDS } from '../auth/emailVerification'
+import { rememberVerification, type VerificationContext } from '../auth/emailVerification'
 import LoginForm from '../components/LoginForm'
 import { LoginError } from '../auth/model'
 
@@ -13,13 +13,48 @@ vi.mock('../api/client', () => ({ apiRequest: vi.fn() }))
 const request = vi.mocked(apiRequest)
 const token = 'a'.repeat(64)
 const email = 'student@example.test'
-function mount(query = '') {
-  return render(<StrictMode><MemoryRouter initialEntries={[`/verify-email${query}`]}><EmailVerificationPage /></MemoryRouter></StrictMode>)
+const message = 'If this address belongs to an account awaiting verification, check your inbox.'
+function mount(query = '', context?: VerificationContext) {
+  return render(<StrictMode><MemoryRouter initialEntries={[{ pathname: '/verify-email', search: query, state: context ? { verification: context } : null }]}><EmailVerificationPage /></MemoryRouter></StrictMode>)
 }
+function posts(path: string) { return request.mock.calls.filter(([input]) => input === path) }
 beforeEach(() => { request.mockReset(); sessionStorage.clear() })
-afterEach(() => vi.useRealTimers())
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
 describe('email verification page', () => {
+  it('submits the corrected visible address only when Send is clicked', async () => {
+    request.mockImplementation(async () => Response.json({ message }))
+    mount()
+    const input = screen.getByLabelText('Enter the email you registered with.')
+    await userEvent.type(input, 'typo@example.test')
+    expect(request).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Send verification email' }))
+    expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toEqual({ email: 'typo@example.test' })
+    expect(screen.getByRole('status')).toHaveTextContent(message)
+    expect(input).toBeEnabled()
+    await userEvent.clear(input)
+    await userEvent.type(input, email)
+    expect(request).toHaveBeenCalledTimes(1)
+    await userEvent.click(screen.getByRole('button', { name: 'Send verification email' }))
+    expect(JSON.parse(String(request.mock.calls[1][1]?.body))).toEqual({ email })
+    expect(screen.getByRole('status')).toHaveTextContent(message)
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Email verified' })).not.toBeInTheDocument()
+  })
+
+  it('keeps public recovery separate from a prior registration capability and its private deadline', async () => {
+    const context = rememberVerification({ email, recoveryToken: 'private-registration-capability', resendAvailableAt: Date.now() + 600000, deliveryFailed: false })
+    request.mockImplementation(async () => Response.json({ message }))
+    mount('?recover=1', context)
+    const input = screen.getByLabelText('Enter the email you registered with.')
+    await userEvent.clear(input); await userEvent.type(input, 'another@example.test')
+    expect(request).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Send verification email' }))
+    expect(request).toHaveBeenCalledExactlyOnceWith('/api/auth/resend-verification', expect.objectContaining({ body: JSON.stringify({ email: 'another@example.test' }) }))
+    expect(JSON.parse(sessionStorage.getItem('younity.emailVerification')!).email).toBe(email)
+    expect(screen.queryByText(/current link expires/)).not.toBeInTheDocument()
+  })
+
   it('links an unverified sign-in to email-only recovery and clears the login password', async () => {
     render(<MemoryRouter><LoginForm onSubmit={async () => { throw new LoginError('EMAIL_NOT_VERIFIED') }} /></MemoryRouter>)
     await userEvent.type(screen.getByLabelText('Email Address'), email)
@@ -28,119 +63,103 @@ describe('email verification page', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Verify your email before signing in')
     expect(screen.getByLabelText('Password')).toHaveValue('')
     const link = screen.getByRole('link', { name: 'Resend verification email' })
-    expect(link).toHaveAttribute('href', '/verify-email')
     await userEvent.click(link)
-    expect(JSON.parse(sessionStorage.getItem('younity.emailVerification')!)).toEqual({ email, resendAvailableAt: 0, deliveryFailed: false })
+    expect(JSON.parse(sessionStorage.getItem('younity.emailVerification')!)).toMatchObject({ email, resendAvailableAt: 0, deliveryFailed: false, flowId: expect.any(String) })
   })
 
-  it('requires confirmation before consuming a link, including under StrictMode', async () => {
-    request.mockResolvedValue(Response.json({ message: 'Email verified successfully.' }))
+  it('verifies only on confirmation and prevents duplicate submissions under StrictMode', async () => {
+    let resolve!: (value: Response) => void
+    request.mockImplementation(() => new Promise((done) => { resolve = done }))
     mount(`?token=${token}`)
     expect(request).not.toHaveBeenCalled()
-    await userEvent.click(screen.getByRole('button', { name: 'Verify email' }))
+    const button = screen.getByRole('button', { name: 'Verify email' })
+    fireEvent.click(button); fireEvent.click(button)
+    expect(request).toHaveBeenCalledTimes(1)
+    await act(async () => resolve(Response.json({ message: 'Email verified successfully.' })))
     expect(await screen.findByRole('heading', { name: 'Email verified' })).toBeVisible()
     expect(request).toHaveBeenCalledExactlyOnceWith('/api/email-verification/verify-email', expect.objectContaining({ method: 'POST', body: JSON.stringify({ token }) }))
     expect(screen.getByRole('link', { name: 'Go to sign in' })).toHaveAttribute('href', '/login')
+    expect(screen.queryByRole('heading', { name: 'Check your email' })).not.toBeInTheDocument()
   })
 
-  it('handles malformed links without sending a request', () => {
+  it('handles malformed links without sending a request and offers the editable public form', () => {
     mount('?token=bad')
     expect(screen.getByRole('alert')).toHaveTextContent('This link is no longer valid')
     expect(screen.queryByRole('button', { name: 'Verify email' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Request a new link' })).toBeVisible()
+    expect(screen.getByLabelText('Enter the email you registered with.')).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Send verification email' })).toBeVisible()
     expect(request).not.toHaveBeenCalled()
   })
 
   it('recovers expired/used links on another device by asking only for the email', async () => {
-    request.mockResolvedValueOnce(Response.json({ message: 'Verification link is invalid, expired, or already used.' }, { status: 400 })).mockResolvedValueOnce(Response.json({}))
+    request.mockResolvedValueOnce(new Response(null, { status: 400 })).mockResolvedValueOnce(Response.json({ message }))
     mount(`?token=${token}`)
     await userEvent.click(screen.getByRole('button', { name: 'Verify email' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('This link is no longer valid')
-    expect(screen.getByRole('link', { name: 'Go to sign in' })).toBeVisible()
-    await userEvent.click(screen.getByRole('button', { name: 'Request a new link' }))
-    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
-    await userEvent.type(screen.getByLabelText('Email address'), email)
-    await userEvent.click(screen.getByRole('button', { name: 'Request a new link' }))
+    await userEvent.type(screen.getByLabelText('Enter the email you registered with.'), email)
+    await userEvent.click(screen.getByRole('button', { name: 'Send verification email' }))
     expect(request).toHaveBeenLastCalledWith('/api/auth/resend-verification', expect.objectContaining({ body: JSON.stringify({ email }) }))
-    expect(screen.getByText(/If this address belongs/)).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent(message)
+    expect(screen.getByLabelText('Enter the email you registered with.')).toHaveValue(email)
   })
 
-  it('resends an invalid link in one click when the address is already known', async () => {
-    rememberVerification({ email, resendAvailableAt: 0, deliveryFailed: false })
-    request.mockResolvedValueOnce(new Response(null, { status: 400 })).mockResolvedValueOnce(Response.json({}))
-    mount(`?token=${token}`)
-    await userEvent.click(screen.getByRole('button', { name: 'Verify email' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Request a new link' }))
-    expect(request).toHaveBeenLastCalledWith('/api/auth/resend-verification', expect.objectContaining({ body: JSON.stringify({ email }) }))
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-  })
-
-  it('masks the registration address and shows resend only after 60 seconds, including after reload', () => {
+  it('uses the backend deadline through refresh and checks account state at expiry without waiting ten real minutes', async () => {
     vi.useFakeTimers()
-    rememberVerification({ email, resendAvailableAt: Date.now() + VERIFICATION_RESEND_SECONDS * 1000, deliveryFailed: false })
-    const view = mount()
+    const deadline = Date.now() + 600000
+    const context = rememberVerification({ email, recoveryToken: 'scoped', resendAvailableAt: deadline, deliveryFailed: false })
+    request.mockImplementation(async (path) => Response.json({ verified: false, unavailable: false,
+      expiresAt: path === '/api/email-verification/retry' ? new Date(Date.now() + 600000).toISOString() : Date.now() < deadline ? new Date(deadline).toISOString() : null }))
+    let view = mount('', context)
+    await act(async () => {})
     expect(screen.getByRole('heading', { name: 'Check your email' })).toBeVisible()
     expect(screen.getByText('s***@example.test')).toBeVisible()
-    expect(screen.queryByText(email)).not.toBeInTheDocument()
-    expect(screen.getByText(/expire after 10 minutes/)).toBeVisible()
     expect(screen.getByRole('link', { name: 'Back to sign in' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Resend email' })).not.toBeInTheDocument()
-    act(() => vi.advanceTimersByTime(59000))
-    view.unmount(); mount()
-    expect(screen.queryByRole('button', { name: 'Resend email' })).not.toBeInTheDocument()
-    act(() => vi.advanceTimersByTime(1000))
-    expect(screen.getByText('Didn’t receive it?')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Resend email' })).toBeVisible()
+    await act(async () => vi.advanceTimersByTime(60000))
+    expect(screen.queryByRole('button', { name: 'Resend verification email' })).not.toBeInTheDocument()
+    view.unmount(); view = mount('', context)
+    await act(async () => {})
+    expect(JSON.parse(sessionStorage.getItem('younity.emailVerification')!).resendAvailableAt).toBe(deadline)
+    await act(async () => vi.advanceTimersByTime(539999))
+    expect(screen.queryByRole('button', { name: 'Resend verification email' })).not.toBeInTheDocument()
+    await act(async () => vi.advanceTimersByTime(1))
+    expect(screen.getByRole('button', { name: 'Resend verification email' })).toBeVisible()
+    expect(screen.queryByRole('heading', { name: 'Email verified' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Resend verification email' })))
+    expect(posts('/api/email-verification/retry')).toHaveLength(1)
+    expect(JSON.parse(String(posts('/api/email-verification/retry')[0][1]?.body))).toEqual({ recoveryToken: 'scoped' })
+    expect(posts('/api/auth/resend-verification')).toHaveLength(0)
+    expect(screen.getByText('s***@example.test')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Resend verification email' })).not.toBeInTheDocument()
+    view.unmount()
   })
 
-  it('offers an immediate email-only retry after registration delivery failure', async () => {
-    rememberVerification({ email, resendAvailableAt: 0, deliveryFailed: true })
-    request.mockResolvedValue(Response.json({}))
-    mount()
-    expect(screen.getByText(/account was created, but we could not send/)).toBeVisible()
-    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Retry sending' }))
-    expect(request).toHaveBeenCalledExactlyOnceWith('/api/auth/resend-verification', expect.objectContaining({ body: JSON.stringify({ email }) }))
-    expect(screen.getByText(/If this address belongs/)).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Retry sending' })).not.toBeInTheDocument()
-    expect(sessionStorage.getItem('younity.emailVerification')).not.toContain('password')
+  it('keeps an expired registration session on the waiting page without an email form or link to one', async () => {
+    const context = rememberVerification({ email, recoveryToken: 'expired-session', resendAvailableAt: 0, deliveryFailed: false })
+    request.mockResolvedValue(new Response(null, { status: 401 }))
+    mount('', context)
+    expect(await screen.findByRole('status')).toHaveTextContent('This verification session expired.')
+    expect(screen.getByText('s***@example.test')).toBeVisible()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /edit.*email/i })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual(['/login', '/login'])
+    expect(screen.getByRole('link', { name: 'Back to sign in' })).toBeVisible()
   })
 
-  it.each([429, 503])('shows a request failure (%s) and keeps resend retry available', async (status) => {
-    request.mockResolvedValue(Response.json({}, { status }))
-    mount('?email=student%40example.test')
-    await userEvent.click(screen.getByRole('button', { name: 'Resend email' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent(status === 429 ? 'Too many requests' : 'We could not complete your request')
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Resend email' })).toBeEnabled()
-  })
-
-  it('prevents duplicate verification requests while waiting for a response', async () => {
-    let resolve!: (value: Response) => void
-    request.mockImplementation(() => new Promise((done) => { resolve = done }))
-    mount(`?token=${token}`)
-    const button = screen.getByRole('button', { name: 'Verify email' })
-    fireEvent.click(button); fireEvent.click(button)
-    expect(request).toHaveBeenCalledTimes(1)
-    await act(async () => resolve(Response.json({})))
-    expect(await screen.findByRole('heading', { name: 'Email verified' })).toBeVisible()
-  })
-
-  it('prevents duplicate resends and starts a fresh 60-second wait after a generic response', async () => {
+  it('does not offer resend at expiry when verification completed in another tab', async () => {
     vi.useFakeTimers()
-    let resolve!: (value: Response) => void
-    request.mockImplementation(() => new Promise((done) => { resolve = done }))
-    mount('?email=student%40example.test')
-    const button = screen.getByRole('button', { name: 'Resend email' })
-    fireEvent.click(button); fireEvent.click(button)
-    expect(request).toHaveBeenCalledTimes(1)
-    await act(async () => resolve(Response.json({})))
-    expect(screen.queryByRole('button', { name: 'Resend email' })).not.toBeInTheDocument()
-    act(() => vi.advanceTimersByTime(60000))
-    expect(screen.getByRole('button', { name: 'Resend email' })).toBeEnabled()
+    const deadline = Date.now() + 600000
+    const context = rememberVerification({ email, recoveryToken: 'scoped', resendAvailableAt: deadline, deliveryFailed: false })
+    request.mockImplementation(async () => Response.json({ verified: Date.now() >= deadline, unavailable: false, expiresAt: Date.now() < deadline ? new Date(deadline).toISOString() : null }))
+    mount('', context)
+    await act(async () => {})
+    await act(async () => vi.advanceTimersByTime(600000))
+    expect(screen.getByRole('heading', { name: 'Email verified' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Resend verification email' })).not.toBeInTheDocument()
+    expect(posts('/api/email-verification/retry')).toHaveLength(0)
   })
 
-  it('offers retry when the network fails', async () => {
+  it('offers retry when the verification network request fails', async () => {
     request.mockRejectedValue(new TypeError('Failed to fetch'))
     mount(`?token=${token}`)
     await userEvent.click(screen.getByRole('button', { name: 'Verify email' }))
