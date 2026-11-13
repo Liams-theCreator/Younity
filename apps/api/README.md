@@ -1,6 +1,23 @@
 # Younity API
 
-NestJS, TypeScript ES modules, Prisma 7, and PostgreSQL. The database foundation is implemented; authentication and event application workflows are not implemented yet.
+NestJS, TypeScript ES modules, Prisma 7, and PostgreSQL. The API includes
+authentication, email verification, student preferences and administrator
+application reads. See the sections below for contracts and integration status.
+
+## Admin application reads (S2-06)
+
+`GET /api/admin/applications` and `GET /api/admin/applications/:id` require an
+ACTIVE, email-verified ADMIN session cookie. The list accepts `page` (default 1),
+`limit` (default 20, maximum 100), and an optional exact review status. Responses
+contain explicit review fields, use `Cache-Control: no-store`, and are documented
+in Swagger. Unknown/ineligible detail IDs return 404; malformed inputs return 400.
+
+See [S2-06 contract and acceptance](../../docs/s2-06-admin-read-api.md) for JSON
+examples, eligibility, pagination and verification. The current schema treats
+application rows as submitted and organization-only records as drafts. The final
+S2-03 lifecycle storage handoff and Aadel's contract approval remain pending;
+do not treat the existing timestamp default as a future draft-state rule.
+These endpoints do not implement S2-09 decision writes.
 
 ## Full development stack
 
