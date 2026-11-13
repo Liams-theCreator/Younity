@@ -130,7 +130,7 @@ describe('organizer draft frontend integration', () => {
     expect(JSON.parse(String(patches()[0][1]?.body))).toEqual({ academicPosition: null })
     expect(draft?.organizationName).toBe('Campus Club')
     expect(draft?.academicPosition).toBeNull()
-    expect(screen.queryByRole('button', { name: /Submit application/i })).not.toBeInTheDocument()
+    expect(request.mock.calls.some(([url]) => url === '/api/organizer-applications/submit')).toBe(false)
   })
 
   it('preserves unsaved inputs after a failed save and locks duplicate submissions', async () => {
