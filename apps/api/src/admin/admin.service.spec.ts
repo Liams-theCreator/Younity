@@ -25,7 +25,6 @@ describe('AdminService', () => {
 		  }
 	  ],
     }).compile();
-
     service = module.get<AdminService>(AdminService);
   });
 
@@ -148,5 +147,18 @@ describe('AdminService', () => {
 		  data: { status: 'NEEDS_CHANGES', },
 	  });
 	  expect(result).toEqual(1);
+  });
+  it('should reject requesting-changes when application is not pending', async () => {
+	  const mockFunction = service['prisma'].organizationApplication.updateMany;
+	  vi.mocked(mockFunction).mockResolvedValueOnce({ count: 0 });
+	  await expect(service.requestChangesApplication('application-123'),
+				  ).rejects.toThrow(ConflictException);
+	  expect(mockFunction).toHaveBeenCalledWith({
+		  where: {
+			  id: 'application-123',
+			  status: 'PENDING',
+		  },
+		  data: { status: 'NEEDS_CHANGES', },
+	  });
   });
 });
