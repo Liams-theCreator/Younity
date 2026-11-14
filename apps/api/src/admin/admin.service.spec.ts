@@ -2,30 +2,37 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
 import { AdminService } from './admin.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 describe('AdminService', () => {
   let service: AdminService;
 
   beforeEach(async () => {
+    const mockPrisma = {
+      organizationApplication: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'application-123',
+          status: 'PENDING',
+        }),
+        updateMany: vi.fn().mockResolvedValue({
+          count: 1,
+        }),
+      },
+      $transaction: vi.fn(),
+    };
+    mockPrisma.$transaction.mockImplementation(async (callback) =>
+      callback(mockPrisma),
+    );
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
         {
           provide: PrismaService,
-          useValue: {
-            organizationApplication: {
-              findUnique: vi.fn().mockResolvedValue({
-                id: 'application-123',
-                status: 'PENDING',
-              }),
-              updateMany: vi.fn().mockResolvedValue({
-                count: 1,
-              }),
-            },
-          },
+          useValue: mockPrisma,
         },
       ],
     }).compile();
+
     service = module.get<AdminService>(AdminService);
   });
 

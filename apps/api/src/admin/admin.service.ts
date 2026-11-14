@@ -35,6 +35,12 @@ export class AdminService {
         if (result.count === 0) {
           throw new ConflictException('Application cannot be approved');
         }
+        const application = await tx.organizationApplication.findUnique({
+          where: {
+            id: applicationId,
+          },
+          select: { organizationId: true },
+        });
         return result.count;
       });
     } catch (error) {
