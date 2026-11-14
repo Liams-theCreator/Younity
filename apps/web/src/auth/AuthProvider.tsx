@@ -56,8 +56,18 @@ export default function AuthProvider({
               },
         )
       },
-      () => {
+      (cause) => {
         if (currentRequest !== requestId.current) return
+
+        if (cause instanceof LoginError && cause.code === 'EMAIL_NOT_VERIFIED') {
+          setState({
+            status: 'anonymous',
+            user: null,
+            error: null,
+            reason: 'email-unverified',
+          })
+          return
+        }
 
         setState({
           status: 'error',

@@ -69,6 +69,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new ForbiddenException('Account suspended');
     }
 
+    if (!user.emailVerifiedAt) {
+      throw new ForbiddenException({
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Verify your email before signing in.',
+      });
+    }
+
     return user;
   }
 }

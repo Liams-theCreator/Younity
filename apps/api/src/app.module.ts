@@ -28,4 +28,4 @@ import { AdminModule } from './admin/admin.module.js';
     AppService,
   ],
 })
-export class AppModule {}
+export class AppModule { }

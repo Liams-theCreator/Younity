@@ -2,9 +2,19 @@ import { validateEnvironment } from './environment.js';
 
 const valid = {
   DATABASE_URL: 'postgresql://user:password@localhost:5432/younity',
+  FRONTEND_ORIGIN: 'https://localhost:8443',
 };
 
 describe('environment validation', () => {
+  it('accepts the local HTTPS verification origin', () => {
+    expect(() => validateEnvironment(valid)).not.toThrow();
+  });
+  it.each([undefined, '', '   '])('requires FRONTEND_ORIGIN (%s)', (origin) => {
+    expect(() => validateEnvironment({ ...valid, FRONTEND_ORIGIN: origin })).toThrow('FRONTEND_ORIGIN is required');
+  });
+  it.each(['bad', 'localhost:8443', 'ftp://localhost', 'https://localhost/path', 'https://localhost/', 'https://user:secret@localhost', 'https://localhost?x=1', 'https://localhost#fragment', ' https://localhost'])('rejects malformed FRONTEND_ORIGIN (%s)', (origin) => {
+    expect(() => validateEnvironment({ ...valid, FRONTEND_ORIGIN: origin })).toThrow('FRONTEND_ORIGIN');
+  });
   it('provides development defaults', () => {
     expect(validateEnvironment(valid)).toMatchObject({
       port: 3000,

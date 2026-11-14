@@ -33,6 +33,7 @@ export class AuthService implements OnModuleInit
 					email: true,
 					passwordHash: true,
 					status: true,
+					emailVerifiedAt: true,
 				},
 			});
 	}
@@ -50,6 +51,8 @@ export class AuthService implements OnModuleInit
 			throw new UnauthorizedException('Invalid credentials');
 		if (user.status === UserStatus.SUSPENDED)
 			throw new ForbiddenException('Account suspended');
+		if (!user.emailVerifiedAt)
+			throw new ForbiddenException({ code: 'EMAIL_NOT_VERIFIED', message: 'Verify your email before signing in.' });
 		return {
 			id: user.id,
 			email: user.email,

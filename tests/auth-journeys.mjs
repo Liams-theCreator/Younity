@@ -9,6 +9,30 @@ assert.equal(base.protocol, 'https:');
 assert.equal(base.hostname, 'localhost', 'Run against an isolated localhost test stack');
 const ca = readFileSync(process.env.AUTH_TEST_CA_FILE);
 const password = 'Verify-auth04-password-2026!';
+const mailpit = new URL(process.env.AUTH_TEST_MAILPIT_URL ?? 'http://localhost:8025');
+assert.ok(['localhost', '127.0.0.1'].includes(mailpit.hostname), 'Use local Mailpit for verification emails');
+
+async function verifyEmail(email) {
+  const denied = await send('/api/auth/login', { method: 'POST', body: { email, password } });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.data.code, 'EMAIL_NOT_VERIFIED');
+  const search = new URL('/api/v1/search', mailpit);
+  search.searchParams.set('query', `to:${email}`);
+  const inboxResponse = await fetch(search, { signal: AbortSignal.timeout(5000) });
+  assert.ok(inboxResponse.ok, 'Mailpit search succeeds');
+  const inbox = await inboxResponse.json();
+  const message = inbox.messages?.find((item) => item.Subject === 'Verify your Younity email');
+  assert.ok(message, 'verification email arrives in local Mailpit');
+  const messageResponse = await fetch(new URL(`/api/v1/message/${message.ID}`, mailpit), { signal: AbortSignal.timeout(5000) });
+  assert.ok(messageResponse.ok, 'Mailpit message is readable');
+  const fullMessage = await messageResponse.json();
+  assert.match(fullMessage.Text, /expires in 10 minutes/);
+  const link = new URL(fullMessage.Text.match(/https?:\/\/\S+\/verify-email\?token=[a-f0-9]{64}/)?.[0]);
+  assert.equal(link.origin, base.origin, 'email points to the browser origin');
+  const token = link.searchParams.get('token');
+  assert.equal((await send('/api/email-verification/verify-email', { method: 'POST', body: { token } })).status, 200);
+  assert.equal((await send('/api/email-verification/verify-email', { method: 'POST', body: { token } })).status, 400);
+}
 
 function send(path, { method = 'GET', body, cookie } = {}) {
   return new Promise((resolve, reject) => {
@@ -63,11 +87,13 @@ const student = {
 assert.equal((await send('/api/auth/register/student', { method: 'POST', body: { ...student, password: 'short' } })).status, 400);
 const createdStudent = await send('/api/auth/register/student', { method: 'POST', body: student });
 assert.equal(createdStudent.status, 201);
+assert.equal(createdStudent.data.verificationEmailSent, true);
 assert.deepEqual(createdStudent.data.studentProfile.interests, student.interests);
 assert.equal(createdStudent.data.email, student.email);
 assert.equal(createdStudent.data.passwordHash, undefined);
 assert.equal((await send('/api/auth/register/student', { method: 'POST', body: student })).status, 409);
 assert.equal((await send('/api/auth/login', { method: 'POST', body: { email: student.email, password: 'incorrect' } })).status, 401);
+await verifyEmail(student.email);
 const studentCookie = await signIn(student.email);
 const studentSession = await send('/api/auth/me', { cookie: studentCookie });
 assert.equal(studentSession.status, 200);
@@ -84,7 +110,9 @@ const organizer = {
 };
 const createdOrganizer = await send('/api/auth/register/organizer', { method: 'POST', body: organizer });
 assert.equal(createdOrganizer.status, 201);
+assert.equal(createdOrganizer.data.verificationEmailSent, true);
 assert.equal(createdOrganizer.data.status, 'PENDING');
+await verifyEmail(organizer.email);
 const organizerCookie = await signIn(organizer.email);
 const pendingSession = await send('/api/auth/me', { cookie: organizerCookie });
 assert.equal(pendingSession.status, 200);

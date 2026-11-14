@@ -8,6 +8,8 @@ export interface RegistrationPageProps {
 
 export const REGISTRATION_UNAVAILABLE = 'Registration is temporarily unavailable. Please try again later.'
 
+export type RegistrationResult = { verificationEmailSent: boolean; verificationExpiresAt: string | null; verificationRecoveryToken: string }
+
 export class RegistrationError extends Error {
   readonly status?: number
   readonly details: string[]
@@ -24,7 +26,7 @@ async function register(
   payload: StudentRegistrationPayload | OrganizerRegistrationPayload,
   signal: AbortSignal,
   request: typeof fetch,
-): Promise<void> {
+): Promise<RegistrationResult> {
   signal.throwIfAborted()
   let response: Response
   try {
@@ -40,7 +42,15 @@ async function register(
     const account: unknown = await response.json().catch(() => null)
     if (typeof account === 'object' && account !== null && 'id' in account && 'email' in account &&
         ((typeof account.id === 'string' && account.id.trim()) || (typeof account.id === 'number' && Number.isSafeInteger(account.id) && account.id > 0)) &&
-        account.email === payload.email) return
+        account.email === payload.email && 'verificationEmailSent' in account && typeof account.verificationEmailSent === 'boolean' &&
+        'verificationRecoveryToken' in account && typeof account.verificationRecoveryToken === 'string' && account.verificationRecoveryToken.length > 0 &&
+        'verificationExpiresAt' in account && (account.verificationEmailSent
+          ? typeof account.verificationExpiresAt === 'string' && Number.isFinite(Date.parse(account.verificationExpiresAt))
+          : account.verificationExpiresAt === null)) return {
+          verificationEmailSent: account.verificationEmailSent,
+          verificationRecoveryToken: account.verificationRecoveryToken,
+          verificationExpiresAt: account.verificationExpiresAt as string | null,
+        }
     throw new RegistrationError('Registration response could not be verified. Please sign in before trying to register again.')
   }
   const data: unknown = await response.json().catch(() => null)
@@ -56,10 +66,10 @@ async function register(
   throw new RegistrationError(REGISTRATION_UNAVAILABLE, response.status)
 }
 
-export function registerStudent(payload: StudentRegistrationPayload, signal: AbortSignal, request: typeof fetch = apiRequest): Promise<void> {
+export function registerStudent(payload: StudentRegistrationPayload, signal: AbortSignal, request: typeof fetch = apiRequest): Promise<RegistrationResult> {
   return register('/api/auth/register/student', payload, signal, request)
 }
 
-export function registerOrganizer(payload: OrganizerRegistrationPayload, signal: AbortSignal, request: typeof fetch = apiRequest): Promise<void> {
+export function registerOrganizer(payload: OrganizerRegistrationPayload, signal: AbortSignal, request: typeof fetch = apiRequest): Promise<RegistrationResult> {
   return register('/api/auth/register/organizer', payload, signal, request)
 }

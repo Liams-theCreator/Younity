@@ -21,6 +21,11 @@ const student = {
 }
 
 describe('AUTH-05 session contract', () => {
+  it('distinguishes an unverified email from an unavailable account', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ code: 'EMAIL_NOT_VERIFIED', message: 'Verify your email before signing in.' }, { status: 403 }))
+    await expect(login({ email: student.email, password: 'test-only' }, request)).rejects.toMatchObject({ code: 'EMAIL_NOT_VERIFIED' })
+    expect(request).toHaveBeenCalledTimes(1)
+  })
   it('keeps only safe profile fields', () => {
     expect(
       parseSessionUser({

@@ -125,3 +125,9 @@ A subsequent `git fetch origin` exposed additional teammate branches that were a
 - `origin/02-verification_email` has the same verification-only mail service; no decision-delivery method was found there.
 
 Keep the PR in draft until the endpoint/eligibility conflict and the documented release dependencies are resolved. The recorded test results apply to this feature branch alone, not a merge with those teammate branches.
+
+## Main merge conflict resolution
+
+Merged `origin/main` at `ae6998a` into the feature branch to resolve PR conflicts. AuthModule preserves main's EmailVerificationModule, MailModule and ResendRateLimitGuard alongside this branch's exported PassportModule/JwtAuthGuard/RolesGuard. JwtStrategy preserves main's global EMAIL_NOT_VERIFIED rejection and selects emailVerifiedAt for the administrator checks. This supersedes the earlier branch-only statement about unchanged non-admin email-verification rules: the merged branch follows main's current authentication policy.
+
+Combined-branch verification: build, full TypeScript compilation and lint passed; **133 unit tests passed** (13 files); **93 end-to-end tests passed, 1 skipped** (8 files) against the same isolated PostgreSQL container. The skip is main's optional SMTP delivery test (`EMAIL_VERIFICATION_SMTP_TEST` was not enabled); a simulated verification-delivery failure emits the expected registration recovery log. No real mail delivery occurred. The S2-06 endpoint/eligibility reconciliation, organizer revision integration and decision-mail scheduling dependencies still apply; merging main does not include those unmerged teammate features.

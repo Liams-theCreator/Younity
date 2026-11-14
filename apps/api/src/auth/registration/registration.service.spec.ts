@@ -5,6 +5,7 @@ import * as argon2 from 'argon2';
 
 import { RegistrationService } from './registration.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { EmailVerificationService } from '../email-verification/email-verification.service.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import {
   OrganizationType,
@@ -15,6 +16,7 @@ import {
 
 describe('RegistrationService', () => {
   let service: RegistrationService;
+  const emailVerification = { startVerification: vi.fn(), createRecoveryToken: vi.fn() };
 
   const prismaMock = {
     user: {
@@ -42,10 +44,13 @@ describe('RegistrationService', () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
+    emailVerification.createRecoveryToken.mockResolvedValue('scoped-recovery');
+    emailVerification.startVerification.mockResolvedValue('2026-11-11T12:10:00.000Z');
 
     const module = await Test.createTestingModule({
       providers: [
         RegistrationService,
+        { provide: EmailVerificationService, useValue: emailVerification },
         {
           provide: PrismaService,
           useValue: prismaMock,
@@ -85,7 +90,7 @@ describe('RegistrationService', () => {
           email: dto.email,
         });
 
-        await register();
+        expect((await register()).verificationEmailSent).toBe(true);
 
         expect(prismaMock.user.create).toHaveBeenCalledTimes(1);
 
@@ -146,6 +151,15 @@ describe('RegistrationService', () => {
         await expect(register()).rejects.toBeInstanceOf(
           ConflictException,
         );
+      });
+
+      it('reports account creation with a resend recovery path when mail delivery fails', async () => {
+        prismaMock.user.findUnique.mockResolvedValue(null);
+        prismaMock.user.create.mockResolvedValue({ id: 'created-user', email: dto.email });
+        emailVerification.startVerification.mockRejectedValue(new Error('SMTP unavailable'));
+        await expect(register()).resolves.toEqual({ id: 'created-user', email: dto.email, verificationEmailSent: false, verificationExpiresAt: null, verificationRecoveryToken: 'scoped-recovery' });
+        expect(emailVerification.startVerification).toHaveBeenCalledWith('created-user');
+        expect(prismaMock.user.create).toHaveBeenCalledTimes(1);
       });
 
       it('preserves unrelated uniqueness errors', async () => {
