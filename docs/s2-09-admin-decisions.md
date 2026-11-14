@@ -114,3 +114,14 @@ For manual verification, apply migrations/seed only to a dedicated `_test` DB, c
 ## Said: review and frontend handoff
 
 Review the approval activation assumption with Aadel, migration ordering with schema owners, and read the added database/HTTP tests. Send Oussama the Frontend API section, specifically the required `expectedRevision`, detail URL and refresh-on-409 rule. Ask Aadel to wire the revision helper and confirm drafts never become PENDING applications; ask Abdellah to supply shared decision delivery and schedule the dispatcher. No teammate messages, deployment, merge, push or real email delivery were performed.
+
+## Remote refresh before PR creation
+
+A subsequent `git fetch origin` exposed additional teammate branches that were absent from the original local remote refs:
+
+- `origin/S2-06_Admin-application-api` already implements list/detail reads. Its `GET /api/admin/applications/:id` overlaps this branch's detail endpoint and returns a different, frontend-oriented DTO. **Do not register both controllers on merge.** Reconcile one canonical detail endpoint, preserving S2-06 fields and adding revision/history, then update frontend tests. The earlier pending-list ownership gap is therefore resolved at the branch level, but integration remains outstanding.
+- S2-06 also filters reads by verified/non-suspended ORGANIZER submitter, non-future submittedAt, and nonempty required organization fields. This branch's decisions currently rely on the persisted PENDING submission convention and eligible owner for approval. Agree a shared read/decision eligibility predicate with Aadel; these branch contracts currently differ. This is a merge blocker, not a verified end-to-end combined workflow.
+- `origin/S2-03_draft` still has an empty organizer-applications controller and no application revision field. The resubmission integration dependency remains.
+- `origin/02-verification_email` has the same verification-only mail service; no decision-delivery method was found there.
+
+Keep the PR in draft until the endpoint/eligibility conflict and the documented release dependencies are resolved. The recorded test results apply to this feature branch alone, not a merge with those teammate branches.
