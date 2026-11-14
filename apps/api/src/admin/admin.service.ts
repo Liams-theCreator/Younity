@@ -19,21 +19,24 @@ export class AdminService {
     reason: string,
   ) {
     try {
-      const result = await this.prisma.organizationApplication.updateMany({
-        where: {
-          id: applicationId,
-          status: 'PENDING',
-        },
-        data: {
-          status: 'APPROVED',
-          reviewerId: adminId,
-          reviewerNote: reason,
-          reviewedAt: new Date(),
-        },
+      return this.prisma.$transaction(async (tx) => {
+        const result = await tx.organizationApplication.updateMany({
+          where: {
+            id: applicationId,
+            status: 'PENDING',
+          },
+          data: {
+            status: 'APPROVED',
+            reviewerId: adminId,
+            reviewerNote: reason,
+            reviewedAt: new Date(),
+          },
+        });
+        if (result.count === 0) {
+          throw new ConflictException('Application cannot be approved');
+        }
+        return result.count;
       });
-      if (result.count === 0) {
-        throw new ConflictException('Application cannot be approved');
-      } else return result.count;
     } catch (error) {
       throw error;
     }
