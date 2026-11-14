@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PrismaService } from '../prisma/prisma.service.js';
 
-// Implement using the shared S2-01 MailService when its decision API is agreed.
+// The shared S2-01 MailService implements this delivery contract.
 // A stable messageId mitigates duplicates; providers should deduplicate by it.
 export interface DecisionEmailSender {
   sendDecisionEmail(input: {

@@ -10,6 +10,7 @@ import { validateEnvironment } from '../src/config/environment.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { AdminService } from '../src/admin/admin.service.js';
 import { DecisionEmailDispatcher } from '../src/admin/decision-email.dispatcher.js';
+import { MailService } from '../src/auth/mail/mail.service.js';
 import { advanceApplicationRevision } from '../src/admin/application-revision.js';
 import type { UserRole, UserStatus } from '../src/generated/prisma/enums.js';
 
@@ -42,7 +43,7 @@ describe('Admin decisions: real PostgreSQL and JWT HTTP', () => {
   }
   async function fixture(status: UserStatus = 'PENDING') {
     const owner = await user('ORGANIZER', status);
-    const submitter = await user('STUDENT', 'ACTIVE');
+    const submitter = await user('ORGANIZER', 'ACTIVE');
     const org = await db.organization.create({
       data: {
         ownerId: owner.id,
@@ -119,7 +120,7 @@ describe('Admin decisions: real PostgreSQL and JWT HTTP', () => {
     ).toMatchObject({ status: 'ACTIVE' });
     expect(
       await db.user.findUnique({ where: { id: f.submitter.id } }),
-    ).toMatchObject({ role: 'STUDENT', status: 'ACTIVE' });
+    ).toMatchObject({ role: 'ORGANIZER', status: 'ACTIVE' });
     const application = await db.organizationApplication.findUniqueOrThrow({
       where: { id: f.application.id },
       include: { organization: true, decisions: { include: { email: true } } },
@@ -163,11 +164,56 @@ describe('Admin decisions: real PostgreSQL and JWT HTTP', () => {
       ).toBe(1);
     },
   );
+  it.each([
+    'unverified',
+    'suspended',
+    'wrong-role',
+    'future-submission',
+    'incomplete-organization',
+  ] as const)('blocks %s application for all decisions', async (kind) => {
+    const f = await fixture();
+    if (kind === 'unverified')
+      await db.user.update({
+        where: { id: f.submitter.id },
+        data: { emailVerifiedAt: null },
+      });
+    if (kind === 'suspended')
+      await db.user.update({
+        where: { id: f.submitter.id },
+        data: { status: 'SUSPENDED' },
+      });
+    if (kind === 'wrong-role')
+      await db.user.update({
+        where: { id: f.submitter.id },
+        data: { role: 'STUDENT' },
+      });
+    if (kind === 'future-submission')
+      await db.organizationApplication.update({
+        where: { id: f.application.id },
+        data: { submittedAt: new Date('2100-01-01') },
+      });
+    if (kind === 'incomplete-organization')
+      await db.organization.update({
+        where: { id: f.org.id },
+        data: { orgName: '' },
+      });
+    for (const action of ['approve', 'reject', 'request-changes'])
+      await post(f.application.id, action).expect(409);
+    expect(
+      await db.applicationDecision.count({
+        where: { applicationId: f.application.id },
+      }),
+    ).toBe(0);
+    await request(app.getHttpServer())
+      .get(`/api/admin/applications/${f.application.id}/review`)
+      .set('Cookie', cookie)
+      .expect(404);
+  });
   it('distinguishes missing and invalid IDs', async () => {
     await post(randomUUID()).expect(404);
     await post('bad-id').expect(400);
     await request(app.getHttpServer())
-      .get(`/api/admin/applications/${randomUUID()}`)
+      .get(`/api/admin/applications/${randomUUID()}/review`)
       .set('Cookie', cookie)
       .expect(404);
   });
@@ -349,10 +395,17 @@ describe('Admin decisions: real PostgreSQL and JWT HTTP', () => {
       expectedRevision: 2,
     }).expect(201);
     const res = await request(app.getHttpServer())
-      .get(`/api/admin/applications/${f.application.id}`)
+      .get(`/api/admin/applications/${f.application.id}/review`)
       .set('Cookie', cookie)
       .expect(200);
     expect(res.body.revision).toBe(2);
+    expect(res.body.organization).toMatchObject({
+      orgName: 'Test',
+      type: 'STUDENT_CLUB',
+    });
+    expect(res.body.submittedBy).toMatchObject({ email: f.submitter.email });
+    expect(JSON.stringify(res.body)).not.toContain('passwordHash');
+    expect(res.headers['cache-control']).toBe('no-store');
     expect(
       res.body.decisions.map((d: { revision: number }) => d.revision),
     ).toEqual([1, 2]);
@@ -468,6 +521,35 @@ describe('Admin decisions: real PostgreSQL and JWT HTTP', () => {
     expect(
       await dispatcher.dispatchOne(new Date(now.getTime() + 120_000)),
     ).toBe(false);
+  });
+  it('wires the application dispatcher to the shared MailService', async () => {
+    await db.decisionEmail.updateMany({
+      where: { decision: { adminId: admin } },
+      data: { nextAttemptAt: new Date('2100-01-01') },
+    });
+    const f = await fixture();
+    await post(f.application.id, 'reject').expect(201);
+    const send = vi
+      .spyOn(app.get(MailService), 'sendDecisionEmail')
+      .mockResolvedValue(undefined);
+    try {
+      await app.get(DecisionEmailDispatcher).dispatchOne();
+      expect(send).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          recipient: f.owner.email,
+          status: 'REJECTED',
+          reason: 'verified',
+          messageId: expect.any(String),
+        }),
+      );
+      expect(
+        await db.decisionEmail.findFirst({
+          where: { decision: { applicationId: f.application.id } },
+        }),
+      ).toMatchObject({ status: 'SENT' });
+    } finally {
+      send.mockRestore();
+    }
   });
   it('exhausts bounded retries on permanent delivery failure', async () => {
     const f = await fixture();

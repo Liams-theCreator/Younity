@@ -2,6 +2,7 @@ import { ApiTags, ApiCookieAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
 import {
   Controller,
   Get,
+  Header,
   Param,
   Post,
   ParseUUIDPipe,
@@ -36,7 +37,8 @@ import { AdminDecisionDto } from './dto/admin-decision-dto.js';
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
-  @Get('applications/:id')
+  @Get('applications/:id/review')
+  @Header('Cache-Control', 'no-store')
   getApplication(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.adminService.getApplication(id);
   }

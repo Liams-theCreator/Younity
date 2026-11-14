@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { submittedApplicationEligibility } from './application-eligibility.js';
 type Decision = 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
 @Injectable()
 export class AdminService {
@@ -12,14 +13,34 @@ export class AdminService {
     return this.prisma.organizationApplication.findUnique({ where: { id } });
   }
   async getApplication(id: string) {
-    const application = await this.prisma.organizationApplication.findUnique({
-      where: { id },
-      include: {
-        decisions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+    // Content and revision must describe the same database snapshot; fetching
+    // them separately can associate old displayed content with a newer revision.
+    return this.prisma.$transaction(
+      async (tx) => {
+        const application = await tx.organizationApplication.findFirst({
+          where: { id, ...submittedApplicationEligibility() },
+          include: {
+            decisions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+            organization: {
+              select: {
+                orgName: true,
+                representativeFullName: true,
+                type: true,
+                academicPosition: true,
+                phoneNumber: true,
+                proofUrl: true,
+              },
+            },
+            submittedBy: {
+              select: { firstName: true, lastName: true, email: true },
+            },
+          },
+        });
+        if (!application) throw new NotFoundException('Application not found');
+        return application;
       },
-    });
-    if (!application) throw new NotFoundException('Application not found');
-    return application;
+      { isolationLevel: 'RepeatableRead' },
+    );
   }
   approveApplication(
     id: string,
@@ -57,7 +78,12 @@ export class AdminService {
         const now = new Date();
         // First write gates competing decisions; all dependent writes use tx.
         const result = await tx.organizationApplication.updateMany({
-          where: { id, status: 'PENDING', revision: expectedRevision },
+          where: {
+            id,
+            status: 'PENDING',
+            revision: expectedRevision,
+            ...submittedApplicationEligibility(now),
+          },
           data: {
             status,
             reviewerId: adminId,
@@ -71,7 +97,7 @@ export class AdminService {
         if (!application) throw new NotFoundException('Application not found');
         if (result.count !== 1)
           throw new ConflictException(
-            'Application is not pending or revision is stale',
+            'Application is ineligible, not pending or revision is stale',
           );
         const organization = await tx.organization.findUnique({
           where: { id: application.organizationId },
