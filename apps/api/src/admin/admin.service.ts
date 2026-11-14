@@ -1,101 +1,139 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-
+type Decision = 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
 @Injectable()
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
-  async findApplication(applicationId: string) {
-    try {
-      return this.prisma.organizationApplication.findUnique({
-        where: { id: applicationId },
-      });
-    } catch (error) {
-      throw error;
-    }
+  findApplication(id: string) {
+    return this.prisma.organizationApplication.findUnique({ where: { id } });
   }
-  async approveApplication(
-    applicationId: string,
+  async getApplication(id: string) {
+    const application = await this.prisma.organizationApplication.findUnique({
+      where: { id },
+      include: {
+        decisions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+      },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+    return application;
+  }
+  approveApplication(
+    id: string,
     adminId: string,
     reason: string,
+    expectedRevision: number,
+  ) {
+    return this.decide(id, adminId, reason, 'APPROVED', expectedRevision);
+  }
+  rejectApplication(
+    id: string,
+    adminId: string,
+    reason: string,
+    expectedRevision: number,
+  ) {
+    return this.decide(id, adminId, reason, 'REJECTED', expectedRevision);
+  }
+  requestChangesApplication(
+    id: string,
+    adminId: string,
+    reason: string,
+    expectedRevision: number,
+  ) {
+    return this.decide(id, adminId, reason, 'NEEDS_CHANGES', expectedRevision);
+  }
+  private async decide(
+    id: string,
+    adminId: string,
+    reason: string,
+    status: Decision,
+    expectedRevision: number,
   ) {
     try {
-      return this.prisma.$transaction(async (tx) => {
+      return await this.prisma.$transaction(async (tx) => {
+        const now = new Date();
+        // First write gates competing decisions; all dependent writes use tx.
         const result = await tx.organizationApplication.updateMany({
-          where: {
-            id: applicationId,
-            status: 'PENDING',
-          },
+          where: { id, status: 'PENDING', revision: expectedRevision },
           data: {
-            status: 'APPROVED',
+            status,
             reviewerId: adminId,
             reviewerNote: reason,
-            reviewedAt: new Date(),
+            reviewedAt: now,
           },
         });
-        if (result.count === 0) {
-          throw new ConflictException('Application cannot be approved');
-        }
         const application = await tx.organizationApplication.findUnique({
-          where: {
-            id: applicationId,
+          where: { id },
+        });
+        if (!application) throw new NotFoundException('Application not found');
+        if (result.count !== 1)
+          throw new ConflictException(
+            'Application is not pending or revision is stale',
+          );
+        const organization = await tx.organization.findUnique({
+          where: { id: application.organizationId },
+        });
+        if (!organization)
+          throw new ConflictException('Application organization is missing');
+        const owner = await tx.user.findUnique({
+          where: { id: organization.ownerId },
+        });
+        if (!owner)
+          throw new ConflictException('Organization owner is missing');
+        if (status === 'APPROVED') {
+          const orgResult = await tx.organization.updateMany({
+            where: { id: organization.id, ownerId: owner.id },
+            data: {
+              verificationStatus: 'APPROVED',
+              verifiedAt: now,
+              verifiedById: adminId,
+            },
+          });
+          if (orgResult.count !== 1)
+            throw new ConflictException('Organization changed during review');
+          const ownerResult = await tx.user.updateMany({
+            where: {
+              id: owner.id,
+              role: 'ORGANIZER',
+              status: { in: ['PENDING', 'ACTIVE'] },
+            },
+            data: { status: 'ACTIVE' },
+          });
+          if (ownerResult.count !== 1)
+            throw new ConflictException(
+              'Owner must be a non-suspended organizer',
+            );
+        }
+        const decision = await tx.applicationDecision.create({
+          data: {
+            applicationId: id,
+            revision: expectedRevision,
+            adminId,
+            oldStatus: 'PENDING',
+            newStatus: status,
+            reason,
+            createdAt: now,
           },
-          select: { organizationId: true },
+        });
+        await tx.decisionEmail.create({
+          data: { decisionId: decision.id, recipient: owner.email },
         });
         return result.count;
       });
     } catch (error) {
-      throw error;
-    }
-  }
-  async rejectApplication(
-    applicationId: string,
-    adminId: string,
-    reason: string,
-  ) {
-    try {
-      const result = await this.prisma.organizationApplication.updateMany({
-        where: {
-          id: applicationId,
-          status: 'PENDING',
-        },
-        data: {
-          status: 'REJECTED',
-          reviewerId: adminId,
-          reviewerNote: reason,
-          reviewedAt: new Date(),
-        },
-      });
-      if (result.count === 0) {
-        throw new ConflictException('Application cannot be rejected');
-      } else return result.count;
-    } catch (error) {
-      throw error;
-    }
-  }
-  async requestChangesApplication(
-    applicationId: string,
-    adminId: string,
-    reason: string,
-  ) {
-    try {
-      const result = await this.prisma.organizationApplication.updateMany({
-        where: {
-          id: applicationId,
-          status: 'PENDING',
-        },
-        data: {
-          status: 'NEEDS_CHANGES',
-          reviewerId: adminId,
-          reviewerNote: reason,
-          reviewedAt: new Date(),
-        },
-      });
-      if (result.count === 0) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'P2034'
+      ) {
         throw new ConflictException(
-          'Application cannot be requested for changes',
+          'Concurrent decision; reload the application',
         );
-      } else return result.count;
-    } catch (error) {
+      }
       throw error;
     }
   }

@@ -1,229 +1,107 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException } from '@nestjs/common';
-import { AdminService } from './admin.service.js';
-import { PrismaService } from '../prisma/prisma.service.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { AdminService } from './admin.service.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
 
-describe('AdminService', () => {
-  let service: AdminService;
-
-  beforeEach(async () => {
-    const mockPrisma = {
-      organizationApplication: {
-        findUnique: vi.fn().mockResolvedValue({
-          id: 'application-123',
-          status: 'PENDING',
-        }),
-        updateMany: vi.fn().mockResolvedValue({
-          count: 1,
-        }),
+describe('AdminService decisions', () => {
+  const tx = {
+    organizationApplication: { updateMany: vi.fn(), findUnique: vi.fn() },
+    organization: { findUnique: vi.fn(), updateMany: vi.fn() },
+    user: { findUnique: vi.fn(), updateMany: vi.fn() },
+    applicationDecision: { create: vi.fn() },
+    decisionEmail: { create: vi.fn() },
+    $transaction: vi.fn(),
+  };
+  const service = new AdminService(tx as unknown as PrismaService);
+  beforeEach(() => {
+    vi.resetAllMocks();
+    tx.$transaction.mockImplementation((cb) => cb(tx));
+    tx.organizationApplication.updateMany.mockResolvedValue({ count: 1 });
+    tx.organizationApplication.findUnique.mockResolvedValue({
+      organizationId: 'org',
+      submittedById: 'other',
+    });
+    tx.organization.findUnique.mockResolvedValue({
+      id: 'org',
+      ownerId: 'owner',
+    });
+    tx.user.findUnique.mockResolvedValue({
+      id: 'owner',
+      email: 'owner@example.invalid',
+    });
+    tx.organization.updateMany.mockResolvedValue({ count: 1 });
+    tx.user.updateMany.mockResolvedValue({ count: 1 });
+    tx.applicationDecision.create.mockResolvedValue({ id: 'decision' });
+  });
+  it('approves the actual owner and queues one audited notification', async () => {
+    expect(await service.approveApplication('app', 'admin', 'ok', 1)).toBe(1);
+    expect(tx.user.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'owner',
+        role: 'ORGANIZER',
+        status: { in: ['PENDING', 'ACTIVE'] },
       },
-      $transaction: vi.fn(),
-    };
-    mockPrisma.$transaction.mockImplementation(async (callback) =>
-      callback(mockPrisma),
-    );
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AdminService,
-        {
-          provide: PrismaService,
-          useValue: mockPrisma,
+      data: { status: 'ACTIVE' },
+    });
+    expect(tx.organization.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          verificationStatus: 'APPROVED',
+          verifiedAt: expect.any(Date),
+          verifiedById: 'admin',
         },
-      ],
-    }).compile();
-
-    service = module.get<AdminService>(AdminService);
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-  it('should return an application by ID', async () => {
-    const result = await service.findApplication('application-123');
-    const mockFunction = service['prisma'].organizationApplication.findUnique;
-    expect(mockFunction).toHaveBeenCalledWith({
-      where: { id: 'application-123' },
-    });
-    expect(result).toBeDefined();
-    expect(result).toEqual({
-      id: 'application-123',
-      status: 'PENDING',
-    });
-  });
-  it('should return null when the application does not exist', async () => {
-    const mockFunction = service['prisma'].organizationApplication.findUnique;
-    vi.mocked(mockFunction).mockResolvedValueOnce(null);
-    const result = await service.findApplication('non-existing-app');
-    expect(mockFunction).toHaveBeenCalledWith({
-      where: {
-        id: 'non-existing-app',
-      },
-    });
-    expect(result).toBeNull();
-  });
-  it('should propagate database errors', async () => {
-    const mockFunction = service['prisma'].organizationApplication.findUnique;
-    vi.mocked(mockFunction).mockRejectedValueOnce(
-      new Error('Database unavailable'),
+      }),
     );
-    await expect(service.findApplication('application-123')).rejects.toThrow(
-      'Database unavailable',
-    );
+    expect(tx.applicationDecision.create).toHaveBeenCalledTimes(1);
+    expect(tx.decisionEmail.create).toHaveBeenCalledTimes(1);
   });
-  it('should approve a pending application', async () => {
-    const result = await service.approveApplication(
-      'application-123',
-      'reviewer-123',
-      'Requirements satisfied',
-    );
-    const mockFunction = service['prisma'].organizationApplication.updateMany;
-    expect(mockFunction).toHaveBeenCalledWith({
-      where: {
-        id: 'application-123',
-        status: 'PENDING',
-      },
-      data: {
-        status: 'APPROVED',
-        reviewerId: 'reviewer-123',
-        reviewerNote: 'Requirements satisfied',
-        reviewedAt: expect.any(Date),
-      },
-    });
-    expect(result).toEqual(1);
-  });
-  it('should reject approval when application is not pending', async () => {
-    const mockFunction = service['prisma'].organizationApplication.updateMany;
-    vi.mocked(mockFunction).mockResolvedValueOnce({ count: 0 });
+  it.each(['rejectApplication', 'requestChangesApplication'] as const)(
+    '%s leaves organization and user unchanged',
+    async (method) => {
+      expect(await service[method]('app', 'admin', 'reason', 1)).toBe(1);
+      expect(tx.user.updateMany).not.toHaveBeenCalled();
+      expect(tx.organization.updateMany).not.toHaveBeenCalled();
+      expect(tx.applicationDecision.create).toHaveBeenCalledTimes(1);
+    },
+  );
+  it('returns 404 for missing application', async () => {
+    tx.organizationApplication.updateMany.mockResolvedValue({ count: 0 });
+    tx.organizationApplication.findUnique.mockResolvedValue(null);
     await expect(
-      service.approveApplication(
-        'application-123',
-        'reviewer-123',
-        'Requirements satisfied',
-      ),
-    ).rejects.toThrow(ConflictException);
-    expect(mockFunction).toHaveBeenCalledWith({
-      where: {
-        id: 'application-123',
-        status: 'PENDING',
-      },
-      data: {
-        status: 'APPROVED',
-        reviewerId: 'reviewer-123',
-        reviewerNote: 'Requirements satisfied',
-        reviewedAt: expect.any(Date),
-      },
-    });
+      service.approveApplication('app', 'admin', 'ok', 1),
+    ).rejects.toThrow(NotFoundException);
   });
-  it('should reject a pending application', async () => {
-    const result = await service.rejectApplication(
-      'application-123',
-      'reviewer-123',
-      'Not enough',
-    );
-    const mockFunction = service['prisma'].organizationApplication.updateMany;
-    expect(mockFunction).toHaveBeenCalledWith({
-      where: {
-        id: 'application-123',
-        status: 'PENDING',
-      },
-      data: {
-        status: 'REJECTED',
-        reviewerId: 'reviewer-123',
-        reviewerNote: 'Not enough',
-        reviewedAt: expect.any(Date),
-      },
-    });
-    expect(result).toEqual(1);
-  });
-  it('should reject rejection when application is not pending', async () => {
-    const mockFunction = service['prisma'].organizationApplication.updateMany;
-    vi.mocked(mockFunction).mockResolvedValueOnce({ count: 0 });
+  it('returns conflict without audit on duplicate', async () => {
+    tx.organizationApplication.updateMany.mockResolvedValue({ count: 0 });
     await expect(
-      service.rejectApplication(
-        'application-123',
-        'reviewer-123',
-        'Not enough',
-      ),
+      service.approveApplication('app', 'admin', 'ok', 1),
     ).rejects.toThrow(ConflictException);
-    expect(mockFunction).toHaveBeenCalledWith({
-      where: {
-        id: 'application-123',
-        status: 'PENDING',
-      },
-      data: {
-        status: 'REJECTED',
-        reviewerId: 'reviewer-123',
-        reviewerNote: 'Not enough',
-        reviewedAt: expect.any(Date),
-      },
-    });
+    expect(tx.applicationDecision.create).not.toHaveBeenCalled();
   });
-  it('should reject requesting-changes when application is not pending', async () => {
-    const mockFunction = service['prisma'].organizationApplication.updateMany;
-    vi.mocked(mockFunction).mockResolvedValueOnce({ count: 0 });
+  it.each(['organization', 'user'] as const)(
+    'rejects missing %s',
+    async (model) => {
+      tx[model].findUnique.mockResolvedValue(null);
+      await expect(
+        service.approveApplication('app', 'admin', 'ok', 1),
+      ).rejects.toThrow(ConflictException);
+      expect(tx.decisionEmail.create).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['organization', 'user'] as const)(
+    'rejects unsuccessful %s update',
+    async (model) => {
+      tx[model].updateMany.mockResolvedValue({ count: 0 });
+      await expect(
+        service.approveApplication('app', 'admin', 'ok', 1),
+      ).rejects.toThrow(ConflictException);
+      expect(tx.decisionEmail.create).not.toHaveBeenCalled();
+    },
+  );
+  it('maps transaction conflicts', async () => {
+    tx.$transaction.mockRejectedValue({ code: 'P2034' });
     await expect(
-      service.requestChangesApplication(
-        'application-123',
-        'reviewer-123',
-        'needs-changes',
-      ),
+      service.approveApplication('app', 'admin', 'ok', 1),
     ).rejects.toThrow(ConflictException);
-    expect(mockFunction).toHaveBeenCalledWith({
-      where: {
-        id: 'application-123',
-        status: 'PENDING',
-      },
-      data: {
-        status: 'NEEDS_CHANGES',
-        reviewerId: 'reviewer-123',
-        reviewerNote: 'needs-changes',
-        reviewedAt: expect.any(Date),
-      },
-    });
-  });
-  it('should request changes from  a pending application', async () => {
-    const result = await service.requestChangesApplication(
-      'application-123',
-      'reviewer-123',
-      'needs-changes',
-    );
-    const mockFunction = service['prisma'].organizationApplication.updateMany;
-    expect(mockFunction).toHaveBeenCalledWith({
-      where: {
-        id: 'application-123',
-        status: 'PENDING',
-      },
-      data: {
-        status: 'NEEDS_CHANGES',
-        reviewerId: 'reviewer-123',
-        reviewerNote: 'needs-changes',
-        reviewedAt: expect.any(Date),
-      },
-    });
-    expect(result).toEqual(1);
-  });
-  it('should reject requesting-changes when application is not pending', async () => {
-    const mockFunction = service['prisma'].organizationApplication.updateMany;
-    vi.mocked(mockFunction).mockResolvedValueOnce({ count: 0 });
-    await expect(
-      service.requestChangesApplication(
-        'application-123',
-        'reviewer-123',
-        'needs-changes',
-      ),
-    ).rejects.toThrow(ConflictException);
-    expect(mockFunction).toHaveBeenCalledWith({
-      where: {
-        id: 'application-123',
-        status: 'PENDING',
-      },
-      data: {
-        status: 'NEEDS_CHANGES',
-        reviewerId: 'reviewer-123',
-        reviewerNote: 'needs-changes',
-        reviewedAt: expect.any(Date),
-      },
-    });
   });
 });
