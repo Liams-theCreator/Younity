@@ -9,28 +9,28 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
-import { RegistrationModule } from "./registration/registration.module.js";
+import { RegistrationModule } from './registration/registration.module.js';
 
 @Module({
-	imports: [
-		RegistrationModule,
-		PassportModule.register({
-			defaultStrategy: 'jwt',
-			session: false,
-		}),
-		PrismaModule,
-		JwtModule.registerAsync({
-			imports: [ConfigModule],
-			inject: [ConfigService],
+  imports: [
+    RegistrationModule,
+    PassportModule.register({
+      defaultStrategy: 'jwt',
+      session: false,
+    }),
+    PrismaModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
 
-			useFactory: (config: ConfigService) => {
-          const { secret, ttl } = jwtSettings(config);
-          return { secret, signOptions: { expiresIn: ttl } };
-        },
-		}),
-
-	],
-	controllers: [AuthController],
-	providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],
+      useFactory: (config: ConfigService) => {
+        const { secret, ttl } = jwtSettings(config);
+        return { secret, signOptions: { expiresIn: ttl } };
+      },
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],
+  exports: [PassportModule, JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}
