@@ -141,3 +141,16 @@ Inside Compose, `docker compose exec api npm test` runs unit tests. For integrat
 With `./run.sh --watch`, source files, test files, both Vitest configuration files, and `.oxlintrc.json` sync automatically. Changes to test or lint settings are available on the next check inside the running container. Dependency, Prisma, and build-configuration changes rebuild the API image. Rebuilds run committed migrations and seed before starting Nest. A schema edit requires a matching committed migration; Watch does not create migrations.
 
 Ctrl+C in `./run.sh --watch` stops services while retaining database and certificate volumes. In detached mode, use `docker compose stop`. Changing `.env` does not update an existing database password. Inspect `docker compose logs -f` for failures. Do not delete volumes to resolve errors unless you intend to discard their data.
+
+## Administrator frontend integration checks
+
+This branch contains S2-06 reads; Said's S2-09 source/schema/migrations are not
+merged here. Full review tests use a separate backend checkout pinned to PR #16.
+Prepare it with `node scripts/prepare-admin-backend.mjs /path/to/checkout/apps/api`,
+install/build it, and apply migrations only to an explicit isolated `_test` DB.
+Set `ADMIN_REVIEW_API_DIRECTORY` to that API directory before running
+`npm run test:admin-integration`. The runner requires the separate directory and
+forces email delivery off. Normal lint/unit/database/build checks test only your
+branch. See [the integration report](../../docs/admin-review-integration.md) for
+complete commands and cleanup behavior. The normal API does not gain decision
+routes until the team integrates Said's backend separately.

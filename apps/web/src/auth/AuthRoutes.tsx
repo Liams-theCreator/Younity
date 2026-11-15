@@ -14,16 +14,32 @@ import OrganizerRegisterPage from '../pages/OrganizerRegisterPage'
 import OrganizationStatusPage from '../pages/OrganizationStatusPage'
 import ProtectedRoute from './ProtectedRoute'
 import EmailVerificationPage from '../pages/EmailVerificationPage'
+import AdminApplicationsPage from '../admin/AdminApplicationsPage'
+import AdminApplicationDetailPage from '../admin/AdminApplicationDetailPage'
+import type { ApplicationReviewService } from '../admin/model'
+import { adminReviewService } from '../admin/service'
 
 type AuthRoutesProps = {
   pendingPage: ReactNode
+  reviewService?: ApplicationReviewService
 }
 
 export default function AuthRoutes({
   pendingPage,
+  reviewService = adminReviewService,
 }: AuthRoutesProps) {
   return (
     <Routes>
+      <Route path="/admin/applications" element={
+        <ProtectedRoute destination="/admin/applications" renderRedirect={(to) => <Navigate to={to} replace />}>
+          <AdminApplicationsPage service={reviewService} />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/applications/:applicationId" element={
+        <ProtectedRoute destination="/admin/applications" renderRedirect={(to) => <Navigate to={to} replace />}>
+          <AdminApplicationDetailPage service={reviewService} />
+        </ProtectedRoute>
+      } />
       <Route path="/verify-email" element={<EmailVerificationPage />} />
       <Route
         path="/"

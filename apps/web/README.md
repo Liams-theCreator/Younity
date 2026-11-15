@@ -596,3 +596,19 @@ presentation hints, with PostgreSQL enforcing cooldown and expiry.
 Run `npm test -- --maxWorkers=1`, `npm run lint`, and `npm run build`.
 Database/HTTP and Mailpit delivery coverage runs through
 `node tests/email-verification-db-check.mjs` from the repository root.
+
+## Administrator review — S2-05 / S2-06 integration
+
+Active admins land on `/admin/applications`. The queue uses S2-06; the detail
+screen uses S2-09's `/api/admin/applications/:id/review` snapshot for content,
+revision and history. All three decisions send the displayed `expectedRevision`
+and a trimmed reason (maximum 100 code points). A 409 reloads the whole snapshot
+and resets the form so the changed information must be reviewed again. Duplicate
+writes are locked; uncertain outcomes refresh without automatic POST retries.
+
+See [the integration report](../../docs/admin-review-integration.md) for the
+contract, real database/mobile/keyboard evidence and remaining S2-03 dependency.
+Said's backend is not merged into this branch. To run the 9 live tests, prepare
+a separate S2-09 backend checkout and set `ADMIN_REVIEW_API_DIRECTORY` before
+`npm run test:admin-integration` from `apps/api`. See the report for setup.
+Normal frontend tests skip those opt-in cases; the UI contains no mock API.

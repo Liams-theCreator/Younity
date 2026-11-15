@@ -202,6 +202,9 @@ describe('AUTH-05 frontend journeys', () => {
       'Email or password is incorrect',
     )
 
+    // The form announces errors by focusing the alert on the next frame.
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveFocus())
+
     await interaction.clear(
       screen.getByLabelText('Password'),
     )

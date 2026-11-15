@@ -6,9 +6,11 @@ Implementation branch: `S2-06_Admin-application-api`, based on published
 
 ## Scope and agreement status
 
-This branch adds read-only list/detail endpoints and documents their concrete
-response contract for frontend integration and Aadel's review. It contains no
-decision writes, submission endpoints, schema edits, or migrations.
+The S2-06 implementation adds read-only list/detail endpoints and documents
+their concrete response contract for frontend integration and Aadel's review.
+Said's decision implementation is kept in a separate test checkout, outside
+this branch. See [the integration report](admin-review-integration.md) for the
+ownership boundary and integration checks. S2-06 itself adds no decision, submission, schema or migration logic.
 
 GitHub branches were fetched and inspected before implementation:
 
@@ -159,10 +161,14 @@ Summary/detail JSON fields match the S2-05 `ApplicationSummary` and
 - The raw detail response into `ReviewDetail.application`.
 - HTTP status codes into existing authentication and review error handling.
 
-Do not infer `allowedDecisions` from these reads: confirm allowed transitions,
-reason validation and conflict metadata with S2-09 first. Its controller is not
-published yet. Frontend wiring and decision forms remain S2-05 integration work;
-this backend branch does not add mock decisions or modify that feature branch.
+The frontend targets Said's revision-aware PR #16 at `42346ac`, tested in a
+separate backend checkout without adding his implementation to this branch.
+S2-06 list/detail routes and DTOs remain unchanged. The decision screen consumes
+`GET /api/admin/applications/:id/review` for content, revision and history in one
+consistent snapshot, and sends that displayed `expectedRevision` with the reason.
+It never combines this flat detail DTO with separately obtained revision data.
+See [the integration report](admin-review-integration.md) for conflict recovery,
+authorization, tests and remaining submission integration requirements.
 
 ## Verification and remaining acceptance
 
@@ -218,3 +224,15 @@ Validated on 2026-11-13 using a separate PostgreSQL 17 container and
 Before Done: Aadel confirms the schema/eligibility/pagination/response agreement;
 integrate the eventual real S2-03 draft/submission workflow; get hosted CI green,
 attach acceptance evidence to the PR/card and obtain Aadel's review approval.
+
+## Ownership cleanup and verification — 2026-11-15
+
+This branch contains only Oussama's feature code and integration support. Said's
+schema/migrations/decision/auth/mail changes are not included. Standalone API
+checks pass: **141 unit tests**, **92 database/HTTP tests**, one unrelated opt-in
+SMTP case skipped. A separate backend checkout overlays this S2-06 read module
+and its **32 read tests**, then runs **9 live frontend cases** against the real
+revision-aware backend. The read contract/Swagger remain unchanged. See the
+[shared report](admin-review-integration.md) for setup, evidence and remaining
+S2-03/reviewer requirements. Historical combined-suite totals included Said's
+own tests and must not be attributed to this standalone branch.

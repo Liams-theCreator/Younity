@@ -1,6 +1,7 @@
 import type { AuthAccessProfile } from './model'
 
 export type AuthDestination =
+  | '/admin/applications'
   | '/student/dashboard'
   | '/organizer/dashboard'
   | '/organizer/pending'
@@ -10,6 +11,10 @@ export function getAuthDestination(
   profile: AuthAccessProfile | null | undefined,
 ): AuthDestination | null {
   if (!profile) return null
+
+  if (profile.role === 'ADMIN') {
+    return profile.userStatus === 'ACTIVE' ? '/admin/applications' : null
+  }
 
   if (profile.role === 'STUDENT') {
     return profile.userStatus === 'ACTIVE' ? '/student/dashboard' : null
