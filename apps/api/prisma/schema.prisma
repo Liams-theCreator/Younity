@@ -140,7 +140,7 @@ model User {
   notifications         Notification[]            @relation("NotificationUserId")
   organizationFollows   OrganizationFollow[]      @relation("OrganizationFollowFollowerId")
   emailverifyTokens		EmailVerificationToken[]
-
+  organizerApplicationDraft OrganizerApplicationDraft?
   @@map("users")
 }
 
@@ -342,4 +342,18 @@ model OrganizationFollow {
 
   @@id([followerId, organizationId])
   @@map("organization_follows")
+}
+model OrganizerApplicationDraft {
+  ownerId                String            @id @map("owner_id") @db.Uuid
+  organizationName       String?           @map("organization_name") @db.VarChar(255)
+  type                   OrganizationType?
+  representativeFullName String?           @map("representative_full_name") @db.VarChar(255)
+  academicPosition       String?           @map("academic_position") @db.VarChar(255)
+  phoneNumber            String?           @map("phone_number") @db.VarChar(255)
+  proofUrl               String?           @map("proof_url") @db.VarChar(512)
+  updatedAt              DateTime          @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("organizer_application_drafts")
 }
