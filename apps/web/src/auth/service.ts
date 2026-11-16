@@ -19,6 +19,10 @@ export async function getSession(
     if (response.status === 401) return null
 
     if (response.status === 403) {
+      const data: unknown = await response.json().catch(() => null)
+      if (typeof data === 'object' && data !== null && 'code' in data && data.code === 'EMAIL_NOT_VERIFIED') {
+        throw new LoginError('EMAIL_NOT_VERIFIED')
+      }
       throw new LoginError('ACCOUNT_UNAVAILABLE')
     }
 
@@ -54,6 +58,10 @@ export async function login(
     }
 
     if (response.status === 403) {
+      const data: unknown = await response.json().catch(() => null)
+      if (typeof data === 'object' && data !== null && 'code' in data && data.code === 'EMAIL_NOT_VERIFIED') {
+        throw new LoginError('EMAIL_NOT_VERIFIED')
+      }
       throw new LoginError('ACCOUNT_UNAVAILABLE')
     }
 

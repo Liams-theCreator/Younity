@@ -17,7 +17,7 @@ export type AuthState =
       status: 'anonymous'
       user: null
       error: null
-      reason?: 'expired'
+      reason?: 'expired' | 'email-unverified'
     }
   | {
       status: 'error'

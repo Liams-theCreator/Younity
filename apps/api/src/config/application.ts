@@ -20,6 +20,9 @@ export function configureApplication(
 ): void {
   app.setGlobalPrefix('api');
 
+  // Only Caddy is publicly exposed; trust its single proxy hop for client IPs.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   app.enableCors({
     origin: environment.corsOrigins,
     credentials: true,

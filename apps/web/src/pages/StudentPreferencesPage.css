@@ -1,0 +1,5 @@
+.registration-student-preferences .student-preferences legend > span,
+.registration-student-preferences .discipline-card small,
+.registration-student-preferences .format-choice small {
+  color: var(--muted);
+}

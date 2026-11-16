@@ -9,6 +9,8 @@ import {
 } from '../auth/model'
 import ReferenceIcon from './ReferenceIcon'
 import styles from './LoginForm.module.css'
+import { Link } from 'react-router'
+import { rememberVerification } from '../auth/emailVerification'
 
 type LoginFormProps = {
   onSubmit?: (
@@ -24,6 +26,7 @@ export default function LoginForm({
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [needsVerification, setNeedsVerification] = useState(false)
 
   const submissionInProgress = useRef(false)
   const errorRef = useRef<HTMLParagraphElement>(null)
@@ -40,6 +43,7 @@ export default function LoginForm({
     submissionInProgress.current = true
 
     setError('')
+    setNeedsVerification(false)
     setIsSubmitting(true)
 
     try {
@@ -48,6 +52,9 @@ export default function LoginForm({
         password,
       })
     } catch (cause) {
+      const unverified = cause instanceof LoginError && cause.code === 'EMAIL_NOT_VERIFIED'
+      setNeedsVerification(unverified)
+      if (unverified) setPassword('')
       setError(
         cause instanceof LoginError
           ? cause.message
@@ -167,6 +174,13 @@ export default function LoginForm({
         >
           {error}
         </p>
+      )}
+
+      {needsVerification && (
+        <Link to="/verify-email" state={{ verification: { email: email.trim().toLowerCase(), resendAvailableAt: 0, deliveryFailed: false } }}
+          onClick={() => rememberVerification({ email: email.trim().toLowerCase(), resendAvailableAt: 0, deliveryFailed: false })}>
+          Resend verification email
+        </Link>
       )}
 
       <button
