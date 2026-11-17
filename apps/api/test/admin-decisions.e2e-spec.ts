@@ -415,6 +415,87 @@ describe('Admin decisions: real PostgreSQL and JWT HTTP', () => {
       ),
     ).rejects.toThrow();
   });
+
+  it('publishes the corrected organizer draft once and preserves revision history', async () => {
+    const lina = await user('ORGANIZER', 'PENDING');
+    const token = await jwt.signAsync({ sub: lina.id });
+    const organizerCookie = `access_token=${token}`;
+
+    const original = {
+      type: 'STUDENT_CLUB' as const,
+      representativeFullName: 'Lina Test',
+      academicPosition: 'Elected President',
+      phoneNumber: '+212612345679',
+    };
+
+    await db.organization.create({
+      data: {
+        ...original,
+        ownerId: lina.id,
+        orgName: 'Campus Robotics',
+        verificationStatus: 'PENDING',
+      },
+    });
+
+    const http = request(app.getHttpServer());
+    const base = '/api/organizer-applications';
+    const saveDraft = (fields: object) =>
+      http.post(`${base}/draft`).set('Cookie', organizerCookie).send(fields);
+    const submit = () =>
+      http.post(`${base}/submit`).set('Cookie', organizerCookie);
+
+    const organizationName = 'Atlas Robotics Lab';
+    await saveDraft({ ...original, organizationName }).expect(200);
+    const first = await submit().expect(201);
+    expect(first.body).toMatchObject({
+      id: expect.any(String),
+      status: 'PENDING',
+      revision: 1,
+    });
+
+    const id = first.body.id;
+    const review = () =>
+      http.get(`/api/admin/applications/${id}/review`).set('Cookie', cookie);
+
+    const reason = 'Please clarify your responsibilities as elected president.';
+    await post(id, 'request-changes', { reason, expectedRevision: 1 }).expect(201);
+
+    const academicPosition = 'Elected President and workshop coordinator';
+    const draft = await saveDraft({ academicPosition }).expect(200);
+    expect(draft.body).toMatchObject({
+      ...original,
+      organizationName,
+      academicPosition,
+      ownerId: lina.id,
+    });
+
+    const before = await review().expect(200);
+    expect(before.body).toMatchObject({
+      status: 'NEEDS_CHANGES',
+      revision: 1,
+      organization: { academicPosition: original.academicPosition },
+    });
+
+    const second = await submit().expect(201);
+    expect(second.body).toMatchObject({ id, status: 'PENDING', revision: 2 });
+    await http.get(`${base}/draft`).set('Cookie', organizerCookie).expect(404);
+    await submit().expect(409);
+
+    const after = await review().expect(200);
+    expect(after.body).toMatchObject({
+      id,
+      status: 'PENDING',
+      revision: 2,
+      submittedById: lina.id,
+      reviewerId: null,
+      reviewerNote: null,
+      reviewedAt: null,
+      organization: { orgName: organizationName, academicPosition },
+      decisions: [
+        { revision: 1, oldStatus: 'PENDING', newStatus: 'NEEDS_CHANGES', reason },
+      ],
+    });
+  });
   it('rolls back revision when submitted-data persistence fails', async () => {
     const f = await fixture();
     await expect(
