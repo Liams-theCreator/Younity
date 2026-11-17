@@ -9,6 +9,7 @@ export type AuthenticatedUser = {
   email: string;
   role: UserRole;
   status: UserStatus;
+  emailVerifiedAt: Date | null;
   ownedOrganizations: {
     id: string;
     verificationStatus: VerificationStatus;
