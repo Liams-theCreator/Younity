@@ -609,6 +609,11 @@ writes are locked; uncertain outcomes refresh without automatic POST retries.
 See [the integration report](../../docs/admin-review-integration.md) for the
 contract, real database/mobile/keyboard evidence and remaining S2-03 dependency.
 Said's backend is not merged into this branch. To run the 9 live tests, prepare
-a separate S2-09 backend checkout and set `ADMIN_REVIEW_API_DIRECTORY` before
+a separate S2-03/S2-09 backend checkout pinned to PR #17 (`d9db156`) and set `ADMIN_REVIEW_API_DIRECTORY` before
 `npm run test:admin-integration` from `apps/api`. See the report for setup.
 Normal frontend tests skip those opt-in cases; the UI contains no mock API.
+
+The live admin tests now use actual draft/submission/resubmission HTTP endpoints
+without a revision helper. [Acceptance evidence](../../docs/evidence/s2-05/README.md)
+includes the full mobile/keyboard flow, permissions, private corrections and
+stale-decision recovery. Reviewer approval is required before Done.

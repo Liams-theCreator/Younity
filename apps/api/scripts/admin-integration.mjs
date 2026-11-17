@@ -15,7 +15,7 @@ if (!url || !decodeURIComponent(new URL(url).pathname).endsWith('_test')) {
   throw new Error('Set an explicit TEST_DATABASE_URL ending in _test; application databases are refused')
 }
 const backendDirectory = process.env.ADMIN_REVIEW_API_DIRECTORY
-if (!backendDirectory) throw new Error('Set ADMIN_REVIEW_API_DIRECTORY to a separately prepared/built S2-09 backend checkout; teammate code is not included in this branch')
+if (!backendDirectory) throw new Error('Set ADMIN_REVIEW_API_DIRECTORY to a separately prepared/built S2-03/S2-09 backend checkout; teammate code is not included in this branch')
 const apiDirectory = await realpath(backendDirectory)
 if (apiDirectory === await realpath(fileURLToPath(new URL('..', import.meta.url)))) throw new Error('Use a separate backend checkout, not this branch')
 const { PrismaClient } = await import(pathToFileURL(`${apiDirectory}/dist/generated/prisma/client.js`).href)
@@ -32,8 +32,8 @@ const passwordHash = await hash(password)
 
 async function account(role, name, verified = true) {
   const user = await db.user.create({ data: {
-    firstName: name, lastName: 'Integration', email: `admin-ui-${name}-${randomUUID()}@example.test`,
-    passwordHash, role, status: 'ACTIVE', emailVerifiedAt: verified ? new Date() : null,
+    firstName: name, lastName: 'Integration', email: `admin-ui-${name.toLowerCase()}-${randomUUID()}@example.test`,
+    passwordHash, role, status: role === 'ORGANIZER' ? 'PENDING' : 'ACTIVE', emailVerifiedAt: verified ? new Date() : null,
   } })
   userIds.push(user.id)
   return { id: user.id, email: user.email, password }
@@ -47,11 +47,37 @@ async function submission(name, { verified = true, draft = false } = {}) {
     phoneNumber: '+212612345678', proofUrl: 'https://example.test/evidence.pdf', verificationStatus: 'PENDING',
   } })
   organizationIds.push(organization.id)
-  if (draft) return { id: organization.id, name: organization.orgName }
-  const application = await db.organizationApplication.create({ data: {
-    organizationId: organization.id, submittedById: owner.id, status: 'PENDING',
-  } })
-  return { id: application.id, name: organization.orgName }
+  const candidate = { id: organization.id, name: organization.orgName, representativeFullName: organization.representativeFullName, owner, draft }
+  // Deliberately ineligible legacy data exercises exclusion, not submission.
+  if (!verified) {
+    const application = await db.organizationApplication.create({ data: {
+      organizationId: organization.id, submittedById: owner.id, status: 'PENDING',
+    } })
+    candidate.id = application.id
+  }
+  return candidate
+}
+
+async function publishCandidate(baseUrl, candidate) {
+  const login = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: candidate.owner.email, password: candidate.owner.password }),
+  })
+  const cookie = login.headers.get('set-cookie')?.split(';')[0]
+  if (!login.ok || !cookie) throw new Error(`Test organizer login failed (${login.status})`)
+  const saved = await fetch(`${baseUrl}/api/organizer-applications/draft`, {
+    method: 'PATCH', headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ organizationName: candidate.name, type: 'STUDENT_CLUB',
+      representativeFullName: candidate.representativeFullName,
+      academicPosition: 'Coordinator', phoneNumber: '+212612345678', proofUrl: 'https://example.test/evidence.pdf' }),
+  })
+  if (saved.status !== 200) throw new Error(`Real draft save failed (${saved.status})`)
+  if (candidate.draft) return
+  const submitted = await fetch(`${baseUrl}/api/organizer-applications/submit`, { method: 'POST', headers: { Cookie: cookie } })
+  if (submitted.status !== 201) throw new Error(`Real submission failed (${submitted.status})`)
+  const data = await submitted.json()
+  if (!data.application?.id || data.application.status !== 'PENDING') throw new Error('Invalid real submission response')
+  candidate.id = data.application.id
 }
 
 async function freePort() {
@@ -104,7 +130,6 @@ try {
     ADMIN_REVIEW_API_DIRECTORY: apiDirectory,
     CORS_ORIGINS: 'https://localhost,http://localhost:5173', FRONTEND_ORIGIN: 'https://localhost',
     ADMIN_REVIEW_TEST_BASE_URL: baseUrl, ADMIN_REVIEW_TEST_FIXTURE: JSON.stringify(fixture),
-    ADMIN_REVIEW_TEST_RESUBMIT_SCRIPT: fileURLToPath(new URL('resubmit-review-fixture.mjs', import.meta.url)),
   }
   api = spawn(process.execPath, ['dist/main.js'], { cwd: apiDirectory, env, stdio: ['ignore', 'pipe', 'pipe'] })
   api.stdout.on('data', (chunk) => { apiOutput += chunk })
@@ -119,6 +144,8 @@ try {
     await delay(200)
   }
   if (!ready) throw new Error('Isolated integration API did not become healthy')
+  for (const key of ['approve', 'reject', 'changes', 'stale', 'duplicate', 'resubmitted', 'draft']) await publishCandidate(baseUrl, fixture[key])
+  env.ADMIN_REVIEW_TEST_FIXTURE = JSON.stringify(fixture)
   if (serve) {
     await writeFile(`${artifacts}/session.json`, JSON.stringify({ baseUrl, fixture }, null, 2) + '\n', { mode: 0o600 })
     console.log(`Isolated admin integration API ready at ${baseUrl}; fixture configuration saved locally.`)
@@ -129,11 +156,15 @@ try {
       const row = await db.organizationApplication.findUniqueOrThrow({ where: { id: fixture[key].id } })
       const reviewerId = key === 'stale' ? fixture.otherAdmin.id : fixture.admin.id
       if (row.status !== status || row.reviewerId !== reviewerId || !row.reviewerNote || !row.reviewedAt) throw new Error(`Persistence assertion failed for ${key}`)
+      if (status === 'APPROVED') {
+        const organization = await db.organization.findUniqueOrThrow({ where: { id: row.organizationId }, include: { owner: true } })
+        if (organization.verificationStatus !== 'APPROVED' || organization.owner.status !== 'ACTIVE') throw new Error(`Approval visibility assertion failed for ${key}`)
+      }
       const history = await db.applicationDecision.findMany({ where: { applicationId: row.id }, include: { email: true }, orderBy: { revision: 'asc' } })
       if (history.length !== (key === 'resubmitted' ? 2 : 1) || history.some((entry) => !entry.email || entry.email.status !== 'PENDING')) throw new Error(`Audit/outbox assertion failed for ${key}`)
-      if (key === 'resubmitted' && (row.revision !== 3 || history[1].revision !== 3)) throw new Error('Resubmission revision assertion failed')
+      if (key === 'resubmitted' && (row.revision !== 2 || history[1].revision !== 2)) throw new Error('Resubmission revision assertion failed')
     }
-    await writeFile(`${artifacts}/persistence-results.json`, JSON.stringify({ passed: true, backend: 'PR #16 / 42346ac', checked: ['approve', 'reject', 'changes', 'stale', 'duplicate', 'resubmitted', 'revision/history/outbox persistence'], database: 'isolated _test database' }, null, 2) + '\n')
+    await writeFile(`${artifacts}/persistence-results.json`, JSON.stringify({ passed: true, backend: 'S2-03 PR #17 / d9db156 (includes S2-09)', checked: ['approve', 'reject', 'changes', 'stale', 'duplicate', 'resubmitted', 'actual draft/submission/resubmission HTTP flow', 'revision/history/outbox persistence'], database: 'isolated _test database' }, null, 2) + '\n')
     console.log('Verified live decisions, revisions, audit history and unsent email intents in PostgreSQL.')
   }
 } finally {
@@ -146,6 +177,7 @@ try {
   await db.applicationDecision.deleteMany({ where: ownedDecisions })
   await db.organizationApplication.deleteMany({ where: { organizationId: { in: organizationIds } } })
   await db.organization.deleteMany({ where: { id: { in: organizationIds } } })
+  await db.organizerApplicationDraft.deleteMany({ where: { ownerId: { in: userIds } } })
   await db.user.deleteMany({ where: { id: { in: userIds } } })
   await db.$disconnect()
 }

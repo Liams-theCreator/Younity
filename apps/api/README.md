@@ -145,7 +145,7 @@ Ctrl+C in `./run.sh --watch` stops services while retaining database and certifi
 ## Administrator frontend integration checks
 
 This branch contains S2-06 reads; Said's S2-09 source/schema/migrations are not
-merged here. Full review tests use a separate backend checkout pinned to PR #16.
+merged here. Full review tests use a separate submission/decision backend checkout pinned to PR #17 (`d9db156`, including S2-09).
 Prepare it with `node scripts/prepare-admin-backend.mjs /path/to/checkout/apps/api`,
 install/build it, and apply migrations only to an explicit isolated `_test` DB.
 Set `ADMIN_REVIEW_API_DIRECTORY` to that API directory before running
@@ -154,3 +154,8 @@ forces email delivery off. Normal lint/unit/database/build checks test only your
 branch. See [the integration report](../../docs/admin-review-integration.md) for
 complete commands and cleanup behavior. The normal API does not gain decision
 routes until the team integrates Said's backend separately.
+
+The live runner creates eligible applications through the actual organizer
+PATCH draft/POST submit endpoints and tests private corrections/resubmission.
+The former test-only revision bridge has been removed. CI uploads sanitized live
+acceptance evidence; screenshots and results are linked from the integration guide.

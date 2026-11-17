@@ -10,7 +10,7 @@ const pageSize = 20
 const statuses: OrganizationStatus[] = ['PENDING', 'NEEDS_CHANGES', 'APPROVED', 'REJECTED']
 const organizationTypes = ['UNIVERSITY', 'STUDENT_CLUB', 'NGO', 'ASSOCIATION', 'COMPANY', 'COMMUNITY', 'OTHER']
 const decisions: ReviewDecision[] = ['approve', 'request-changes', 'reject']
-// Published S2-09 DTO and audit-table constraint at PR #16 / 42346ac.
+// Published S2-09 contract, included in S2-03 PR #17 / d9db156.
 export const decisionReasonLimit = 100
 
 function object(value: unknown): Record<string, unknown> {

@@ -1,128 +1,117 @@
-# Administrator review integration — Oussama's S2-05 / S2-06
+# S2-05 / S2-06 — admin review integration
 
-Owner: Oussama. Reviewers: Smail (frontend), Aadel (read API).
-Branch: `S2-05-06_Admin-integration`. Ownership cleanup verified 2026-11-15.
+Owner: Oussama. Reviewers: Smail (frontend), Aadel (reads).
+Branch: `S2-05-06_Admin-integration`. Acceptance run: **2026-11-17**.
 
-## Branch boundary
+## Scope and ownership
 
-This branch contains Oussama's frontend, S2-06 read endpoints, tests and integration
-support. **Said's backend implementation is not merged or copied into this branch.**
-Its decision module, migrations, schema changes, auth/mail edits and teammate tests
-were removed from the working tree. No teammate branch was merged into this
-feature's history.
+This branch contains Oussama's screens, S2-06 read endpoints, tests and integration
+support. Teammate migrations, decision/auth/mail code and submission endpoints
+are not copied into this branch or merged into its history. The test backend is
+a separate Git-ignored checkout. Aadel's
+[PR #17](https://github.com/Liams-theCreator/Younity/pull/17), now merged upstream,
+includes S2-03 and Said's S2-09. Tests pin its commit **`d9db156`** and overlay only
+Oussama's read module/tests. Normal deployment must use the upstream backend.
 
-Integration uses a separate, Git-ignored backend checkout at
-`.local/admin-review-backend`, pinned to Said's
-[PR #16 / 42346ac](https://github.com/Liams-theCreator/Younity/pull/16).
-`prepare-admin-backend.mjs` copies only Oussama's S2-06 read module and its tests
-into that isolated checkout. It never copies dependency code into this branch.
-The normal API source remains the S2-06 branch based on `main`.
+The previous temporary resubmission helper is removed. All eligible fixture
+applications are submitted through the actual organizer HTTP APIs. Account and
+organization contexts are seeded only into an isolated test database. One
+explicitly ineligible legacy application checks unverified-submitter exclusion.
+A complete saved draft is created through PATCH without creating an application.
 
-The branch's API alone provides S2-06 reads. Decision/review APIs must come from
-a separately integrated/deployed S2-09 backend. Starting this branch alone does
-not create Said's routes or database tables. The production frontend has no mocks.
+## Published contract alignment
 
-## Frontend contract
+- S2-03 stores drafts in `organizer_application_drafts`. They never appear in the
+  application queue; pending/approved/rejected submissions cannot be edited.
+- A verified organizer submits complete fields through
+  `POST /api/organizer-applications/submit`. Initial revision is 1. A changes
+  request allows private PATCH edits; resubmission publishes them atomically,
+  keeps the application ID, increments revision and preserves decision history.
+- S2-06's [read contract](s2-06-admin-read-api.md) is unchanged: bounded page/limit,
+  four status filters and explicitly selected safe summary/detail fields. The
+  queue uses 20 rows; search, counts and CSV apply to the current page.
+- Decisions use S2-09's `GET /api/admin/applications/:id/review`: content, revision
+  and ordered history in one snapshot. No separate metadata read replaces the
+  displayed revision. All three POST actions send `{reason, expectedRevision}`.
+  The reason is trimmed, required and at most 100 code points, satisfying the
+  DTO and persisted audit constraint. Only PENDING exposes actions.
+- A 201/count response reloads detail/history; returning to the list re-reads it.
+  A 409/412 announces conflict, refreshes the complete snapshot and clears the
+  form so a new review is required. Never retry a decision automatically.
+- 400/422 preserves input and shows validation; 401 uses session expiry; 403/404
+  removes review information/actions. Unknown/lost responses refresh because
+  the decision may have committed. Form/page locks prevent duplicate writes.
 
-S2-06 list/detail routes and safe DTOs remain unchanged; see
-[the read contract](s2-06-admin-read-api.md). Queue pagination is bounded, with
-20 rows per page and the published four status filters. Search/counts/CSV apply
-to the loaded page. Active admins land on `/admin/applications`.
+Active admins alone can mount the screens. Backend authorization checks the
+persisted role, active status and verified email. Reasons render as text; proof
+links accept absolute HTTP(S). Labeled native radios/textarea and focused
+feedback support keyboard navigation. Current and historical decisions are shown.
 
-The decision screen uses `GET /api/admin/applications/:id/review` from S2-09 to
-obtain content, revision and ordered history in one consistent snapshot. The
-adapter validates/picks safe fields and never pairs older S2-06 detail content
-with separately fetched revision metadata.
+## Real acceptance evidence
 
-POST `/api/admin/applications/:id/{approve,request-changes,reject}` sends exactly:
+[Committed evidence](evidence/s2-05/README.md) contains sanitized screenshots and
+outcome summaries from the actual production frontend build, HTTPS Secure-cookie
+login, PostgreSQL and the real organizer/read/decision endpoints.
 
-```json
-{"reason":"Documents verified","expectedRevision":2}
-```
+- Desktop/mobile at **1440px, 390px and 320px**: no page overflow, Tab/Enter,
+  radio arrows, required-reason focus, one POST with the displayed revision,
+  success focus, history and refreshed list/detail.
+- Mobile full cycle: request changes through UI; save a real private draft;
+  refresh confirms old submitted content; actual resubmission keeps ID and
+  increments revision. A second real request-changes/resubmission makes the
+  open review stale. POST returns 409, refresh resets the form, and explicit
+  re-review approves the current revision with previous history intact.
+- Anonymous navigation redirects to login; a real student session cannot mount
+  review screens or issue review reads. Live tests cover actual backend denial.
+- **229 standard frontend tests**, **141 standalone API unit tests**,
+  **92 standalone database/HTTP tests** pass. **133 combined database/HTTP tests**
+  pass in the separate checkout (one unrelated opt-in SMTP case skipped).
+- **9 live frontend cases pass** against actual HTTP/DB data, covering all
+  decisions, duplicates, stale/concurrent review, private edits, actual
+  resubmission, permissions and authoritative refresh. Database checks verify
+  reviewer metadata, revisions, approval visibility, audit and unsent mail intents.
+- Relevant lint and production builds pass. Database files run sequentially
+  because whole-queue assertions share one isolated DB; explicit races still
+  execute concurrent requests. No developer database or real email delivery used.
 
-The reason is trimmed, required for every action and limited to 100 Unicode
-code points, satisfying the published DTO and database audit constraint.
-`expectedRevision` is the displayed snapshot's integer revision (1–2147483647).
-No pre-submit read silently substitutes a newer revision. A successful 201/count
-response reloads detail/history; returning to the queue reloads the list.
+CI pins the same backend separately and uploads `admin-review-acceptance`
+(persistence JSON and live log). Test passwords, session files and TLS keys are
+excluded. Hosted CI/reviewer status is tracked on the PR; approval is required
+before Done. The prior missing-submission implementation blocker is resolved.
 
-- 400/422: validation feedback preserving choice/explanation.
-- 401: existing session-expiry/login flow.
-- 403: remove review data/actions and show denial.
-- 404: missing/excluded application, no actions.
-- 409/412: announce conflict, reload the complete snapshot and clear the old form.
-  The administrator must inspect the updated content and make a new decision.
-- Lost/unknown response: refresh before enabling another action; never retry a
-  decision automatically.
+## Reproduce without merging teammate code
 
-Form/page request locks prevent duplicate submissions. Controls/refresh stay
-disabled while pending. Proof links permit absolute HTTP(S) only; reasons render
-as text. Native radios, labels and feedback focus support keyboard review.
-Historical decisions identify the submission; legacy rows retain latest metadata
-when no history exists.
-
-## Running real integration without merging dependencies
-
-Fetch/archive the pinned backend into an ignored directory (or use a separate
-checkout). From the repository root:
+From the repository root, install both apps' dependencies and fetch/archive the
+pinned dependency into an ignored directory:
 
 ```bash
+git fetch origin refs/pull/17/head
 mkdir -p .local/admin-review-backend
-git archive 42346ac45a3700cec2e34dc4754784a578e0b445 | tar -x -C .local/admin-review-backend
+git archive d9db156b00804d84252e97f56ba16e9249018da0 | tar -x -C .local/admin-review-backend
 node apps/api/scripts/prepare-admin-backend.mjs .local/admin-review-backend/apps/api
 npm ci --prefix .local/admin-review-backend/apps/api
 ```
 
-Install both apps' own dependencies. Set `DATABASE_URL` and `TEST_DATABASE_URL` to
-the same isolated PostgreSQL database whose name ends in `_test`, plus
-`NODE_ENV=test`, a test-only `JWT_SECRET`, and `ADMIN_DECISION_EMAIL_ENABLED=false`.
-Never use the application database. Then:
+Set `DATABASE_URL` and `TEST_DATABASE_URL` to the same explicit isolated PostgreSQL
+DB ending in `_test`, plus `NODE_ENV=test`, a test-only JWT_SECRET and
+`ADMIN_DECISION_EMAIL_ENABLED=false`. Never use the application database.
 
 ```bash
 npm run build --prefix .local/admin-review-backend/apps/api
 npm run db:setup --prefix .local/admin-review-backend/apps/api
-npm run test:e2e --prefix .local/admin-review-backend/apps/api -- --maxWorkers=1 test/admin-applications.e2e-spec.ts
+npm run test:e2e --prefix .local/admin-review-backend/apps/api -- --maxWorkers=1 --no-file-parallelism
 export ADMIN_REVIEW_API_DIRECTORY="$(realpath .local/admin-review-backend/apps/api)"
 npm run test:admin-integration --prefix apps/api
 ```
 
-The runner requires the explicit separate backend directory. It loads that
-checkout's generated client and compiled API, seeds only owned fixtures, runs
-the real frontend against HTTP/PostgreSQL, verifies revision/history/outbox
-persistence, and cleans up its records/server. Only transport is replaced in jsdom
-to resolve relative URLs and maintain cookies; no API responses are mocked.
+The runner starts the compiled backend on a free loopback port, creates real
+submissions through HTTP and runs the default rendered App. jsdom replaces only
+transport to resolve relative URLs/maintain cookies; responses and service logic
+are real. The test requests changes, PATCHes the applicant draft, proves the
+admin still sees submitted content, POSTs resubmission, rejects the old admin
+revision and explicitly decides again. No helper writes application revisions.
 
-The resubmission helper is test-only, restricts writes to the runner-owned
-fixture, and calls Said's actual revision helper inside the same transaction as
-submitted-content changes. It proves revision integration, not Aadel's unpublished
-organizer endpoint. Delivery is forced off; email intents remain unsent.
-
-`-- --serve` supports manual browser QA through an HTTPS gateway for Secure
-cookies. It writes test-only credentials to Git-ignored `session.json`, removed
-on shutdown. Do not attach that file to a PR. CI likewise checks out the pinned
-decision dependency separately, overlays only S2-06, and runs integration there.
-
-## Evidence and remaining acceptance
-
-After removing dependency files, standalone checks pass: **141 API unit tests**,
-**92 database/HTTP tests** (one unrelated opt-in SMTP case skipped), API lint/build,
-and frontend lint/build/tests. The separate checkout checks S2-06's **32 read
-cases** and the **9 live frontend cases**, including all three decisions,
-duplicate prevention, backend denial, history preservation and stale resubmission.
-Current logs are Git-ignored under `.local/admin-integration/own-*` and
-`separate-backend-*`.
-
-On 2026-11-14 the same frontend also passed real HTTPS Chromium checks at 1440px,
-390px and 320px, including keyboard focus, one POST with expectedRevision,
-history/list refresh, and a mobile 409 followed by explicit re-review. Screenshots
-and structured results remain in `.local/admin-integration/revisions-browser/`.
-Moving backend dependencies outside the branch does not change that UI code.
-The previous 159-unit/139-database totals included Said's suites; they are not
-this branch's standalone test totals.
-
-Remaining: Aadel must confirm final draft/submission storage and eligibility,
-keep drafts outside submitted application rows (or provide a discriminator),
-and call `advanceApplicationRevision` first in the resubmission transaction.
-Test the actual organizer endpoint when available. Combined hosted CI, attached
-acceptance evidence and Smail/Aadel review approvals are still required. Said's
-PR is a separately owned dependency; this work does not merge, approve or deploy it.
+Cleanup deletes only owned draft, mail-intent, history, application, organization
+and user records in dependency order, then stops its server. Delivery is forced
+off. `-- --serve` supports manual browser QA via an HTTPS gateway; local test-only
+credentials in `.local/admin-integration/session.json` are removed on shutdown.

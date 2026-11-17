@@ -2,8 +2,6 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import App from '../App'
 import { apiRequest } from '../api/client'
 
@@ -11,16 +9,16 @@ vi.mock('../api/client', () => ({ apiRequest: vi.fn() }))
 const request = vi.mocked(apiRequest)
 const baseUrl = process.env.ADMIN_REVIEW_TEST_BASE_URL
 type Account = { id: string; email: string; password: string }
-type Candidate = { id: string; name: string }
+type Candidate = { id: string; name: string; owner: Account }
 type Fixture = { admin: Account; otherAdmin: Account; student: Account; approve: Candidate; reject: Candidate; changes: Candidate; stale: Candidate; duplicate: Candidate; resubmitted: Candidate; unverified: Candidate; draft: Candidate }
 const fixture = process.env.ADMIN_REVIEW_TEST_FIXTURE ? JSON.parse(process.env.ADMIN_REVIEW_TEST_FIXTURE) as Fixture : null
 let cookie = ''
-const runFile = promisify(execFile)
-
-async function resubmit(expectedRevision: number, academicPosition: string) {
-  const script = process.env.ADMIN_REVIEW_TEST_RESUBMIT_SCRIPT
-  if (!script) throw new Error('Use the isolated API integration runner for resubmission checks')
-  await runFile(process.execPath, [script, fixture!.resubmitted.id, String(expectedRevision), academicPosition])
+async function asAccount<T>(account: Account, action: () => Promise<T>) {
+  const original = cookie
+  try {
+    await login(account)
+    return await action()
+  } finally { cookie = original }
 }
 
 // Only transport is replaced: every response comes from the actual Nest API,
@@ -106,14 +104,27 @@ describe.skipIf(!baseUrl || !fixture)('Admin screens against real HTTP APIs and 
     expect(JSON.parse(writes[0][1]!.body as string).expectedRevision).toBe(1)
   })
 
-  it('rejects a stale revision after real transactional resubmission and requires a new reviewed decision', async () => {
+  it('reviews an actual submitted application, keeps corrections private, and rejects its stale resubmitted revision', async () => {
     const candidate = fixture!.resubmitted
-    expect((await realRequest(`/api/admin/applications/${candidate.id}/request-changes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Clarify your academic position', expectedRevision: 1 }) })).status).toBe(201)
-    await resubmit(1, 'Second submitted position')
     mount(`/admin/applications/${candidate.id}`)
-    await screen.findByText('Second submitted position')
-    expect(screen.getByText('Clarify your academic position')).toBeVisible()
-    await resubmit(2, 'Updated position after resubmission')
+    await screen.findByText('Coordinator')
+    await asAccount(fixture!.otherAdmin, async () => {
+      expect((await realRequest(`/api/admin/applications/${candidate.id}/request-changes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Clarify your academic position', expectedRevision: 1 }) })).status).toBe(201)
+    })
+    await asAccount(candidate.owner, async () => {
+      const saved = await realRequest('/api/organizer-applications/draft', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ academicPosition: 'Updated position after resubmission' }) })
+      expect(saved.status).toBe(200)
+      expect((await saved.json()).draft.academicPosition).toBe('Updated position after resubmission')
+    })
+    const privateRead = await (await realRequest(`/api/admin/applications/${candidate.id}/review`)).json()
+    expect(privateRead.organization.academicPosition).toBe('Coordinator')
+    expect(privateRead.revision).toBe(1)
+    await asAccount(candidate.owner, async () => {
+      const submitted = await realRequest('/api/organizer-applications/submit', { method: 'POST' })
+      expect(submitted.status).toBe(201)
+      expect(await submitted.json()).toEqual({ application: { id: candidate.id, status: 'PENDING' } })
+      expect((await realRequest('/api/organizer-applications/submit', { method: 'POST' })).status).toBe(409)
+    })
     await userEvent.click(screen.getByRole('radio', { name: 'Approve' }))
     await userEvent.type(screen.getByRole('textbox'), 'My older review')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm: Approve' }))
@@ -123,7 +134,7 @@ describe.skipIf(!baseUrl || !fixture)('Admin screens against real HTTP APIs and 
     expect(screen.getByRole('textbox')).toHaveValue('')
     let writes = request.mock.calls.filter(([, options]) => options?.method === 'POST')
     expect(writes).toHaveLength(1)
-    expect(JSON.parse(writes[0][1]!.body as string).expectedRevision).toBe(2)
+    expect(JSON.parse(writes[0][1]!.body as string).expectedRevision).toBe(1)
     expect(screen.getByText('Clarify your academic position')).toBeVisible()
     await userEvent.click(screen.getByRole('radio', { name: 'Approve' }))
     await userEvent.type(screen.getByRole('textbox'), 'Reviewed the revised information')
@@ -132,7 +143,7 @@ describe.skipIf(!baseUrl || !fixture)('Admin screens against real HTTP APIs and 
     expect(screen.getByText('Reviewed the revised information')).toBeVisible()
     writes = request.mock.calls.filter(([, options]) => options?.method === 'POST')
     expect(writes).toHaveLength(2)
-    expect(JSON.parse(writes[1][1]!.body as string).expectedRevision).toBe(3)
+    expect(JSON.parse(writes[1][1]!.body as string).expectedRevision).toBe(2)
   })
 
   it('sends one write when submit events repeat before the real response is displayed', async () => {

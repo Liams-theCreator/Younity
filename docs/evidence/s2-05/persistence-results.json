@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "backend": "S2-03 PR #17 / d9db156 (includes S2-09)",
+  "checked": [
+    "approve",
+    "reject",
+    "changes",
+    "stale",
+    "duplicate",
+    "resubmitted",
+    "actual draft/submission/resubmission HTTP flow",
+    "revision/history/outbox persistence"
+  ],
+  "database": "isolated _test database"
+}

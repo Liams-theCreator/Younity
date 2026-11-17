@@ -25,15 +25,12 @@ GitHub branches were fetched and inspected before implementation:
   require verified email and complete required fields for submission, make proof
   optional, permit NEEDS_CHANGES resubmission and disallow REJECTED resubmission.
 
-**The final S2-03 storage agreement is still not published.** Current-schema
-compatibility treats an `OrganizationApplication` row as a submission and an
-organization without an application row as a draft. This is an explicit
-implementation assumption, not proof of the forthcoming submission workflow.
-The lifecycle predicate and the read contract need Aadel's signoff before Done.
-If S2-03 starts storing drafts in the application table, its migration must
-provide a submitted-state discriminator and this predicate/tests must be updated
-before integration. A filled draft must never become visible merely because its
-fields look complete.
+S2-03 PR #17 at `d9db156`, now merged upstream, confirms application rows
+represent submissions and stores drafts in a separate `organizer_application_drafts`
+table. The existing read predicate needs no schema change. Real HTTP draft,
+submission and resubmission checks now verify this boundary, including private
+corrections that do not change submitted data before resubmission. Original
+branch inspections above describe the initial implementation, not current blockers.
 
 ## Authentication and eligibility
 
@@ -161,8 +158,8 @@ Summary/detail JSON fields match the S2-05 `ApplicationSummary` and
 - The raw detail response into `ReviewDetail.application`.
 - HTTP status codes into existing authentication and review error handling.
 
-The frontend targets Said's revision-aware PR #16 at `42346ac`, tested in a
-separate backend checkout without adding his implementation to this branch.
+The frontend targets S2-09's revision-aware contract included in S2-03 PR #17
+at `d9db156`, tested separately without adding teammate implementation here.
 S2-06 list/detail routes and DTOs remain unchanged. The decision screen consumes
 `GET /api/admin/applications/:id/review` for content, revision and history in one
 consistent snapshot, and sends that displayed `expectedRevision` with the reason.
@@ -221,18 +218,17 @@ Validated on 2026-11-13 using a separate PostgreSQL 17 container and
 - Hosted CI, PR creation and Aadel's approval remain pending; local test results
   do not establish reviewer approval or the final team contract.
 
-Before Done: Aadel confirms the schema/eligibility/pagination/response agreement;
-integrate the eventual real S2-03 draft/submission workflow; get hosted CI green,
-attach acceptance evidence to the PR/card and obtain Aadel's review approval.
+Before Done: obtain passing hosted checks, attach acceptance evidence and get
+Aadel's review approval. Published submission storage and decision contracts are
+aligned and verified; formal review status is tracked on the PR.
 
-## Ownership cleanup and verification — 2026-11-15
+## Full-flow integration verification — 2026-11-17
 
-This branch contains only Oussama's feature code and integration support. Said's
-schema/migrations/decision/auth/mail changes are not included. Standalone API
-checks pass: **141 unit tests**, **92 database/HTTP tests**, one unrelated opt-in
-SMTP case skipped. A separate backend checkout overlays this S2-06 read module
-and its **32 read tests**, then runs **9 live frontend cases** against the real
-revision-aware backend. The read contract/Swagger remain unchanged. See the
-[shared report](admin-review-integration.md) for setup, evidence and remaining
-S2-03/reviewer requirements. Historical combined-suite totals included Said's
-own tests and must not be attributed to this standalone branch.
+Standalone API: **141 unit tests**, **92 DB/HTTP tests** pass. Separate backend
+checkout with actual S2-03/S2-09: **133 combined DB/HTTP tests**, including the
+**32 S2-06 read cases**, and **9 real frontend cases** pass. One unrelated opt-in
+SMTP case is skipped. List/detail DTOs and Swagger remain unchanged. Real
+submissions, private corrections, resubmission revision/history, mobile/keyboard,
+permissions and stale review are verified. See the
+[integration report](admin-review-integration.md) and
+[committed evidence](evidence/s2-05/README.md). No teammate code is merged here.
