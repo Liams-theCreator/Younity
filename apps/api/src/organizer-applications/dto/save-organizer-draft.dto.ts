@@ -1,40 +1,40 @@
-import { IsUrl, IsOptional, IsPhoneNumber, IsEnum, IsString, ValidateIf, IsNotEmpty, MaxLength} from 'class-validator'
+import { IsUrl, IsOptional, IsPhoneNumber, IsEnum, IsString, IsNotEmpty, MaxLength} from 'class-validator'
 import { Transform } from 'class-transformer';
 import { OrganizationType } from '../../generated/prisma/enums.js';
 
 export class SaveOrganizerDraftDto {
-	@ValidateIf((_dto, value) => value !== undefined)
+	@IsOptional()
 	@Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
 	@IsString()
 	@IsNotEmpty()
 	@MaxLength(255)
-	organizationName?: string;
+	organizationName?: string | null;
 
 
 	@IsEnum(OrganizationType)
-	@ValidateIf((_dto, value) => value !== undefined)
-	type?: OrganizationType;
+	@IsOptional()
+	type?: OrganizationType | null;
 	
-	@ValidateIf((_dto, value) => value !== undefined)
+	@IsOptional()
 	@Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
 	@IsString()
 	@IsNotEmpty()
 	@MaxLength(255)
-	representativeFullName?: string;
+	representativeFullName?: string | null;
 
-	@ValidateIf((_dto, value) => value !== undefined)
+	@IsOptional()
 	@Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
 	@IsString()
 	@IsNotEmpty()
 	@MaxLength(255)
-	academicPosition?: string;
+	academicPosition?: string | null;
 
-	@ValidateIf((_dto, value) => value !== undefined)
+	@IsOptional()
 	@IsString()
   	@IsPhoneNumber()
 	@Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   	@MaxLength(255)
-	phoneNumber?: string;
+	phoneNumber?: string | null;
 
 	@IsOptional()
 	@Transform(({ value }) => typeof value === 'string' ? value.trim() : value)

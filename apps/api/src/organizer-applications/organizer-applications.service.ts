@@ -71,25 +71,20 @@ export class OrganizerApplicationsService {
 
 					if (changesRequested) {
 						const submitted = changesRequested.organization;
-						const draft = await tx.organizerApplicationDraft.findUnique({
-							where: { ownerId },
-						});
-
-						const merged = {
-							organizationName: draft?.organizationName ?? submitted.orgName,
-							type: draft?.type ?? submitted.type,
-							representativeFullName:
-								draft?.representativeFullName ?? submitted.representativeFullName,
-							academicPosition: draft?.academicPosition ?? submitted.academicPosition,
-							phoneNumber: draft?.phoneNumber ?? submitted.phoneNumber,
-							proofUrl: draft ? draft.proofUrl : submitted.proofUrl,
-							...fields,
-						};
 
 						return tx.organizerApplicationDraft.upsert({
 							where: { ownerId },
-							create: { ownerId, ...merged },
-							update: merged,
+							create: {
+								ownerId,
+								organizationName: submitted.orgName,
+								type: submitted.type,
+								representativeFullName: submitted.representativeFullName,
+								academicPosition: submitted.academicPosition,
+								phoneNumber: submitted.phoneNumber,
+								proofUrl: submitted.proofUrl,
+								...fields,
+							},
+							update: fields,
 						});
 					}
 
@@ -113,15 +108,51 @@ export class OrganizerApplicationsService {
 	}
 
 	async getDraft(ownerId: string) {
-		const draft = await this.prisma.organizerApplicationDraft.findUnique({
-			where: { ownerId },
-		});
+		const [savedDraft, application] = await this.prisma.$transaction(
+			[
+				this.prisma.organizerApplicationDraft.findUnique({
+					where: { ownerId },
+					select: {
+						organizationName: true,
+						type: true,
+						representativeFullName: true,
+						academicPosition: true,
+						phoneNumber: true,
+						proofUrl: true,
+					},
+				}),
+				this.prisma.organizationApplication.findFirst({
+					where: { organization: { ownerId } },
+					select: {
+						status: true,
+						organization: {
+							select: {
+								orgName: true,
+								type: true,
+								representativeFullName: true,
+								academicPosition: true,
+								phoneNumber: true,
+								proofUrl: true,
+							},
+						},
+					},
+				}),
+			],
+			{ isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+		);
 
-		if (!draft) {
-			throw new NotFoundException('No organizer draft has been saved yet');
+		if (!application) {
+			return { draft: savedDraft, canEdit: true };
 		}
 
-		return draft;
+		const { orgName, ...submittedFields } = application.organization;
+		const submitted = { organizationName: orgName, ...submittedFields };
+
+		if (application.status === 'NEEDS_CHANGES') {
+			return { draft: savedDraft ?? submitted, canEdit: true };
+		}
+
+		return { draft: submitted, canEdit: false };
 	}
 	private getMissingSubmissionFields(draft: OrganizerApplicationDraft): string[] {
 		const missing: string[] = [];
@@ -196,8 +227,6 @@ export class OrganizerApplicationsService {
 							missingFields,
 						});
 					}
-
-					// On resubmission, the revision check must be the first write.
 					if (existing) {
 						await advanceApplicationRevision(tx, existing.id, existing.revision);
 					}

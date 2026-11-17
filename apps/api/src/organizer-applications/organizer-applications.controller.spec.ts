@@ -1,18 +1,24 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { OrganizerApplicationsController } from './organizer-applications.controller';
+import { Test } from '@nestjs/testing';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { OrganizerApplicationsController } from './organizer-applications.controller.js';
+import { OrganizerApplicationsService } from './organizer-applications.service.js';
 
 describe('OrganizerApplicationsController', () => {
-  let controller: OrganizerApplicationsController;
+	it('should be defined', async () => {
+		const module = await Test.createTestingModule({
+			controllers: [OrganizerApplicationsController],
+			providers: [
+				{ provide: OrganizerApplicationsService, useValue: {} },
+			],
+		})
+		.overrideGuard(JwtAuthGuard)
+		.useValue({ canActivate: () => true })
+		.compile();
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [OrganizerApplicationsController],
-    }).compile();
-
-    controller = module.get<OrganizerApplicationsController>(OrganizerApplicationsController);
-  });
-
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
+		try {
+			expect(module.get(OrganizerApplicationsController)).toBeDefined();
+		} finally {
+			await module.close();
+		}
+	});
 });

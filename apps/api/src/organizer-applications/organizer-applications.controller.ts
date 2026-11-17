@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards, Get } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Patch, UseGuards, Get } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user.type.js';
@@ -18,6 +18,26 @@ export class OrganizerApplicationsController {
 		@Body() dto: SaveOrganizerDraftDto,) {
 		return this.service.saveDraft(user.id, dto);
 	}
+	@Patch('draft')
+	@UseGuards(JwtAuthGuard, OrganizerApplicantGuard)
+	async patchDraft(
+		@CurrentUser() user: AuthenticatedUser,
+		@Body() dto: SaveOrganizerDraftDto,
+	) {
+		const saved = await this.service.saveDraft(user.id, dto);
+
+		return {
+			draft: {
+				organizationName: saved.organizationName,
+				type: saved.type,
+				representativeFullName: saved.representativeFullName,
+				academicPosition: saved.academicPosition,
+				phoneNumber: saved.phoneNumber,
+				proofUrl: saved.proofUrl,
+			},
+			canEdit: true,
+		};
+	}
 
 	@Get('draft')
 	@UseGuards(JwtAuthGuard, OrganizerApplicantGuard)
@@ -26,8 +46,14 @@ export class OrganizerApplicationsController {
 	}
 	@Post('submit')
 	@UseGuards(JwtAuthGuard, OrganizerApplicantGuard)
-	submit(@CurrentUser() user: AuthenticatedUser)
-	{
-		return this.service.submit(user.id);
+	async submit(@CurrentUser() user: AuthenticatedUser) {
+		const application = await this.service.submit(user.id);
+
+		return {
+			application: {
+				id: application.id,
+				status: application.status,
+			},
+		};
 	}
 }
