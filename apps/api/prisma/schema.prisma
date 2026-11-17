@@ -132,6 +132,7 @@ model User {
   ownedOrganizations    Organization[]            @relation("OrganizationOwnerId")
   verifiedOrganizations Organization[]            @relation("OrganizationVerifiedById")
   submittedApplications OrganizationApplication[] @relation("OrganizationApplicationSubmittedById")
+  applicationDecisions ApplicationDecision[]
   reviewedApplications  OrganizationApplication[] @relation("OrganizationApplicationReviewerId")
   createdEvents         Event[]                   @relation("EventCreatedById")
   studentInterests      StudentInterest[]         @relation("StudentInterestStudentId")
@@ -140,7 +141,7 @@ model User {
   notifications         Notification[]            @relation("NotificationUserId")
   organizationFollows   OrganizationFollow[]      @relation("OrganizationFollowFollowerId")
   emailverifyTokens		EmailVerificationToken[]
-
+  organizerApplicationDraft OrganizerApplicationDraft?
   @@map("users")
 }
 
@@ -199,6 +200,7 @@ model Organization {
 }
 
 model OrganizationApplication {
+  revision Int @default(1)
   id             String             @id @default(uuid()) @db.Uuid
   organizationId String             @map("organization_id") @db.Uuid
   submittedById  String             @map("submitted_by_id") @db.Uuid
@@ -208,6 +210,7 @@ model OrganizationApplication {
   submittedAt    DateTime           @default(now()) @map("submitted_at") @db.Timestamp(6)
   reviewedAt     DateTime?          @map("reviewed_at") @db.Timestamp(6)
 
+  decisions ApplicationDecision[]
   organization Organization @relation("OrganizationApplicationOrganizationId", fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   submittedBy  User         @relation("OrganizationApplicationSubmittedById", fields: [submittedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reviewer     User?        @relation("OrganizationApplicationReviewerId", fields: [reviewerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -342,4 +345,55 @@ model OrganizationFollow {
 
   @@id([followerId, organizationId])
   @@map("organization_follows")
+}
+
+model OrganizerApplicationDraft {
+  ownerId                String            @id @map("owner_id") @db.Uuid
+  organizationName       String?           @map("organization_name") @db.VarChar(255)
+  type                   OrganizationType?
+  representativeFullName String?           @map("representative_full_name") @db.VarChar(255)
+  academicPosition       String?           @map("academic_position") @db.VarChar(255)
+  phoneNumber            String?           @map("phone_number") @db.VarChar(255)
+  proofUrl               String?           @map("proof_url") @db.VarChar(512)
+  updatedAt              DateTime          @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("organizer_application_drafts")
+}
+
+// Append-only audit; latest application metadata remains compatible.
+model ApplicationDecision {
+  revision Int
+  id String @id @default(uuid()) @db.Uuid
+  applicationId String @map("application_id") @db.Uuid
+  adminId String @map("admin_id") @db.Uuid
+  oldStatus VerificationStatus @map("old_status")
+  newStatus VerificationStatus @map("new_status")
+  reason String @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  application OrganizationApplication @relation(fields: [applicationId], references: [id], onDelete: NoAction)
+  admin User @relation(fields: [adminId], references: [id], onDelete: NoAction)
+  email DecisionEmail?
+  @@unique([applicationId, revision], map: "application_decisions_application_revision_key")
+  @@index([applicationId, createdAt, id])
+  @@index([adminId])
+  @@map("application_decisions")
+}
+
+model DecisionEmail {
+  id String @id @default(uuid()) @db.Uuid
+  decisionId String @unique @map("decision_id") @db.Uuid
+  recipient String @db.VarChar(255)
+  status String @default("PENDING") @db.VarChar(20)
+  attempts Int @default(0)
+  lastError String? @map("last_error") @db.Text
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamp(6)
+  claimToken String? @map("claim_token") @db.Uuid
+  claimedUntil DateTime? @map("claimed_until") @db.Timestamp(6)
+  sentAt DateTime? @map("sent_at") @db.Timestamp(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  decision ApplicationDecision @relation(fields: [decisionId], references: [id], onDelete: NoAction)
+  @@index([status, nextAttemptAt])
+  @@map("decision_emails")
 }

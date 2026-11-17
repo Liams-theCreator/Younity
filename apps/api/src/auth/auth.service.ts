@@ -58,7 +58,19 @@ export class AuthService implements OnModuleInit
 			email: user.email,
 		};
 	}
+	async getOrganizerOnboarding(organizationId: string) {
+		const application = await this.prisma.organizationApplication.findFirst({
+			where: { organizationId },
+			select: { id: true },
+		});
 
+		const complete = application !== null;
+
+		return {
+			complete,
+			nextStep: complete ? 'NONE' : 'COMPLETE_ORGANIZER_APPLICATION',
+		};
+	}
 	async login(email: string, password: string)
 	{
 		const user = await this.validateCredentials(email, password);
