@@ -15,55 +15,92 @@ import OrganizationStatusPage from '../pages/OrganizationStatusPage'
 import ProtectedRoute from './ProtectedRoute'
 import EmailVerificationPage from '../pages/EmailVerificationPage'
 import OrganizerDraftPage from '../pages/OrganizerDraftPage'
+import OrganizerApprovalPage, {
+  EventsPortalPage,
+} from '../pages/OrganizerApprovalPage'
+import { useAuth } from './useAuth'
+import AdminApplicationsPage from '../admin/AdminApplicationsPage'
+import AdminApplicationDetailPage from '../admin/AdminApplicationDetailPage'
+import type { ApplicationReviewService } from '../admin/model'
 
 type AuthRoutesProps = {
   pendingPage: ReactNode
+  reviewService?: ApplicationReviewService
 }
 
 export default function AuthRoutes({
   pendingPage,
+  reviewService,
 }: AuthRoutesProps) {
+  const { destination } = useAuth()
+
   return (
     <Routes>
-      <Route path="/organizer/application" element={<OrganizerDraftPage />} />
-      <Route path="/verify-email" element={<EmailVerificationPage />} />
+      <Route
+        path="/admin/applications"
+        element={
+          <ProtectedRoute
+            destination="/admin/applications"
+            renderRedirect={(to) => <Navigate to={to} replace />}
+          >
+            <AdminApplicationsPage service={reviewService} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/applications/:applicationId"
+        element={
+          <ProtectedRoute
+            destination="/admin/applications"
+            renderRedirect={(to) => <Navigate to={to} replace />}
+          >
+            <AdminApplicationDetailPage service={reviewService} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route path="/events" element={<EventsPortalPage />} />
+      <Route
+        path="/organizer/approved"
+        element={<OrganizerApprovalPage />}
+      />
+      <Route
+        path="/organizer/application"
+        element={<OrganizerDraftPage />}
+      />
+      <Route
+        path="/verify-email"
+        element={<EmailVerificationPage />}
+      />
       <Route
         path="/"
         element={<Navigate to="/login" replace />}
       />
-
-      <Route
-        path="/login"
-        element={<LoginPage />}
-      />
-
+      <Route path="/login" element={<LoginPage />} />
       <Route
         path="/register"
         element={<Navigate to="/login" replace />}
       />
-
       <Route
         path="/register/student"
-        element={
-          <StudentRegisterPage signInPath="/login" />
-        }
+        element={<StudentRegisterPage signInPath="/login" />}
       />
-
       <Route
         path="/register/organizer"
-        element={
-          <OrganizerRegisterPage signInPath="/login" />
-        }
+        element={<OrganizerRegisterPage signInPath="/login" />}
       />
 
       <Route
         path="/student/preferences"
         element={
           <ProtectedRoute
-            destination="/student/dashboard"
-            renderRedirect={(to) => (
-              <Navigate to={to} replace />
-            )}
+            destination={
+              destination === '/student/preferences'
+                ? '/student/preferences'
+                : '/student/dashboard'
+            }
+            renderRedirect={(to) => <Navigate to={to} replace />}
           >
             <StudentPreferencesPage />
           </ProtectedRoute>
@@ -75,9 +112,7 @@ export default function AuthRoutes({
         element={
           <ProtectedRoute
             destination="/student/dashboard"
-            renderRedirect={(to) => (
-              <Navigate to={to} replace />
-            )}
+            renderRedirect={(to) => <Navigate to={to} replace />}
           >
             <StudentDashboardPage />
           </ProtectedRoute>
@@ -89,9 +124,7 @@ export default function AuthRoutes({
         element={
           <ProtectedRoute
             destination="/organizer/dashboard"
-            renderRedirect={(to) => (
-              <Navigate to={to} replace />
-            )}
+            renderRedirect={(to) => <Navigate to={to} replace />}
           >
             <OrganizerDashboardPage />
           </ProtectedRoute>
@@ -103,9 +136,7 @@ export default function AuthRoutes({
         element={
           <ProtectedRoute
             destination="/organizer/pending"
-            renderRedirect={(to) => (
-              <Navigate to={to} replace />
-            )}
+            renderRedirect={(to) => <Navigate to={to} replace />}
           >
             {pendingPage}
           </ProtectedRoute>
@@ -117,9 +148,7 @@ export default function AuthRoutes({
         element={
           <ProtectedRoute
             destination="/organizer/status"
-            renderRedirect={(to) => (
-              <Navigate to={to} replace />
-            )}
+            renderRedirect={(to) => <Navigate to={to} replace />}
           >
             <OrganizationStatusPage />
           </ProtectedRoute>

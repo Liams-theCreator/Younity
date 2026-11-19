@@ -1,6 +1,23 @@
 # Younity API
 
-NestJS, TypeScript ES modules, Prisma 7, and PostgreSQL. The database foundation is implemented; authentication and event application workflows are not implemented yet.
+NestJS, TypeScript ES modules, Prisma 7, and PostgreSQL. The API includes
+authentication, email verification, student preferences and administrator
+application reads. See the sections below for contracts and integration status.
+
+## Admin application reads (S2-06)
+
+`GET /api/admin/applications` and `GET /api/admin/applications/:id` require an
+ACTIVE, email-verified ADMIN session cookie. The list accepts `page` (default 1),
+`limit` (default 20, maximum 100), and an optional exact review status. Responses
+contain explicit review fields, use `Cache-Control: no-store`, and are documented
+in Swagger. Unknown/ineligible detail IDs return 404; malformed inputs return 400.
+
+See [S2-06 contract and acceptance](../../docs/s2-06-admin-read-api.md) for JSON
+examples, eligibility, pagination and verification. The current schema treats
+application rows as submitted and organization-only records as drafts. The final
+S2-03 lifecycle storage handoff and Aadel's contract approval remain pending;
+do not treat the existing timestamp default as a future draft-state rule.
+These endpoints do not implement S2-09 decision writes.
 
 ## Full development stack
 
@@ -124,3 +141,21 @@ Inside Compose, `docker compose exec api npm test` runs unit tests. For integrat
 With `./run.sh --watch`, source files, test files, both Vitest configuration files, and `.oxlintrc.json` sync automatically. Changes to test or lint settings are available on the next check inside the running container. Dependency, Prisma, and build-configuration changes rebuild the API image. Rebuilds run committed migrations and seed before starting Nest. A schema edit requires a matching committed migration; Watch does not create migrations.
 
 Ctrl+C in `./run.sh --watch` stops services while retaining database and certificate volumes. In detached mode, use `docker compose stop`. Changing `.env` does not update an existing database password. Inspect `docker compose logs -f` for failures. Do not delete volumes to resolve errors unless you intend to discard their data.
+
+## Administrator frontend integration checks
+
+This branch contains S2-06 reads; Said's S2-09 source/schema/migrations are not
+merged here. Full review tests use a separate submission/decision backend checkout pinned to PR #17 (`d9db156`, including S2-09).
+Prepare it with `node scripts/prepare-admin-backend.mjs /path/to/checkout/apps/api`,
+install/build it, and apply migrations only to an explicit isolated `_test` DB.
+Set `ADMIN_REVIEW_API_DIRECTORY` to that API directory before running
+`npm run test:admin-integration`. The runner requires the separate directory and
+forces email delivery off. Normal lint/unit/database/build checks test only your
+branch. See [the integration report](../../docs/admin-review-integration.md) for
+complete commands and cleanup behavior. The normal API does not gain decision
+routes until the team integrates Said's backend separately.
+
+The live runner creates eligible applications through the actual organizer
+PATCH draft/POST submit endpoints and tests private corrections/resubmission.
+The former test-only revision bridge has been removed. CI uploads sanitized live
+acceptance evidence; screenshots and results are linked from the integration guide.
