@@ -70,40 +70,38 @@ export class AuthController
 	@Get('me')
 	@Header('Cache-Control', 'no-store')
 	@UseGuards(JwtAuthGuard)
-	me(@CurrentUser() user: AuthenticatedUser) {
-		let organization: {
-			verificationStatus:
-				AuthenticatedUser['ownedOrganizations'][number]['verificationStatus'];
-		} | null = null;
-
-		if (user.role === UserRole.ORGANIZER) {
-			if (user.ownedOrganizations.length !== 1) {
-				throw new InternalServerErrorException(
-					'Organization context is not configured',
-				);
-			}
-
-			const [ownedOrganization] = user.ownedOrganizations;
-
-			if (!ownedOrganization) {
-				throw new InternalServerErrorException(
-					'Organization context is not configured',
-				);
-			}
-
-			organization = {
-				verificationStatus: ownedOrganization.verificationStatus,
-			};
-		}
-
-		return {
+	async me(@CurrentUser() user: AuthenticatedUser) {
+		const profile = {
 			id: user.id,
 			email: user.email,
 			role: user.role,
 			status: user.status,
-			organization,
 		};
-}
+
+		if (user.role !== UserRole.ORGANIZER) {
+			return { ...profile, organization: null };
+		}
+
+		const [organization] = user.ownedOrganizations;
+
+		if (user.ownedOrganizations.length !== 1 || !organization) {
+			throw new InternalServerErrorException(
+				'Organization context is not configured',
+			);
+		}
+
+		const onboarding = await this.authService.getOrganizerOnboarding(
+			organization.id,
+		);
+
+		return {
+			...profile,
+			organization: {
+				verificationStatus: organization.verificationStatus,
+			},
+			onboarding,
+		};
+	}
 	@Get('admin-check')
 	@UseGuards(JwtAuthGuard, RolesGuard)
 	@Roles(UserRole.ADMIN)

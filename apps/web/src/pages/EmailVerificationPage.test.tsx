@@ -138,7 +138,7 @@ describe('email verification page', () => {
     const context = rememberVerification({ email, recoveryToken: 'expired-session', resendAvailableAt: 0, deliveryFailed: false })
     request.mockResolvedValue(new Response(null, { status: 401 }))
     mount('', context)
-    expect(await screen.findByRole('status')).toHaveTextContent('This verification session expired.')
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('This verification session expired.'))
     expect(screen.getByText('s***@example.test')).toBeVisible()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /edit.*email/i })).not.toBeInTheDocument()
