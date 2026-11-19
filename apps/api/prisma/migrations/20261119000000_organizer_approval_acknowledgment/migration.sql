@@ -1,0 +1,1 @@
+ALTER TABLE "organizations" ADD COLUMN "approval_acknowledged_at" TIMESTAMP(6);

@@ -64,7 +64,80 @@ export function parseSessionUser(data: unknown): SessionUser {
     throw new LoginError('SERVICE_UNAVAILABLE')
   }
 
+  // Optional for older branch fixtures; the current API supplies these fields.
+  const extras: Pick<
+    SessionUser,
+    'onboarding' | 'approvalAcknowledged' | 'application'
+  > = {}
+
+  if ('onboarding' in data) {
+    const state = data.onboarding
+
+    if (
+      !isObject(state) ||
+      typeof state.complete !== 'boolean' ||
+      (
+        state.complete
+          ? state.nextStep !== 'NONE'
+          : state.nextStep !== (
+              data.role === 'STUDENT'
+                ? 'SELECT_INTERESTS'
+                : 'COMPLETE_ORGANIZER_APPLICATION'
+            )
+      )
+    ) {
+      throw new LoginError('SERVICE_UNAVAILABLE')
+    }
+
+    extras.onboarding = {
+      complete: state.complete,
+      nextStep:
+        state.nextStep as NonNullable<SessionUser['onboarding']>['nextStep'],
+    }
+  }
+
+  if (
+    isObject(data.organization) &&
+    'approvalAcknowledged' in data.organization
+  ) {
+    if (typeof data.organization.approvalAcknowledged !== 'boolean') {
+      throw new LoginError('SERVICE_UNAVAILABLE')
+    }
+
+    extras.approvalAcknowledged = data.organization.approvalAcknowledged
+  }
+
+  if (isObject(data.organization) && 'application' in data.organization) {
+    const application = data.organization.application
+
+    if (application === null) {
+      extras.application = null
+    } else {
+      if (
+        !isObject(application) ||
+        typeof application.id !== 'string' ||
+        !application.id.trim() ||
+        !['PENDING', 'NEEDS_CHANGES', 'APPROVED', 'REJECTED'].includes(
+          String(application.status),
+        ) ||
+        !(
+          application.reviewerNote === null ||
+          typeof application.reviewerNote === 'string'
+        )
+      ) {
+        throw new LoginError('SERVICE_UNAVAILABLE')
+      }
+
+      extras.application = {
+        id: application.id,
+        status: application.status as OrganizationStatus,
+        reviewerNote: application.reviewerNote,
+      }
+    }
+  }
+
   return {
+    ...extras,
     id: data.id,
     email: data.email,
     role: data.role,

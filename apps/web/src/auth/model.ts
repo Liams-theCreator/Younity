@@ -14,12 +14,24 @@ export type OrganizationStatus =
   | 'REJECTED'
 
 export type AuthAccessProfile = {
+  onboarding?: {
+    complete: boolean
+    nextStep: 'NONE' | 'SELECT_INTERESTS' | 'COMPLETE_ORGANIZER_APPLICATION'
+  }
+  approvalAcknowledged?: boolean
   role?: UserRole
   userStatus?: UserStatus
   organizationStatus?: OrganizationStatus | null
 }
 
 export type SessionUser = {
+  application?: {
+    id: string
+    status: OrganizationStatus
+    reviewerNote: string | null
+  } | null
+  onboarding?: AuthAccessProfile['onboarding']
+  approvalAcknowledged?: boolean
   id: string | number
   email: string
   role: UserRole
@@ -36,7 +48,8 @@ type LoginErrorCode =
   | 'SESSION_NOT_ESTABLISHED'
 
 const loginMessages: Record<LoginErrorCode, string> = {
-  EMAIL_NOT_VERIFIED: 'Verify your email before signing in. You can request another verification email.',
+  EMAIL_NOT_VERIFIED:
+    'Verify your email before signing in. You can request another verification email.',
   INVALID_CREDENTIALS: 'Email or password is incorrect.',
   ACCOUNT_UNAVAILABLE: 'Your account cannot sign in. Please contact support.',
   NETWORK_ERROR: 'Unable to connect. Check your connection and try again.',
