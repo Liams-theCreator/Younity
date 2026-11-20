@@ -14,6 +14,7 @@ export default function RegistrationSelect({
   error,
   onChange,
   required = true,
+  requirementHint,
 }: {
   id: string
   label: string
@@ -23,13 +24,14 @@ export default function RegistrationSelect({
   error?: string
   onChange: (value: string) => void
   required?: boolean
+  requirementHint?: string
 }) {
   return (
     <div className="form-field registration-select-field">
       <div className="field-label">
         <label htmlFor={id}>{label}</label>
         <span className="required-hint">
-          {required ? 'Required' : 'Optional'}
+          {requirementHint ?? (required ? 'Required' : 'Optional')}
         </span>
       </div>
 

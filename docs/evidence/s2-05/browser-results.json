@@ -1,0 +1,77 @@
+{
+  "passed": true,
+  "verifiedOn": "2026-11-17",
+  "backend": "S2-03 PR #17 / d9db156; includes S2-09",
+  "results": [
+    {
+      "width": 1440,
+      "action": "Approve",
+      "passed": true,
+      "checks": [
+        "anonymous redirect and real login",
+        "real S2-03 submitted application",
+        "draft/unverified excluded",
+        "no page overflow",
+        "Tab/Enter/radio arrows",
+        "required reason focus",
+        "one POST with displayed revision",
+        "success focus",
+        "saved history and refreshed list/detail"
+      ]
+    },
+    {
+      "width": 390,
+      "action": "Request changes",
+      "passed": true,
+      "checks": [
+        "anonymous redirect and real login",
+        "real S2-03 submitted application",
+        "draft/unverified excluded",
+        "no page overflow",
+        "Tab/Enter/radio arrows",
+        "required reason focus",
+        "one POST with displayed revision",
+        "success focus",
+        "saved history and refreshed list/detail"
+      ]
+    },
+    {
+      "width": 320,
+      "action": "Reject",
+      "passed": true,
+      "checks": [
+        "anonymous redirect and real login",
+        "real S2-03 submitted application",
+        "draft/unverified excluded",
+        "no page overflow",
+        "Tab/Enter/radio arrows",
+        "required reason focus",
+        "one POST with displayed revision",
+        "success focus",
+        "saved history and refreshed list/detail"
+      ]
+    },
+    {
+      "width": 390,
+      "passed": true,
+      "checks": [
+        "UI request-changes",
+        "real PATCH draft stays private after admin refresh",
+        "real submit keeps ID and increments revision",
+        "second real correction/resubmission",
+        "old displayed revision returns 409",
+        "new content/history and cleared form",
+        "explicit keyboard re-review at revision 3"
+      ]
+    },
+    {
+      "width": 390,
+      "passed": true,
+      "checks": [
+        "real student session cannot navigate to admin screens",
+        "no review API reads for non-admin navigation"
+      ]
+    }
+  ],
+  "errors": []
+}

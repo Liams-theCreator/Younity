@@ -51,6 +51,41 @@ jobs:
       - run: npm run test:e2e
       - run: npm run build
 
+      - name: Install frontend for live admin review integration
+        run: npm ci --prefix ../web
+      - name: Check out submission and decision dependencies separately
+        uses: actions/checkout@v4
+        with:
+          ref: d9db156b00804d84252e97f56ba16e9249018da0
+          path: .local/admin-review-backend
+          persist-credentials: false
+      - name: Prepare isolated dependency with S2-06 reads
+        run: node scripts/prepare-admin-backend.mjs "$GITHUB_WORKSPACE/.local/admin-review-backend/apps/api"
+      - name: Install and build isolated backend
+        run: |
+          npm ci --prefix "$GITHUB_WORKSPACE/.local/admin-review-backend/apps/api"
+          npm run build --prefix "$GITHUB_WORKSPACE/.local/admin-review-backend/apps/api"
+          npm run db:setup --prefix "$GITHUB_WORKSPACE/.local/admin-review-backend/apps/api"
+      - name: Check S2-06 reads with the isolated decision backend
+        run: npm run test:e2e --prefix "$GITHUB_WORKSPACE/.local/admin-review-backend/apps/api" -- --maxWorkers=1 test/admin-applications.e2e-spec.ts
+      - name: Test admin screens against the real API and database
+        run: |
+          set -o pipefail
+          mkdir -p "$GITHUB_WORKSPACE/.local/admin-integration"
+          npm run test:admin-integration | tee "$GITHUB_WORKSPACE/.local/admin-integration/ci-live.log"
+        env:
+          ADMIN_REVIEW_API_DIRECTORY: ${{ github.workspace }}/.local/admin-review-backend/apps/api
+          ADMIN_DECISION_EMAIL_ENABLED: "false"
+      - name: Attach admin integration acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-review-acceptance
+          include-hidden-files: true
+          path: |
+            .local/admin-integration/persistence-results.json
+            .local/admin-integration/ci-live.log
+
   web:
     runs-on: ubuntu-latest
     defaults:

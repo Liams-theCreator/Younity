@@ -1,0 +1,29 @@
+.organizer-draft .required-hint {
+  color: var(--muted);
+}
+
+.registration-shell.registration-organizer .organizer-draft input:not([type='checkbox']):not([type='radio']):focus-visible,
+.registration-shell.registration-organizer .organizer-draft select:focus-visible,
+.registration-shell.registration-organizer .organizer-draft button:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.organizer-draft-back {
+  display: inline-block;
+  margin-top: 16px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.organizer-draft-actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+@media (min-width: 600px) {
+  .organizer-draft-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

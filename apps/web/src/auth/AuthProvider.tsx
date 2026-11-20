@@ -59,7 +59,10 @@ export default function AuthProvider({
       (cause) => {
         if (currentRequest !== requestId.current) return
 
-        if (cause instanceof LoginError && cause.code === 'EMAIL_NOT_VERIFIED') {
+        if (
+          cause instanceof LoginError &&
+          cause.code === 'EMAIL_NOT_VERIFIED'
+        ) {
           setState({
             status: 'anonymous',
             user: null,
@@ -79,12 +82,15 @@ export default function AuthProvider({
     )
   }, [])
 
-  const refreshSession = useCallback(async () => {
-    if (pendingLogin.current || pendingLogout.current) return
+  const refreshSession = useCallback(
+    async (options?: { background?: boolean }) => {
+      if (pendingLogin.current || pendingLogout.current) return
 
-    setState(loadingState)
-    await loadSession()
-  }, [loadSession])
+      if (!options?.background) setState(loadingState)
+      await loadSession()
+    },
+    [loadSession],
+  )
 
   const signIn = useCallback(async (credentials: LoginCredentials) => {
     if (pendingLogin.current || pendingLogout.current) {

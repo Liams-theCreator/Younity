@@ -140,22 +140,24 @@ model User {
   reviewedRegistrations EventRegistration[]       @relation("EventRegistrationReviewedById")
   notifications         Notification[]            @relation("NotificationUserId")
   organizationFollows   OrganizationFollow[]      @relation("OrganizationFollowFollowerId")
-  emailverifyTokens		EmailVerificationToken[]
+  emailverifyTokens     EmailVerificationToken[]
   organizerApplicationDraft OrganizerApplicationDraft?
+
   @@map("users")
 }
 
 model EmailVerificationToken {
-	id			String		@id @default(uuid()) @db.Uuid
-	userId		String		@map("user_id") @db.Uuid
-	tokenHash	String		@unique @map("token_hash")
-	createdAt	DateTime	@default(now()) @map("created_at") @db.Timestamp(6)
-	expiresAt	DateTime	@map("expires_at") @db.Timestamp(6)
-	usedAt		DateTime?	@map("used_at") @db.Timestamp(6)
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  expiresAt DateTime @map("expires_at") @db.Timestamp(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamp(6)
 
-	user		User		@relation(fields: [userId], references: [id])
-	@@index([userId])
-	@@map("email_verification_tokens")
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("email_verification_tokens")
 }
 
 model StudentProfile {
@@ -174,6 +176,7 @@ model StudentProfile {
 }
 
 model Organization {
+  approvalAcknowledgedAt DateTime? @map("approval_acknowledged_at") @db.Timestamp(6)
   id                     String             @id @default(uuid()) @db.Uuid
   ownerId                String             @map("owner_id") @db.Uuid
   orgName                String             @map("org_name") @db.VarChar(255)
@@ -200,7 +203,7 @@ model Organization {
 }
 
 model OrganizationApplication {
-  revision Int @default(1)
+  revision       Int                @default(1)
   id             String             @id @default(uuid()) @db.Uuid
   organizationId String             @map("organization_id") @db.Uuid
   submittedById  String             @map("submitted_by_id") @db.Uuid
@@ -375,6 +378,7 @@ model ApplicationDecision {
   application OrganizationApplication @relation(fields: [applicationId], references: [id], onDelete: NoAction)
   admin User @relation(fields: [adminId], references: [id], onDelete: NoAction)
   email DecisionEmail?
+
   @@unique([applicationId, revision], map: "application_decisions_application_revision_key")
   @@index([applicationId, createdAt, id])
   @@index([adminId])
@@ -394,6 +398,7 @@ model DecisionEmail {
   sentAt DateTime? @map("sent_at") @db.Timestamp(6)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   decision ApplicationDecision @relation(fields: [decisionId], references: [id], onDelete: NoAction)
+
   @@index([status, nextAttemptAt])
   @@map("decision_emails")
 }

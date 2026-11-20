@@ -1,55 +1,90 @@
+import { useEffect } from 'react'
+import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import styles from './AuthShell.module.css'
 
 export default function OrganizationStatusPage() {
-  const {
-    user,
-    refreshSession,
-  } = useAuth()
-
+  const { user, refreshSession } = useAuth()
   const status = user?.organizationStatus
+  const note = user?.application?.reviewerNote
 
-  const title =
-    status === 'NEEDS_CHANGES'
-      ? 'Your application needs changes'
-      : status === 'REJECTED'
-        ? 'Your application was not approved'
-        : 'Organization verification pending'
+  useEffect(() => {
+    if (status !== 'PENDING') return
 
-  const message =
-    status === 'NEEDS_CHANGES'
-      ? 'Your organization cannot publish events yet. Application editing and reviewer feedback will be provided by the registration flow.'
-      : status === 'REJECTED'
-        ? 'This application is closed. Your organization cannot publish events.'
-        : 'Your organization is waiting for review. You will be able to publish events once it is approved.'
+    let refreshing = false
+
+    async function refresh() {
+      if (document.hidden || refreshing) return
+      refreshing = true
+
+      try {
+        await refreshSession({ background: true })
+      } finally {
+        refreshing = false
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void refresh()
+    }, 30000)
+
+    const visible = () => {
+      if (!document.hidden) void refresh()
+    }
+
+    document.addEventListener('visibilitychange', visible)
+
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', visible)
+    }
+  }, [status, refreshSession])
 
   return (
     <main className={styles.page}>
       <section className={styles.card}>
-        <p className={styles.eyebrow}>
-          Organization verification
+        <p className={styles.eyebrow}>Organization verification</p>
+
+        <h1>
+          {status === 'NEEDS_CHANGES'
+            ? 'Your application needs changes'
+            : status === 'REJECTED'
+              ? 'Your application was not approved'
+              : 'Organization verification pending'}
+        </h1>
+
+        <p>
+          {status === 'NEEDS_CHANGES'
+            ? 'Update your saved application and resubmit it for review.'
+            : status === 'REJECTED'
+              ? 'This application is closed. Your organization cannot publish events.'
+              : 'Your application is waiting for review. This page checks for updates while it is visible.'}
         </p>
 
-        <h1>{title}</h1>
+        {note && (
+          <div>
+            <p>{note.length > 200 ? `${note.slice(0, 200)}…` : note}</p>
 
-        <p>{message}</p>
+            {note.length > 200 && (
+              <details>
+                <summary>Read full feedback</summary>
+                <p>{note}</p>
+              </details>
+            )}
+          </div>
+        )}
 
         <div className={styles.actions}>
-          <button
-            type="button"
-            onClick={() => {
-              void refreshSession()
-            }}
-          >
+          {(status === 'PENDING' || status === 'NEEDS_CHANGES') && (
+            <Link to="/organizer/application">View application</Link>
+          )}
+
+          <Link to="/events">Explore campus events</Link>
+
+          <button onClick={() => { void refreshSession() }}>
             Check status again
           </button>
         </div>
-
-        <p>
-          Event discovery and application details will
-          be connected when those features are
-          available.
-        </p>
       </section>
     </main>
   )

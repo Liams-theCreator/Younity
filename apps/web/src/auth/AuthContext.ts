@@ -28,7 +28,7 @@ export type AuthState =
 
 type AuthContextValue = AuthState & {
   destination: AuthDestination | null
-  refreshSession: () => Promise<void>
+  refreshSession: (options?: { background?: boolean }) => Promise<void>
   signIn: (credentials: LoginCredentials) => Promise<void>
   signOut: () => Promise<void>
   requestProtected: (
