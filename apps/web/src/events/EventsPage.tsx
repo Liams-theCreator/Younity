@@ -2,8 +2,10 @@ import { useCallback, useId, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import ReferenceIcon from '../components/ReferenceIcon'
+import scrollStyles from '../components/ScrollHeader.module.css'
 import EventCard from './EventCard'
 import EventFilters from './EventFilters'
+import EventGridSkeleton from './EventGridSkeleton'
 import { discoveryQuery, getCategories, getEvents } from './service'
 import { useResource } from './useResource'
 import styles from './events.module.css'
@@ -22,6 +24,7 @@ export default function EventsPage({ embedded = false }: { embedded?: boolean })
   const catalog = useResource('event-categories', getCategories)
   const categoryOptions = catalog.state === 'ready' ? catalog.data : data?.categories ?? []
   const signedIn = auth.status === 'authenticated'
+  const hasFloatingHeader = !embedded && signedIn && auth.destination !== '/admin/applications'
   const guest = auth.status === 'anonymous' || auth.status === 'error'
   const organizerDestination = signedIn && auth.user.role === 'ORGANIZER' ? auth.destination : null
   const organizerLink = guest ? '/register/organizer' : organizerDestination
@@ -46,9 +49,9 @@ export default function EventsPage({ embedded = false }: { embedded?: boolean })
   }
 
   return (
-    <div className={styles.portal}>
+    <div className={hasFloatingHeader ? `${styles.portal} ${scrollStyles.portalBehindPill}` : styles.portal}>
       {!embedded && !signedIn && (
-        <header className={styles.portalHeader}>
+        <header className={`${styles.portalHeader} ${scrollStyles.header}`}>
           <div className={styles.container}>
             <Link to="/events" className={styles.wordmark}>
               <ReferenceIcon name="school" /> Younity
@@ -71,9 +74,6 @@ export default function EventsPage({ embedded = false }: { embedded?: boolean })
               Discover <span>Hackathons</span>, <em>Workshops</em> &amp; Academic Events
             </Heading>
             <p>Explore campus events, inter-university competitions, and masterclasses.</p>
-            {!embedded && signedIn && auth.destination && (
-              <Link to={auth.destination} className={styles.accountLink}>Your account</Link>
-            )}
           </div>
         </header>
 
@@ -97,10 +97,12 @@ export default function EventsPage({ embedded = false }: { embedded?: boolean })
           <div className={styles.resultsHeader}>
             <h2 id={resultsId} ref={resultsHeading} tabIndex={-1}>Campus events</h2>
             <p role="status">
-              {result.state === 'loading' && 'Loading events…'}
+              {result.state === 'loading' && <span className="sr-only">Loading events…</span>}
               {data && `${data.total} ${data.total === 1 ? 'event' : 'events'} found`}
             </p>
           </div>
+
+          {result.state === 'loading' && <EventGridSkeleton />}
 
           {result.state === 'error' && (
             <div className={styles.resultState}>

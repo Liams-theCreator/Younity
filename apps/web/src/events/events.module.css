@@ -32,15 +32,6 @@
   outline-offset: 3px;
 }
 
-.portalHeader {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--page) 90%, transparent);
-  backdrop-filter: blur(14px);
-}
-
 .portalHeader .container,
 .portalFooter .container {
   display: flex;
@@ -83,7 +74,6 @@
 }
 
 .signIn,
-.accountLink,
 .footerLinks a {
   display: inline-flex;
   align-items: center;
@@ -93,7 +83,6 @@
 }
 
 .signIn:hover,
-.accountLink:hover,
 .footerLinks a:hover {
   text-decoration: underline;
 }
@@ -154,8 +143,6 @@
   font-size: clamp(.9375rem, 2vw, 1.125rem);
   text-wrap: pretty;
 }
-
-.accountLink { margin-top: 16px; }
 
 .embedded .hero {
   margin-top: 24px;

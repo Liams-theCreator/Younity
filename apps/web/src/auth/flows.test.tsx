@@ -225,6 +225,10 @@ describe('AUTH-05 frontend journeys', () => {
     ).toHaveTextContent('/student/dashboard')
 
     await interaction.click(
+      screen.getByRole('button', { name: 'Account menu' }),
+    )
+
+    await interaction.click(
       screen.getByRole('button', {
         name: 'Sign out',
       }),
@@ -452,6 +456,10 @@ describe('AUTH-05 frontend journeys', () => {
     )
 
     mount('/student/dashboard')
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Account menu' }),
+    )
 
     await userEvent.click(
       await screen.findByRole('button', {
