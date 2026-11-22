@@ -153,7 +153,7 @@ describe('AUTH-05 frontend journeys', () => {
 
     await userEvent.click(
       screen.getByRole('link', {
-        name: /^Sign in$/i,
+        name: /^Back to Sign In$/i,
       }),
     )
 
@@ -179,7 +179,7 @@ describe('AUTH-05 frontend journeys', () => {
     ).toBeGreaterThan(0)
   })
 
-  it('supports invalid credentials, correction, Enter and logout', async () => {
+  it('supports invalid credentials, correction and Enter', async () => {
     mount()
 
     const interaction = userEvent.setup()
@@ -216,29 +216,28 @@ describe('AUTH-05 frontend journeys', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).toBeInTheDocument()
 
     expect(
       screen.getByLabelText('Current route'),
-    ).toHaveTextContent('/student/dashboard')
+    ).toHaveTextContent('/events')
 
-    await interaction.click(
-      screen.getByRole('button', {
-        name: 'Sign out',
-      }),
-    )
+    expect(await screen.findByRole('button', { name: 'Account menu' })).toBeVisible()
+  })
 
-    expect(
-      await screen.findByRole('form'),
-    ).toBeInTheDocument()
+  it('signs out through the account navbar on the events page', async () => {
+    session = student
+    mount('/events')
 
-    expect(
-      screen.queryByRole('heading', {
-        name: 'Student dashboard',
-      }),
-    ).not.toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    expect(await screen.findByRole('link', { name: 'Sign in' })).toBeVisible()
+    expect(screen.queryByRole('navigation', { name: 'Account' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Current route')).toHaveTextContent('/events')
+    expect(session).toBeNull()
   })
 
   it('toggles password visibility without submitting', async () => {
@@ -295,7 +294,7 @@ describe('AUTH-05 frontend journeys', () => {
 
     expect(
       screen.queryByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).not.toBeInTheDocument()
 
@@ -305,7 +304,7 @@ describe('AUTH-05 frontend journeys', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).toBeInTheDocument()
   })
@@ -377,7 +376,7 @@ describe('AUTH-05 frontend journeys', () => {
 
       expect(
         screen.queryByRole('heading', {
-          name: 'Student dashboard',
+          name: 'Campus events',
         }),
       ).not.toBeInTheDocument()
     },
@@ -399,7 +398,7 @@ describe('AUTH-05 frontend journeys', () => {
 
     expect(
       screen.queryByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).not.toBeInTheDocument()
   })
@@ -451,13 +450,16 @@ describe('AUTH-05 frontend journeys', () => {
           : original(input, options),
     )
 
-    mount('/student/dashboard')
+    mount('/events')
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu' }))
 
     await userEvent.click(
       await screen.findByRole('button', {
         name: 'Sign out',
       }),
     )
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Sign in' }))
 
     expect(
       await screen.findByRole('alert'),
@@ -467,7 +469,7 @@ describe('AUTH-05 frontend journeys', () => {
 
     expect(
       screen.queryByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).not.toBeInTheDocument()
 
@@ -484,7 +486,7 @@ describe('AUTH-05 frontend journeys', () => {
     render(
       <MemoryRouter
         initialEntries={[
-          '/student/dashboard',
+          '/student/profile',
         ]}
       >
         <AuthProvider>
@@ -499,7 +501,7 @@ describe('AUTH-05 frontend journeys', () => {
     )
 
     await screen.findByRole('heading', {
-      name: 'Student dashboard',
+      name: 'Student profile',
     })
 
     await userEvent.click(
@@ -516,7 +518,7 @@ describe('AUTH-05 frontend journeys', () => {
 
     expect(
       screen.queryByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Student profile',
       }),
     ).not.toBeInTheDocument()
   })
@@ -584,7 +586,7 @@ describe('AUTH-05 frontend journeys', () => {
     })
 
     await screen.findByRole('heading', {
-      name: 'Student dashboard',
+      name: 'Campus events',
     })
   })
 
@@ -640,7 +642,7 @@ describe('AUTH-05 frontend journeys', () => {
       await screen.findByRole(
         'heading',
         {
-          name: 'Student dashboard',
+          name: 'Campus events',
         },
       )
 
@@ -652,7 +654,7 @@ describe('AUTH-05 frontend journeys', () => {
 
       expect(
         screen.getByRole('heading', {
-          name: 'Student dashboard',
+          name: 'Campus events',
         }),
       ).toBeInTheDocument()
     },

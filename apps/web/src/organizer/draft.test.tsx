@@ -250,7 +250,7 @@ describe('organizer draft frontend integration', () => {
   })
 
   it.each([
-    ['STUDENT', 'PENDING', 'Student dashboard'],
+    ['STUDENT', 'PENDING', 'Campus events'],
     ['ORGANIZER', 'REJECTED', 'Your application was not approved'],
     ['ORGANIZER', 'APPROVED', 'Organizer dashboard'],
   ])('blocks %s/%s before requesting draft data', async (accountRole, status, destination) => {

@@ -83,7 +83,7 @@ describe('merged registration and login routes', () => {
 
       await user.click(
         screen.getByRole('link', {
-          name: 'Sign In',
+          name: 'Back to Sign In',
         }),
       )
 
@@ -225,7 +225,7 @@ describe('merged registration and login routes', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).toBeInTheDocument()
 

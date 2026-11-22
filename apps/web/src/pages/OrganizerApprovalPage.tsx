@@ -132,7 +132,7 @@ function ApprovalChoices({
 }
 
 export function EventsPortalPage() {
-  const { destination } = useAuth()
+  const { status } = useAuth()
 
   return (
     <main className={styles.page}>
@@ -140,9 +140,7 @@ export function EventsPortalPage() {
         <h1>Campus events</h1>
         <p>Event discovery is coming soon.</p>
 
-        <Link to={destination ?? '/login'}>
-          {destination ? 'Back to your account' : 'Sign in'}
-        </Link>
+        {(status === 'anonymous' || status === 'error') && <Link to="/login">Sign in</Link>}
       </section>
     </main>
   )

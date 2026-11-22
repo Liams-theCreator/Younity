@@ -2,7 +2,7 @@ import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import styles from './AuthShell.module.css'
 
-export default function StudentDashboardPage() {
+export default function StudentProfilePage() {
   const { user } = useAuth()
 
   return (
@@ -12,7 +12,7 @@ export default function StudentDashboardPage() {
           Student workspace
         </p>
 
-        <h1>Student dashboard</h1>
+        <h1>Student profile</h1>
 
         <p>Welcome, {user?.email}.</p>
 
@@ -20,12 +20,8 @@ export default function StudentDashboardPage() {
           <Link to="/student/preferences">
             Edit discovery preferences
           </Link>
+          <Link to="/events">Back to events</Link>
         </div>
-
-        <p>
-          You are signed in. Event discovery will be
-          connected here in the next feature.
-        </p>
       </section>
     </main>
   )

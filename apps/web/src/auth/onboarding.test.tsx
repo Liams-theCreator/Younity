@@ -117,11 +117,11 @@ const acks = () =>
   )
 
 describe('onboarding routing and approval acknowledgment', () => {
-  it('resumes an incomplete student on preferences instead of the dashboard', async () => {
+  it.each(['/student/dashboard', '/student/profile'])('resumes an incomplete student on preferences from %s', async (path) => {
     role = 'STUDENT'
     complete = false
 
-    mount('/student/dashboard')
+    mount(path)
 
     expect(
       await screen.findByRole('heading', {

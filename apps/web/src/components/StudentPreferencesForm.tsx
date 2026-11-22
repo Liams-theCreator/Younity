@@ -82,7 +82,7 @@ export default function StudentPreferencesForm({
 }: {
   preferences: StudentPreferences
   onChange: (next: StudentPreferences) => void
-  onBack: () => void
+  onBack?: () => void
   onSubmit: () => void
   onSkip?: () => void
   disabled?: boolean
@@ -384,15 +384,17 @@ export default function StudentPreferencesForm({
         )}
 
         <div className="preference-actions">
-          <button
-            className="secondary"
-            type="button"
-            onClick={onBack}
-          >
-            {mode === 'preferences'
-              ? 'Back to dashboard'
-              : 'Back to Account Info'}
-          </button>
+          {onBack && (
+            <button
+              className="secondary"
+              type="button"
+              onClick={onBack}
+            >
+              {mode === 'preferences'
+                ? 'Back to profile'
+                : 'Back to Account Info'}
+            </button>
+          )}
 
           <div>
             {mode === 'registration' && onSkip && (

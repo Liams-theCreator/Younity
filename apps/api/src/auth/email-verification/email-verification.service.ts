@@ -1,12 +1,12 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { isUUID } from 'class-validator';
-import { UserStatus } from '../../generated/prisma/enums.js';
+import { UserRole, UserStatus } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { createHash, randomBytes } from 'node:crypto';
 import { VerifyEmailDto } from '../dto/email-verification.dto.js';
 import { MailService } from '../mail/mail.service.js';
-import { VERIFICATION_RECOVERY_AUDIENCE, VERIFICATION_TTL_MINUTES } from './settings.js';
+import { VERIFICATION_RECOVERY_AUDIENCE, VERIFICATION_RECOVERY_TTL_SECONDS, VERIFICATION_TTL_MINUTES } from './settings.js';
 
 @Injectable()
 export class EmailVerificationService {
@@ -16,10 +16,15 @@ export class EmailVerificationService {
     private readonly jwt: JwtService,
   ) { }
 
-  async verifyEmail(dto: VerifyEmailDto) {
+  async verifyEmail(dto: VerifyEmailDto, continuation?: { recoveryToken: string; ttlSeconds: number }) {
     const tokenHash = createHash('sha256').update(dto.token).digest('hex');
+    // The mail link alone verifies the address. A match with the originating
+    // registration browser is also required to establish a session.
+    const registrationUserId = continuation
+      ? await this.recoveryUserId(continuation.recoveryToken).catch(() => null)
+      : null;
 
-    await this.prisma.$transaction(async (tx) => {
+    const accessToken = await this.prisma.$transaction(async (tx) => {
       const verification = await tx.emailVerificationToken.findUnique({
         where: { tokenHash },
         select: { userId: true },
@@ -29,7 +34,9 @@ export class EmailVerificationService {
       }
       // Use the same lock order as resend, including for different links owned
       // by one account. This also prevents issuing a token during verification.
-      await tx.$queryRaw`SELECT id FROM users WHERE id = ${verification.userId}::uuid FOR UPDATE`;
+      const [user] = await tx.$queryRaw<{ status: UserStatus; role: UserRole; email_verified_at: Date | null }[]>`
+        SELECT status, role, email_verified_at FROM users WHERE id = ${verification.userId}::uuid FOR UPDATE
+      `;
       const now = new Date();
       const { count } = await tx.emailVerificationToken.updateMany({
         where: {
@@ -55,8 +62,15 @@ export class EmailVerificationService {
         where: { userId: verification.userId, usedAt: null },
         data: { usedAt: now },
       });
+      if (
+        continuation && registrationUserId === verification.userId && user &&
+        !user.email_verified_at && user.status !== UserStatus.SUSPENDED &&
+        (user.role === UserRole.STUDENT || user.role === UserRole.ORGANIZER)
+      ) {
+        return this.jwt.signAsync({ sub: verification.userId }, { expiresIn: continuation.ttlSeconds });
+      }
     });
-    return { message: 'Email verified successfully.' };
+    return { message: 'Email verified successfully.', ...(accessToken && { accessToken }) };
   }
 
   async resendVerification(email: string) {
@@ -79,7 +93,7 @@ export class EmailVerificationService {
 
   createRecoveryToken(userId: string) {
     // Deliberately no JWT subject: this capability is never a login token.
-    return this.jwt.signAsync({ userId }, { audience: VERIFICATION_RECOVERY_AUDIENCE, expiresIn: '24h' });
+    return this.jwt.signAsync({ userId }, { audience: VERIFICATION_RECOVERY_AUDIENCE, expiresIn: VERIFICATION_RECOVERY_TTL_SECONDS });
   }
 
   private async recoveryUserId(recoveryToken: string): Promise<string> {

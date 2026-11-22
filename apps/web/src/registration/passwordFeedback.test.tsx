@@ -97,20 +97,13 @@ describe('password feedback and sign-in footer', () => {
       'Registration is temporarily unavailable',
     )
   })
-  it.each(['student', 'organizer'])(
-    'shows the %s sign-in footer without a broken link when login is not ready',
-    (type) => {
-      render(
-        <MemoryRouter>
-          {type === 'student' ? <StudentRegisterPage /> : <OrganizerRegisterPage />}
-        </MemoryRouter>,
-      )
-      expect(screen.getByText(/Already have an account/)).toBeVisible()
-      expect(screen.getByText('Sign In')).toHaveAttribute('aria-disabled', 'true')
-      expect(screen.queryByRole('link', { name: 'Sign In' })).not.toBeInTheDocument()
-      expect(screen.getByText('Sign in is not available yet.')).toBeVisible()
-    },
-  )
+  it('shows the organizer sign-in footer without a broken link when login is not ready', () => {
+    render(<MemoryRouter><OrganizerRegisterPage /></MemoryRouter>)
+    expect(screen.getByText(/Already have an account/)).toBeVisible()
+    expect(screen.getByText('Sign In')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.queryByRole('link', { name: 'Sign In' })).not.toBeInTheDocument()
+    expect(screen.getByText('Sign in is not available yet.')).toBeVisible()
+  })
   it('navigates to the supplied login destination when it is configured', async () => {
     const user = userEvent.setup()
     render(
@@ -124,8 +117,8 @@ describe('password feedback and sign-in footer', () => {
         </Routes>
       </MemoryRouter>,
     )
-    expect(screen.getByRole('link', { name: 'Sign In' })).toHaveAttribute('href', testSignInPath)
-    await user.click(screen.getByRole('link', { name: 'Sign In' }))
+    expect(screen.getByRole('link', { name: 'Back to Sign In' })).toHaveAttribute('href', testSignInPath)
+    await user.click(screen.getByRole('link', { name: 'Back to Sign In' }))
     expect(screen.getByRole('heading', { name: 'Test login page' })).toBeVisible()
   })
 })

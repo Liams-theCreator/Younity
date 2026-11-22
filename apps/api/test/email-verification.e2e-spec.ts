@@ -84,7 +84,8 @@ describe('registration and email verification with PostgreSQL', () => {
     const saved = await prisma.emailVerificationToken.findUniqueOrThrow({ where: { tokenHash: hash(token) } });
     expect(saved.expiresAt.getTime() - saved.createdAt.getTime()).toBeGreaterThan(590000);
     expect(saved.expiresAt.getTime() - saved.createdAt.getTime()).toBeLessThanOrEqual(600000);
-    await verify(token).expect(200);
+    const verification = await verify(token).expect(200);
+    expect(verification.headers['set-cookie']).toBeUndefined();
     await verify(token).expect(400);
     const login = await request(app.getHttpServer()).post('/api/auth/login').send(credentials).expect(200);
     expect(login.headers['set-cookie']).toBeDefined();
@@ -92,6 +93,46 @@ describe('registration and email verification with PostgreSQL', () => {
     expect(me.body.status).toBe(role === 'organizer' ? 'PENDING' : 'ACTIVE');
     if (role === 'organizer') expect(me.body.organization.verificationStatus).toBe('PENDING');
     await resend(credentials).expect(200);
+  });
+
+  it.each(['student', 'organizer'])('resumes %s onboarding from the registration browser', async (role) => {
+    const details = role === 'organizer' ? {
+      organizationName: 'Resume Club', type: 'STUDENT_CLUB', representativeFullName: 'Email Verification',
+      academicPosition: 'Coordinator', phoneNumber: '+212612345678',
+    } : {};
+    const created = await request(app.getHttpServer()).post(`/api/auth/register/${role}`).send({ ...input(), ...details }).expect(201);
+    ids.push(created.body.id);
+
+    const registration = created.get('Set-Cookie')?.find((cookie) => cookie.startsWith('registration_verification='));
+    expect(registration).toContain('HttpOnly');
+    expect(registration).toContain('Secure');
+    const registrationCookie = registration!.split(';', 1)[0]!;
+    await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', registrationCookie).expect(401);
+
+    const token = lastToken();
+    const confirmed = await verify(token).set('Cookie', registrationCookie).expect(200);
+    expect(confirmed.body).toEqual({ message: 'Email verified successfully.', sessionCreated: true });
+    const session = confirmed.get('Set-Cookie')?.find((cookie) => cookie.startsWith('access_token='));
+    expect(session).toContain('HttpOnly');
+    expect(session).toContain('Secure');
+
+    const me = await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', session!.split(';', 1)[0]!).expect(200);
+    expect(me.body.id).toBe(created.body.id);
+    expect(me.body.onboarding).toEqual({
+      complete: false,
+      nextStep: role === 'student' ? 'SELECT_INTERESTS' : 'COMPLETE_ORGANIZER_APPLICATION',
+    });
+    if (role === 'organizer') expect(me.body.organization.verificationStatus).toBe('PENDING');
+    await verify(token).set('Cookie', registrationCookie).expect(400);
+  });
+
+  it('verifies an email without signing in when the registration cookie belongs to another account', async () => {
+    const { user: other } = await register();
+    await register();
+    const registration = `registration_verification=${other.verificationRecoveryToken}`;
+    const response = await verify(lastToken()).set('Cookie', registration).expect(200);
+    expect(response.body).toEqual({ message: 'Email verified successfully.' });
+    expect(response.headers['set-cookie']).toBeUndefined();
   });
 
   it('returns the stored expiry privately, suppresses resends for the whole link lifetime and serializes two tabs at expiry', async () => {

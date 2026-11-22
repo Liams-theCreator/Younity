@@ -16,7 +16,8 @@ import {
 import './StudentPreferencesPage.css'
 
 export default function StudentPreferencesPage() {
-  const { requestProtected, refreshSession } = useAuth()
+  const { destination, requestProtected, refreshSession } = useAuth()
+  const editingProfile = destination === '/student/dashboard'
   const navigate = useNavigate()
 
   const [preferences, setPreferences] = useState({
@@ -118,7 +119,7 @@ export default function StudentPreferencesPage() {
 
       // Refresh hides protected children while loading.
       // Navigate only after the confirmed write, then refresh.
-      navigate('/student/dashboard', { replace: true })
+      navigate(editingProfile ? '/student/profile' : '/student/dashboard', { replace: true })
       void refreshSession()
     } catch (cause) {
       if (!controller.signal.aborted) {
@@ -195,7 +196,7 @@ export default function StudentPreferencesPage() {
             mode="preferences"
             preferences={preferences}
             onChange={setPreferences}
-            onBack={() => navigate('/student/dashboard')}
+            onBack={editingProfile ? () => navigate('/student/profile') : undefined}
             onSubmit={() => void save()}
             disabled={saving}
           />
@@ -206,9 +207,9 @@ export default function StudentPreferencesPage() {
         </>
       )}
 
-      {!loaded && (
-        <Link to="/student/dashboard">
-          Back to student dashboard
+      {!loaded && editingProfile && (
+        <Link to="/student/profile">
+          Back to profile
         </Link>
       )}
     </RegistrationLayout>

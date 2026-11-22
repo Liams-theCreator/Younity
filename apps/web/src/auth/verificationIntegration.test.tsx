@@ -91,8 +91,44 @@ describe('verification integration with shared authentication', () => {
     await userEvent.type(screen.getByLabelText('Password'), 'Example-password-2026!')
     await userEvent.click(screen.getByRole('button', { name: 'Sign In to Younity' }))
     expect(await screen.findByRole('heading', {
-      name: role === 'STUDENT' ? 'Student dashboard' : 'Organization verification pending',
+      name: role === 'STUDENT' ? 'Campus events' : 'Organization verification pending',
     })).toBeVisible()
+  })
+
+  it.each(['STUDENT', 'ORGANIZER'] as const)('resumes %s onboarding after verification creates a session', async (role) => {
+    let sessionCreated = false
+    request.mockImplementation(async (url) => {
+      if (url === '/api/auth/me') {
+        if (!sessionCreated) return new Response(null, { status: 401 })
+        return Response.json({
+          id: 'verified-user', email, role,
+          status: role === 'STUDENT' ? 'ACTIVE' : 'PENDING',
+          organization: role === 'STUDENT' ? null : { verificationStatus: 'PENDING' },
+          onboarding: {
+            complete: false,
+            nextStep: role === 'STUDENT' ? 'SELECT_INTERESTS' : 'COMPLETE_ORGANIZER_APPLICATION',
+          },
+        })
+      }
+      if (url === '/api/email-verification/verify-email') {
+        sessionCreated = true
+        return Response.json({ message: 'Email verified successfully.', sessionCreated: true })
+      }
+      if (url === '/api/student/preferences') {
+        return Response.json({ interests: [], university: null, academicField: null, studyLevel: null, opportunityFormat: null })
+      }
+      if (url === '/api/organizer-applications/draft') return Response.json({ draft: null, canEdit: true })
+      throw new Error(`Unexpected request: ${String(url)}`)
+    })
+
+    mount(`/verify-email?token=${token}`)
+    await userEvent.click(await screen.findByRole('button', { name: 'Verify email' }))
+
+    expect(await screen.findByRole('heading', {
+      name: role === 'STUDENT' ? 'Your discovery preferences' : 'Organizer application draft',
+    })).toBeVisible()
+    expect(screen.queryByRole('navigation', { name: 'Account' })).not.toBeInTheDocument()
+    expect(request.mock.calls.some(([url]) => url === '/api/auth/login')).toBe(false)
   })
 
   it('registers a student with no academic fields and hands off verification recovery context without credentials', async () => {

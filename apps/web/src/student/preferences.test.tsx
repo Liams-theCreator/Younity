@@ -70,6 +70,7 @@ beforeEach(() => {
   request.mockReset().mockImplementation(
     async (input, options) => {
       if (input === '/api/auth/me') {
+        const complete = new Set(profile.interests).size >= 2
         return sessionStatus === 200
           ? Response.json({
               ...student,
@@ -78,6 +79,9 @@ beforeEach(() => {
                 role === 'ORGANIZER'
                   ? { verificationStatus: 'PENDING' }
                   : null,
+              ...(role === 'STUDENT' && {
+                onboarding: { complete, nextStep: complete ? 'NONE' : 'SELECT_INTERESTS' },
+              }),
             })
           : new Response(null, { status: sessionStatus })
       }
@@ -131,6 +135,7 @@ describe('Saved student preferences', () => {
     })
 
     expect(ai).toBeChecked()
+    expect(screen.queryByRole('button', { name: 'Back to profile' })).not.toBeInTheDocument()
 
     expect(
       screen.queryByRole('button', {
@@ -167,7 +172,7 @@ describe('Saved student preferences', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).toBeVisible()
 
@@ -190,6 +195,13 @@ describe('Saved student preferences', () => {
       ),
     ).toHaveLength(2)
 
+    expect(screen.queryByRole('link', { name: /your account/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit discovery preferences' })).not.toBeInTheDocument()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu' }))
+    await userEvent.click(screen.getByRole('link', { name: 'Edit profile' }))
+    expect(await screen.findByRole('heading', { name: 'Student profile' })).toBeVisible()
+
     await userEvent.click(
       screen.getByRole('link', {
         name: 'Edit discovery preferences',
@@ -201,6 +213,12 @@ describe('Saved student preferences', () => {
         name: /Robotics & Smart IoT/,
       }),
     ).toBeChecked()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Back to profile' }))
+    expect(await screen.findByRole('heading', { name: 'Student profile' })).toBeVisible()
+
+    await userEvent.click(screen.getByRole('link', { name: 'Back to events' }))
+    expect(await screen.findByRole('heading', { name: 'Campus events' })).toBeVisible()
   })
 
   it.each([false, true])(
@@ -214,6 +232,7 @@ describe('Saved student preferences', () => {
       expect(
         await screen.findByRole('alert'),
       ).toBeVisible()
+      expect(screen.queryByRole('link', { name: 'Back to profile' })).not.toBeInTheDocument()
 
       expect(
         screen.queryByRole('button', {
@@ -288,7 +307,7 @@ describe('Saved student preferences', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).toBeVisible()
   })

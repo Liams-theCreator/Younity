@@ -182,7 +182,7 @@ describe.skipIf(!baseUrl || !fixture)('Admin screens against real HTTP APIs and 
     first.unmount()
     await login(fixture!.student)
     mount('/admin/applications')
-    expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Campus events' })).toBeVisible()
     expect(within(screen.getByRole('main')).queryByRole('heading', { name: 'Application reviews' })).not.toBeInTheDocument()
   })
 })
