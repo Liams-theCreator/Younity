@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import styles from './AuthShell.module.css'
+import EventsPage from '../events/EventsPage'
 
 export default function StudentDashboardPage() {
   const { user } = useAuth()
@@ -22,11 +23,8 @@ export default function StudentDashboardPage() {
           </Link>
         </div>
 
-        <p>
-          You are signed in. Event discovery will be
-          connected here in the next feature.
-        </p>
       </section>
+      <EventsPage embedded />
     </main>
   )
 }

@@ -15,9 +15,9 @@ import OrganizationStatusPage from '../pages/OrganizationStatusPage'
 import ProtectedRoute from './ProtectedRoute'
 import EmailVerificationPage from '../pages/EmailVerificationPage'
 import OrganizerDraftPage from '../pages/OrganizerDraftPage'
-import OrganizerApprovalPage, {
-  EventsPortalPage,
-} from '../pages/OrganizerApprovalPage'
+import OrganizerApprovalPage from '../pages/OrganizerApprovalPage'
+import EventsPage from '../events/EventsPage'
+import EventDetailPage from '../events/EventDetailPage'
 import { useAuth } from './useAuth'
 import AdminApplicationsPage from '../admin/AdminApplicationsPage'
 import AdminApplicationDetailPage from '../admin/AdminApplicationDetailPage'
@@ -60,7 +60,8 @@ export default function AuthRoutes({
         }
       />
 
-      <Route path="/events" element={<EventsPortalPage />} />
+      <Route path="/events" element={<EventsPage />} />
+      <Route path="/events/:eventId" element={<EventDetailPage />} />
       <Route
         path="/organizer/approved"
         element={<OrganizerApprovalPage />}
