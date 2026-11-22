@@ -9,6 +9,7 @@ import {
   opportunityFormats,
   type StudentPreferences,
 } from '../registration/studentPreferences'
+import { universityOptions } from '../registration/universities'
 import { useStudentPreferences } from '../student/useStudentPreferences'
 import styles from './StudentProfilePage.module.css'
 
@@ -45,10 +46,15 @@ export default function StudentProfilePage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!changed) return
+    if (!saved || !changed) return
 
     setNotice('')
-    if (await save()) setNotice('Preferences saved.')
+    if (await save({
+      preferences,
+      ...(university !== saved.university ? { university } : {}),
+    })) {
+      setNotice('Preferences saved.')
+    }
   }
 
   return (
@@ -116,16 +122,20 @@ export default function StudentProfilePage() {
                 <div className={styles.academics}>
                   <label className={styles.field}>
                     University / Academic Institution (optional)
-                    <input
-                      autoComplete="organization"
-                      maxLength={255}
+                    <select
                       value={university}
                       onChange={(event) => {
                         const nextUniversity = event.target.value
                         setNotice('')
                         setDraft((current) => ({ ...current, university: nextUniversity }))
                       }}
-                    />
+                    >
+                      <option value="">No university selected</option>
+                      {saved.university && !universityOptions.includes(saved.university) && (
+                        <option value={saved.university}>{saved.university}</option>
+                      )}
+                      {universityOptions.map((option) => <option key={option}>{option}</option>)}
+                    </select>
                   </label>
 
                   {academicFields.map(({ key, label, options }) => (

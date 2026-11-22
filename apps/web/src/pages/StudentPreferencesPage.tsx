@@ -24,7 +24,7 @@ function StudentPreferencesSetup() {
   }, [error])
 
   async function completeOnboarding() {
-    if (await save()) {
+    if (await save({ preferences: draft.preferences })) {
       navigate('/events', { replace: true })
       void refreshSession({ background: true })
     }
@@ -53,24 +53,6 @@ function StudentPreferencesSetup() {
 
       {!loading && saved && (
         <>
-          <div className="form-field">
-            <label htmlFor="preferences-university">
-              University / Academic Institution (optional)
-            </label>
-
-            <input
-              id="preferences-university"
-              maxLength={255}
-              autoComplete="organization"
-              disabled={saving}
-              value={draft.university}
-              onChange={(event) => {
-                const university = event.target.value
-                setDraft((current) => ({ ...current, university }))
-              }}
-            />
-          </div>
-
           <StudentPreferencesForm
             mode="preferences"
             preferences={draft.preferences}

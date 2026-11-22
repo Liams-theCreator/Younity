@@ -25,6 +25,7 @@ import RegistrationSelect from '../components/RegistrationSelect'
 import ReferenceIcon from '../components/ReferenceIcon'
 import { StudentProgress } from '../components/StudentPreferencesForm'
 import { emptyPreferences } from '../registration/studentPreferences'
+import { universityOptions } from '../registration/universities'
 
 export default function StudentRegisterPage({
   policies,
@@ -117,16 +118,7 @@ export default function StudentRegisterPage({
                   required={false}
                   label="University / Academic Institution"
                   placeholder="Select your enrolled university"
-                  options={[
-                    'UM6P - Mohammed VI Polytechnic University (Benguerir / Rabat)',
-                    'Mohammed V University (Rabat - ENSIAS, FSR, EMI)',
-                    'Hassan II University (Casablanca - ENSEM, FSAC, FSJES)',
-                    'Cadi Ayyad University (Marrakech - FST, ENSA)',
-                    'Al Akhawayn University in Ifrane (AUI)',
-                    'National Institute of Posts and Telecommunications (INPT Rabat)',
-                    'Ibn Tofail University (Kénitra - ENSA, ENCG)',
-                    'Other',
-                  ].map((value) => ({
+                  options={[...universityOptions, 'Other'].map((value) => ({
                     value,
                     label: value,
                   }))}

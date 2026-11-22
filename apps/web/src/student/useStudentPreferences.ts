@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../auth/useAuth'
 import { emptyPreferences } from '../registration/studentPreferences'
-import { PreferencesError, requestPreferences, type PreferencesDraft } from './preferences'
+import { PreferencesError, requestPreferences, type PreferencesDraft, type PreferencesUpdate } from './preferences'
 
 export function useStudentPreferences() {
   const { requestProtected } = useAuth()
@@ -47,7 +47,7 @@ export function useStudentPreferences() {
     return load(controller)
   }
 
-  async function save() {
+  async function save(update: PreferencesUpdate) {
     if (!saved || operation.current) return false
 
     const controller = new AbortController()
@@ -56,7 +56,7 @@ export function useStudentPreferences() {
     setError('')
 
     try {
-      const result = await requestPreferences(requestProtected, controller.signal, draft)
+      const result = await requestPreferences(requestProtected, controller.signal, update)
       if (controller.signal.aborted) return false
 
       setDraft(result)
