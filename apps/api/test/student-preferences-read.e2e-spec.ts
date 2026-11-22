@@ -10,7 +10,7 @@ import { validateEnvironment } from '../src/config/environment.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { UserRole, UserStatus } from '../src/generated/prisma/enums.js';
 
-describe('Read saved student preferences using PostgreSQL and JWT cookies', () => {
+describe('Student profile and saved preferences using PostgreSQL and JWT cookies', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let jwt: JwtService;
@@ -202,5 +202,78 @@ describe('Read saved student preferences using PostgreSQL and JWT cookies', () =
     expect(
       response.body.paths['/api/student/preferences'].get.security,
     ).toEqual([{ cookie: [] }]);
+  });
+
+  it('reads and updates the signed-in student’s name independently of preferences', async () => {
+    const id = await createUser();
+    const other = await createUser();
+    const cookie = await session(id);
+    const before = await prisma.studentProfile.findUniqueOrThrow({ where: { userId: id } });
+    const initialName = { firstName: 'Read', lastName: 'Preferences' };
+
+    await request(app.getHttpServer())
+      .get('/api/student/profile')
+      .set('Cookie', cookie)
+      .expect('Cache-Control', 'no-store')
+      .expect(200, initialName);
+
+    const updatedName = { firstName: 'Lina', lastName: 'Preferences' };
+    await request(app.getHttpServer())
+      .patch('/api/student/profile')
+      .set('Cookie', cookie)
+      .send({ firstName: ' Lina ' })
+      .expect(200, updatedName);
+
+    const fullName = { ...updatedName, lastName: 'El Idrissi' };
+    await request(app.getHttpServer())
+      .patch('/api/student/profile')
+      .set('Cookie', cookie)
+      .send({ lastName: fullName.lastName })
+      .expect(200, fullName);
+
+    await request(app.getHttpServer())
+      .get('/api/student/profile')
+      .set('Cookie', cookie)
+      .expect(200, fullName);
+
+    await request(app.getHttpServer())
+      .get('/api/student/profile')
+      .set('Cookie', await session(other))
+      .expect(200, initialName);
+    expect(await prisma.studentProfile.findUniqueOrThrow({ where: { userId: id } })).toEqual(before);
+  });
+
+  it('rejects invalid names and account fields outside the name contract', async () => {
+    const id = await createUser();
+    const cookie = await session(id);
+    for (const body of [{}, { firstName: null }, { lastName: '  ' }, { firstName: 'Lina1' },
+      { lastName: 'a'.repeat(101) }, { firstName: 'Lina', email: 'other@example.test' }]) {
+      await request(app.getHttpServer())
+        .patch('/api/student/profile')
+        .set('Cookie', cookie)
+        .send(body)
+        .expect(400);
+    }
+    await request(app.getHttpServer())
+      .get('/api/student/profile')
+      .set('Cookie', cookie)
+      .expect(200, { firstName: 'Read', lastName: 'Preferences' });
+  });
+
+  it('requires an eligible student session for name reads and updates', async () => {
+    const organizer = await createUser({ role: UserRole.ORGANIZER });
+    const cookie = await session(organizer);
+
+    for (const [header, status] of [['', 401], [cookie, 403]] as const) {
+      await request(app.getHttpServer())
+        .get('/api/student/profile')
+        .set('Cookie', header)
+        .expect(status);
+      await request(app.getHttpServer())
+        .patch('/api/student/profile')
+        .set('Cookie', header)
+        .send({ firstName: 'Lina' })
+        .expect(status);
+    }
   });
 });

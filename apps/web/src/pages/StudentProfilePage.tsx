@@ -10,6 +10,7 @@ import {
   type StudentPreferences,
 } from '../registration/studentPreferences'
 import { universityOptions } from '../registration/universities'
+import StudentNameForm from '../student/StudentNameForm'
 import { useStudentPreferences } from '../student/useStudentPreferences'
 import styles from './StudentProfilePage.module.css'
 
@@ -64,7 +65,7 @@ export default function StudentProfilePage() {
           <ReferenceIcon name="arrow_back" /> Back to events
         </Link>
         <h1>Student profile</h1>
-        <p>Manage your interests and how you discover campus events.</p>
+        <p>Manage your account and how you discover campus events.</p>
       </header>
 
       <div className={styles.dashboard}>
@@ -75,6 +76,7 @@ export default function StudentProfilePage() {
             <dt>Email address</dt>
             <dd>{user?.email}</dd>
           </dl>
+          <StudentNameForm />
         </aside>
 
         <section className={styles.panel} aria-labelledby="profile-preferences-title">

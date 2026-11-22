@@ -43,6 +43,7 @@ beforeEach(() => {
     const path = String(input)
     if (path === '/api/auth/me') return session ? Response.json(session) : new Response(null, { status: 401 })
     if (path === '/api/categories') return Response.json({ categories: [category] })
+    if (path === '/api/student/profile') return Response.json({ firstName: 'Sara', lastName: 'Student' })
     if (path === '/api/student/preferences') return Response.json({
       interests: ['AI_DATA', 'ROBOTICS_IOT'], university: null, academicField: null, studyLevel: null, opportunityFormat: null,
     })

@@ -100,6 +100,8 @@ beforeEach(() => {
             })
       }
 
+      if (input === '/api/student/profile') return Response.json({ firstName: 'Sara', lastName: 'Student' })
+
       if (input === '/api/student/preferences') {
         return Response.json({ interests: ['AI_DATA', 'ROBOTICS_IOT'], university: null, academicField: null, studyLevel: null, opportunityFormat: null })
       }

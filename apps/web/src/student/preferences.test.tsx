@@ -46,6 +46,9 @@ const saved = {
 }
 
 let profile: typeof saved
+let accountName: { firstName: string; lastName: string }
+let nameReadStatus: number
+let nameSaveStatus: number
 let readStatus: number
 let saveStatus: number
 let sessionStatus: number
@@ -60,6 +63,9 @@ const patches = () =>
 
 beforeEach(() => {
   profile = structuredClone(saved)
+  accountName = { firstName: 'Sara', lastName: 'Test' }
+  nameReadStatus = 200
+  nameSaveStatus = 200
   readStatus = 200
   saveStatus = 200
   sessionStatus = 200
@@ -89,6 +95,16 @@ beforeEach(() => {
       if (input === '/api/categories') return Response.json({ categories: [] })
       if (String(input).startsWith('/api/events?')) {
         return Response.json({ items: [], categories: [], page: 1, pageSize: 12, total: 0 })
+      }
+
+      if (input === '/api/student/profile') {
+        if (options?.method === 'PATCH') {
+          if (nameSaveStatus !== 200) return new Response(null, { status: nameSaveStatus })
+          accountName = { ...accountName, ...JSON.parse(String(options.body)) }
+        } else if (nameReadStatus !== 200) {
+          return new Response(null, { status: nameReadStatus })
+        }
+        return Response.json(accountName)
       }
 
       if (input === '/api/student/preferences') {
@@ -254,6 +270,50 @@ describe('Saved student preferences', () => {
     expect(await screen.findByRole('heading', { name: 'Student profile' })).toBeVisible()
     expect(await screen.findByRole('checkbox', { name: 'AI & Data Science' })).toBeChecked()
     expect(screen.queryByRole('heading', { name: 'Your discovery preferences' })).not.toBeInTheDocument()
+  })
+
+  it('edits the account name independently and retains unsaved names after a failed save', async () => {
+    profile.interests = ['AI_DATA', 'ROBOTICS_IOT']
+    nameReadStatus = 503
+    const view = render(<MemoryRouter initialEntries={['/student/profile']}><App /></MemoryRouter>)
+
+    const retry = await screen.findByRole('button', { name: 'Retry loading name' })
+    expect(screen.queryByLabelText('First name')).not.toBeInTheDocument()
+    nameReadStatus = 200
+    await userEvent.click(retry)
+
+    const firstName = await screen.findByRole('textbox', { name: 'First name' })
+    const lastName = screen.getByRole('textbox', { name: 'Last name' })
+    const save = screen.getByRole('button', { name: 'Save name' })
+    expect(firstName).toHaveValue('Sara')
+    expect(lastName).toHaveValue('Test')
+    expect(save).toBeDisabled()
+
+    await userEvent.clear(firstName)
+    await userEvent.type(firstName, ' Lina ')
+    nameSaveStatus = 503
+    await userEvent.click(save)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save your name')
+    expect(firstName).toHaveValue(' Lina ')
+
+    nameSaveStatus = 200
+    await userEvent.click(save)
+    expect(await screen.findByText('Name saved.')).toBeVisible()
+    expect(firstName).toHaveValue('Lina')
+    expect(patches().map(([path, options]) => [path, JSON.parse(String(options?.body))])).toEqual([
+      ['/api/student/profile', { firstName: 'Lina' }],
+      ['/api/student/profile', { firstName: 'Lina' }],
+    ])
+
+    await userEvent.clear(lastName)
+    await userEvent.type(lastName, 'El Idrissi')
+    await userEvent.click(save)
+    expect(await screen.findByText('Name saved.')).toBeVisible()
+    view.unmount()
+
+    render(<MemoryRouter initialEntries={['/student/profile']}><App /></MemoryRouter>)
+    expect(await screen.findByRole('textbox', { name: 'First name' })).toHaveValue('Lina')
+    expect(screen.getByRole('textbox', { name: 'Last name' })).toHaveValue('El Idrissi')
   })
 
   it.each([false, true])(

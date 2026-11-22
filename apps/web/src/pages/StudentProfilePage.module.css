@@ -96,6 +96,18 @@
 .account dl { margin: .875rem 0 0; }
 .account dt { color: var(--muted); font-size: .8125rem; }
 .account dd { margin: .25rem 0 0; font-size: .875rem; font-weight: 700; overflow-wrap: anywhere; }
+
+.profileName {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.profileName fieldset { display: grid; gap: .875rem; }
+.profileName .save { width: 100%; }
+.profileName .notice { margin: 0; }
+.profileName .notice:not(:empty) { margin-top: .75rem; }
+
 .intro { margin: .5rem 0 1.5rem; color: var(--muted); font-size: .9375rem; }
 .editor { display: grid; gap: 1.5rem; }
 .interests legend { font-weight: 800; }
