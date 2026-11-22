@@ -126,7 +126,7 @@ describe('merged registration and login routes', () => {
 
       expect(
         await screen.findByRole('heading', {
-          name: 'Organization verification pending',
+          name: 'Institutional Dossier Submitted',
         }),
       ).toBeInTheDocument()
 
@@ -201,7 +201,7 @@ describe('merged registration and login routes', () => {
 
     expect(
       screen.queryByRole('heading', {
-        name: 'Organization verification pending',
+        name: 'Institutional Dossier Submitted',
       }),
     ).not.toBeInTheDocument()
   })
@@ -231,7 +231,7 @@ describe('merged registration and login routes', () => {
 
     expect(
       screen.queryByRole('heading', {
-        name: 'Organization verification pending',
+        name: 'Institutional Dossier Submitted',
       }),
     ).not.toBeInTheDocument()
   })
@@ -274,7 +274,7 @@ describe('merged registration and login routes', () => {
 
     expect(
       screen.queryByRole('heading', {
-        name: 'Organization verification pending',
+        name: 'Institutional Dossier Submitted',
       }),
     ).not.toBeInTheDocument()
 
@@ -286,7 +286,7 @@ describe('merged registration and login routes', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Organization verification pending',
+        name: 'Institutional Dossier Submitted',
       }),
     ).toBeInTheDocument()
   })

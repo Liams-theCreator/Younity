@@ -340,19 +340,19 @@ describe('AUTH-05 frontend journeys', () => {
     [
       'PENDING',
       'PENDING',
-      'Organization verification pending',
+      'Institutional Dossier Submitted',
       '/organizer/pending',
     ],
     [
       'NEEDS_CHANGES',
       'ACTIVE',
-      'Your application needs changes',
+      'Institutional Dossier: Changes Requested',
       '/organizer/status',
     ],
     [
       'REJECTED',
       'ACTIVE',
-      'Your application was not approved',
+      'Institutional Dossier: Application Not Approved',
       '/organizer/status',
     ],
   ])(

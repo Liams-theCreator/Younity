@@ -91,7 +91,7 @@ describe('verification integration with shared authentication', () => {
     await userEvent.type(screen.getByLabelText('Password'), 'Example-password-2026!')
     await userEvent.click(screen.getByRole('button', { name: 'Sign In to Younity' }))
     expect(await screen.findByRole('heading', {
-      name: role === 'STUDENT' ? 'Campus events' : 'Organization verification pending',
+      name: role === 'STUDENT' ? 'Campus events' : 'Institutional Dossier Submitted',
     })).toBeVisible()
   })
 

@@ -251,7 +251,7 @@ describe('organizer draft frontend integration', () => {
 
   it.each([
     ['STUDENT', 'PENDING', 'Campus events'],
-    ['ORGANIZER', 'REJECTED', 'Your application was not approved'],
+    ['ORGANIZER', 'REJECTED', 'Institutional Dossier: Application Not Approved'],
     ['ORGANIZER', 'APPROVED', 'Organizer dashboard'],
   ])('blocks %s/%s before requesting draft data', async (accountRole, status, destination) => {
     role = accountRole

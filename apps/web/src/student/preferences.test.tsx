@@ -450,7 +450,7 @@ describe('Saved student preferences', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Organization verification pending',
+        name: 'Institutional Dossier Submitted',
       }),
     ).toBeVisible()
 

@@ -1,13 +1,15 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
+import layoutStyles from '../components/AuthPageLayout.module.css'
 import OrganizerStatusLayout from '../components/OrganizerStatusLayout'
+import ReferenceIcon from '../components/ReferenceIcon'
 import styles from '../components/OrganizerStatusLayout.module.css'
 
 export default function OrganizationStatusPage() {
   const { user, refreshSession } = useAuth()
-  const status = user?.organizationStatus
-  const note = user?.application?.reviewerNote
+  const status = user?.organizationStatus ?? 'PENDING'
+  const correcting = status === 'NEEDS_CHANGES'
 
   useEffect(() => {
     if (status !== 'PENDING') return
@@ -43,53 +45,39 @@ export default function OrganizationStatusPage() {
 
   return (
     <OrganizerStatusLayout
-      status={status ?? 'PENDING'}
+      status={status}
       applicationId={user?.application?.id}
-      eyebrow="Organization verification"
-      title={status === 'NEEDS_CHANGES'
-        ? 'Your application needs changes'
-        : status === 'REJECTED'
-          ? 'Your application was not approved'
-          : 'Organization verification pending'}
-      description={status === 'NEEDS_CHANGES'
-        ? 'Update your saved application and resubmit it for review.'
-        : status === 'REJECTED'
-          ? 'This application is closed. Your organization cannot publish events.'
-          : 'Your application is waiting for review. This page checks for updates while it is visible.'}
-      feedback={note && (
-        <>
-          <p>{note.length > 200 ? `${note.slice(0, 200)}…` : note}</p>
-
-          {note.length > 200 && (
-            <details>
-              <summary>Read full feedback</summary>
-              <p>{note}</p>
-            </details>
-          )}
-        </>
+      email={user?.email}
+      reviewerNote={user?.application?.reviewerNote}
+      back={status === 'PENDING' && (
+        <Link className={layoutStyles.back} to="/organizer/application">
+          <ReferenceIcon name="arrow_back" /> Back to Registration Step 2
+        </Link>
       )}
     >
       <div className={styles.actions}>
-        {(status === 'PENDING' || status === 'NEEDS_CHANGES') && (
-          <Link
-            className={status === 'NEEDS_CHANGES' ? styles.primary : undefined}
-            to="/organizer/application"
-          >
-            View application
-          </Link>
+        {!correcting && (
+          <button type="button" onClick={() => { void refreshSession() }}>
+            <ReferenceIcon name="refresh" /> Check status again
+          </button>
         )}
 
-        <Link
-          className={status === 'NEEDS_CHANGES' ? undefined : styles.primary}
-          to="/events"
-        >
-          Explore campus events
+        <Link className={correcting ? undefined : styles.primary} to="/events">
+          <ReferenceIcon name="explore" /> Explore Campus Events as Attendee
         </Link>
 
-        <button type="button" onClick={() => { void refreshSession() }}>
-          Check status again
-        </button>
+        {correcting && (
+          <Link className={styles.primary} to="/organizer/application">
+            <ReferenceIcon name="edit_note" /> Update application
+          </Link>
+        )}
       </div>
+
+      {correcting && (
+        <button className={styles.refresh} type="button" onClick={() => { void refreshSession() }}>
+          <ReferenceIcon name="refresh" /> Check status again
+        </button>
+      )}
     </OrganizerStatusLayout>
   )
 }

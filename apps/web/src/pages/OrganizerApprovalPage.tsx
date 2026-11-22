@@ -4,6 +4,7 @@ import ProtectedRoute from '../auth/ProtectedRoute'
 import { useAuth } from '../auth/useAuth'
 import OrganizerStatusLayout from '../components/OrganizerStatusLayout'
 import decisionStyles from '../components/OrganizerStatusLayout.module.css'
+import ReferenceIcon from '../components/ReferenceIcon'
 
 export default function OrganizerApprovalPage() {
   const [exit, setExit] = useState<
@@ -87,9 +88,6 @@ function ApprovalChoices({
     <OrganizerStatusLayout
       status="APPROVED"
       applicationId={user?.application?.id}
-      eyebrow="Application decision"
-      title="Your organizer application is approved"
-      description="You can now enter your organizer dashboard or explore campus events."
     >
       {error && (
         <p className={decisionStyles.alert} ref={alert} role="alert" tabIndex={-1}>
@@ -101,31 +99,32 @@ function ApprovalChoices({
         <button
           type="button"
           disabled={busy}
-          onClick={() => { void leave('/events') }}
+          onClick={() => { void leave('/organizer/dashboard') }}
         >
-          Explore campus events
+          <ReferenceIcon name="dashboard" /> Enter organizer dashboard
         </button>
 
         <button
           type="button"
           className={decisionStyles.primary}
           disabled={busy}
-          onClick={() => { void leave('/organizer/dashboard') }}
+          onClick={() => { void leave('/events') }}
         >
-          Enter organizer dashboard
+          <ReferenceIcon name="explore" /> Explore Campus Events as Attendee
         </button>
       </div>
 
-      {busy && <p role="status">Confirming your choice…</p>}
+      {busy && <p className={decisionStyles.busy} role="status">Confirming your choice…</p>}
 
-      <button
-        type="button"
-        className={decisionStyles.refresh}
-        disabled={busy}
-        onClick={() => { void refreshSession() }}
-      >
-        Refresh status
-      </button>
+      {error && (
+        <button
+          type="button"
+          className={decisionStyles.refresh}
+          onClick={() => { void refreshSession() }}
+        >
+          <ReferenceIcon name="refresh" /> Refresh status
+        </button>
+      )}
     </OrganizerStatusLayout>
   )
 }

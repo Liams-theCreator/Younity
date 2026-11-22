@@ -77,7 +77,7 @@ describe('organizer submission and corrections', () => {
     status = code
     await load()
     await userEvent.click(screen.getByRole('button', { name: button }))
-    expect(await screen.findByRole('heading', { name: 'Organization verification pending' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Institutional Dossier Submitted' })).toBeVisible()
     expect(posts()).toHaveLength(1)
     expect(posts()[0][1]).toEqual(expect.objectContaining({
       method: 'POST', credentials: 'include', cache: 'no-store',
@@ -98,7 +98,7 @@ describe('organizer submission and corrections', () => {
     expect(draft.organizationName).toBe('Updated Club')
     expect(posts()).toHaveLength(0)
     await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
-    await screen.findByRole('heading', { name: 'Organization verification pending' })
+    await screen.findByRole('heading', { name: 'Institutional Dossier Submitted' })
     expect(patches()).toHaveLength(1)
     expect(posts()).toHaveLength(1)
   })
@@ -144,9 +144,9 @@ describe('organizer submission and corrections', () => {
     expect(screen.getByLabelText(nameLabel)).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled()
     expect(button).toBeDisabled()
-    expect(screen.queryByRole('heading', { name: 'Organization verification pending' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Institutional Dossier Submitted' })).not.toBeInTheDocument()
     release()
-    expect(await screen.findByRole('heading', { name: 'Organization verification pending' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Institutional Dossier Submitted' })).toBeVisible()
     expect(posts()).toHaveLength(1)
   })
 
@@ -157,7 +157,7 @@ describe('organizer submission and corrections', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('not accepted')
     expect(screen.getByLabelText(nameLabel)).toHaveValue('Campus Club')
     expect(screen.getByRole('button', { name: 'Submit application' })).toBeEnabled()
-    expect(screen.queryByRole('heading', { name: 'Organization verification pending' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Institutional Dossier Submitted' })).not.toBeInTheDocument()
     expect(posts()).toHaveLength(1)
   })
 
@@ -188,7 +188,7 @@ describe('organizer submission and corrections', () => {
     await load()
     await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('could not be confirmed')
-    expect(screen.queryByRole('heading', { name: 'Organization verification pending' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Institutional Dossier Submitted' })).not.toBeInTheDocument()
   })
 
   it('keeps actions locked if reloading after a conflict also fails', async () => {

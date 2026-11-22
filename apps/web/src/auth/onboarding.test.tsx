@@ -153,25 +153,26 @@ describe('onboarding routing and approval acknowledgment', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Your application needs changes',
+        name: 'Institutional Dossier: Changes Requested',
       }),
     ).toBeVisible()
 
     expect(
       screen.getByText('Please update your contact details.'),
     ).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Update application' })).toHaveAttribute('href', '/organizer/application')
   })
 
   it.each([
     'Enter organizer dashboard',
-    'Explore campus events',
+    'Explore Campus Events as Attendee',
   ])(
     'persists acknowledgment before %s and skips approval on a new visit',
     async (button) => {
       const view = mount()
 
       await screen.findByRole('heading', {
-        name: 'Your organizer application is approved',
+        name: 'Institutional Dossier: Application Approved',
       })
 
       await userEvent.click(
@@ -219,6 +220,7 @@ describe('onboarding routing and approval acknowledgment', () => {
     )
 
     expect(await screen.findByRole('alert')).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Refresh status' })).toBeVisible()
     expect(acknowledged).toBe(false)
 
     ackStatus = 204
@@ -259,7 +261,7 @@ describe('onboarding routing and approval acknowledgment', () => {
     expect(button).toBeDisabled()
     expect(
       screen.getByRole('button', {
-        name: 'Explore campus events',
+        name: 'Explore Campus Events as Attendee',
       }),
     ).toBeDisabled()
 
@@ -275,8 +277,11 @@ describe('onboarding routing and approval acknowledgment', () => {
     mount('/organizer/pending')
 
     await screen.findByRole('heading', {
-      name: 'Organization verification pending',
+      name: 'Institutional Dossier Submitted',
     })
+    expect(screen.getByText('ID: application')).toBeVisible()
+    expect(screen.getByText('Status: Queued')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Back to Registration Step 2' })).toHaveAttribute('href', '/organizer/application')
 
     vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
     status = 'APPROVED'
@@ -287,7 +292,7 @@ describe('onboarding routing and approval acknowledgment', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Your organizer application is approved',
+        name: 'Institutional Dossier: Application Approved',
       }),
     ).toBeVisible()
   })
