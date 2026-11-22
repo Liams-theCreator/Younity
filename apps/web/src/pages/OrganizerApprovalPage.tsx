@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router'
 import ProtectedRoute from '../auth/ProtectedRoute'
 import { useAuth } from '../auth/useAuth'
+import OrganizerStatusLayout from '../components/OrganizerStatusLayout'
+import decisionStyles from '../components/OrganizerStatusLayout.module.css'
 import styles from './AuthShell.module.css'
 
 export default function OrganizerApprovalPage() {
@@ -26,7 +28,7 @@ function ApprovalChoices({
 }: {
   onExit: (to: '/events' | '/organizer/dashboard') => void
 }) {
-  const { requestProtected, refreshSession } = useAuth()
+  const { user, requestProtected, refreshSession } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const lock = useRef(false)
@@ -83,47 +85,49 @@ function ApprovalChoices({
   }
 
   return (
-    <main className={styles.page}>
-      <section className={styles.card}>
-        <p className={styles.eyebrow}>Application decision</p>
-        <h1>Your organizer application is approved</h1>
-
-        <p>
-          You can now enter your organizer dashboard or explore campus events.
+    <OrganizerStatusLayout
+      status="APPROVED"
+      applicationId={user?.application?.id}
+      eyebrow="Application decision"
+      title="Your organizer application is approved"
+      description="You can now enter your organizer dashboard or explore campus events."
+    >
+      {error && (
+        <p className={decisionStyles.alert} ref={alert} role="alert" tabIndex={-1}>
+          {error}
         </p>
+      )}
 
-        {error && (
-          <p ref={alert} role="alert" tabIndex={-1}>
-            {error}
-          </p>
-        )}
-
-        <div className={styles.actions}>
-          <button
-            disabled={busy}
-            onClick={() => { void leave('/events') }}
-          >
-            Explore campus events
-          </button>
-
-          <button
-            disabled={busy}
-            onClick={() => { void leave('/organizer/dashboard') }}
-          >
-            Enter organizer dashboard
-          </button>
-        </div>
-
-        {busy && <p role="status">Confirming your choice…</p>}
+      <div className={decisionStyles.actions}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => { void leave('/events') }}
+        >
+          Explore campus events
+        </button>
 
         <button
+          type="button"
+          className={decisionStyles.primary}
           disabled={busy}
-          onClick={() => { void refreshSession() }}
+          onClick={() => { void leave('/organizer/dashboard') }}
         >
-          Refresh status
+          Enter organizer dashboard
         </button>
-      </section>
-    </main>
+      </div>
+
+      {busy && <p role="status">Confirming your choice…</p>}
+
+      <button
+        type="button"
+        className={decisionStyles.refresh}
+        disabled={busy}
+        onClick={() => { void refreshSession() }}
+      >
+        Refresh status
+      </button>
+    </OrganizerStatusLayout>
   )
 }
 

@@ -1,0 +1,175 @@
+.layout {
+  --auth-card-width: 42rem;
+  --auth-card-padding: clamp(1.125rem, 2.6vw, 2.25rem);
+  --auth-card-radius: 1rem;
+  --auth-card-shadow: 0 12px 32px rgb(19 38 78 / 7%);
+  --auth-title-size: clamp(1.625rem, 2vw + .75rem, 2.125rem);
+  --auth-control-height: 3rem;
+  --auth-control-radius: .625rem;
+  --auth-field-surface: #f9fbff;
+  --auth-focus-shadow: 0 0 0 3px rgb(40 84 217 / 16%);
+  display: grid;
+  min-height: 100svh;
+  background: var(--page);
+  color: var(--text);
+}
+
+.login {
+  --hero-width: 50%;
+  --hero-image: url('../assets/auth-login-campus.webp');
+  --hero-position: 52%;
+  --hero-gradient: linear-gradient(155deg, rgb(14 26 57 / 68%), rgb(8 18 38 / 94%));
+  --auth-card-width: 34rem;
+}
+
+.student {
+  --hero-width: 45%;
+  --hero-image: url('../assets/auth-registration-campus.webp');
+  --hero-position: 50%;
+  --hero-gradient: linear-gradient(155deg, rgb(23 51 112 / 74%), rgb(10 20 48 / 94%));
+}
+
+.organizer {
+  --hero-width: 41.667%;
+  --hero-image: url('../assets/auth-registration-campus.webp');
+  --hero-position: 62%;
+  --hero-gradient: linear-gradient(155deg, rgb(8 20 50 / 79%), rgb(13 35 87 / 94%));
+}
+
+.hero {
+  display: grid;
+  align-content: space-between;
+  gap: clamp(2rem, 5vw, 4rem);
+  padding: clamp(1.25rem, 4vw, 4rem);
+  background: var(--hero-gradient), var(--hero-image) var(--hero-position) center / cover no-repeat, #0e1b34;
+  color: white;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -.025em;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: .75rem;
+  background: rgb(255 255 255 / 13%);
+}
+
+.organizer .mark {
+  background: white;
+  color: var(--link);
+}
+
+.heroCopy {
+  max-width: 34rem;
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: clamp(1.75rem, 3.55vw, 3.25rem);
+  font-weight: 800;
+  line-height: 1.16;
+  letter-spacing: -.04em;
+  text-wrap: balance;
+}
+
+.heroTitle em {
+  color: #c7ecfd;
+  font-style: inherit;
+}
+
+.introduction {
+  max-width: 41ch;
+  margin: 1.25rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgb(221 233 255 / 38%);
+  color: #ecf2ff;
+  font-size: clamp(.875rem, 1.4vw, 1rem);
+  line-height: 1.65;
+}
+
+.content {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: clamp(1rem, 3.8vw, 3.25rem);
+}
+
+.card {
+  width: min(100%, var(--auth-card-width));
+  min-width: 0;
+  padding: var(--auth-card-padding);
+  border: 1px solid var(--border);
+  border-radius: var(--auth-card-radius);
+  background: var(--card);
+  box-shadow: var(--auth-card-shadow);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--auth-title-size);
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -.036em;
+  text-wrap: balance;
+}
+
+.subtitle {
+  margin: .625rem 0 0;
+  color: var(--muted);
+  font-size: .9375rem;
+  line-height: 1.6;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: .5rem;
+  min-height: 2.75rem;
+  border-radius: .25rem;
+  color: var(--link);
+  font-size: .875rem;
+  font-weight: 700;
+  text-underline-offset: .2em;
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+.back :global(.reference-icon) {
+  font-size: 1.125rem;
+}
+
+@media (min-width: 64rem) {
+  .layout {
+    grid-template-columns: var(--hero-width) minmax(0, 1fr);
+  }
+
+  .hero {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    align-content: normal;
+    grid-template-rows: auto 1fr;
+    min-height: 100svh;
+  }
+
+  .heroCopy {
+    align-self: center;
+    margin-block-end: 2.5rem;
+  }
+}

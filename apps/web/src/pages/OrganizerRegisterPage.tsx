@@ -74,6 +74,7 @@ export default function OrganizerRegistration({
     <>
       <RegistrationLayout
         variant="organizer"
+        backToSignIn={signInPath}
         headerContent={<OrganizerHeader />}
         beforeCard={<OrganizerReviewNotice />}
         title="Institutional Organizer Registration"

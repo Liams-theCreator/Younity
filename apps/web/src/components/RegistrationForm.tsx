@@ -4,8 +4,11 @@ import { Link } from 'react-router'
 import { accountFields } from '../registration/model'
 import type { FieldErrors, RegistrationDraft } from '../registration/model'
 import '../registration/stitch.css'
+import AuthPageLayout from './AuthPageLayout'
+import layoutStyles from './AuthPageLayout.module.css'
 import ReferenceIcon from './ReferenceIcon'
 import PasswordFeedback from './PasswordFeedback'
+import styles from './RegistrationLayout.module.css'
 
 export function RegistrationLayout({
   title,
@@ -13,6 +16,7 @@ export function RegistrationLayout({
   children,
   beforeCard,
   headerContent,
+  backToSignIn,
   variant = 'selection',
 }: {
   title: string
@@ -20,39 +24,54 @@ export function RegistrationLayout({
   children: ReactNode
   beforeCard?: ReactNode
   headerContent?: ReactNode
+  backToSignIn?: string
   variant?: 'selection' | 'student' | 'student-preferences' | 'organizer' | 'pending'
 }) {
+  const campusLayout = variant !== 'selection' && variant !== 'pending'
+  const shell = `registration-shell registration-${variant}`
+  const frame = (
+    <div className={`registration-frame ${campusLayout ? styles.frame : ''}`}>
+      {backToSignIn && (
+        <Link className={layoutStyles.back} to={backToSignIn}>
+          <ReferenceIcon name="arrow_back" />
+          Back to Sign In
+        </Link>
+      )}
+      {headerContent ?? (
+        <header className="registration-header">
+          <Link className="brand" to="/login">
+            Younity<span aria-hidden="true">.</span>
+          </Link>
+          <span className="registration-context">
+            {variant === 'student'
+              ? 'Student registration'
+              : variant === 'organizer'
+                ? 'Organizer registration'
+                : variant === 'pending'
+                  ? 'Organizer verification'
+                  : 'Create an account'}
+          </span>
+        </header>
+      )}
+      {beforeCard}
+      <section className={`registration-card ${campusLayout ? styles.card : ''}`} aria-labelledby="page-title">
+        <div className="registration-title-block">
+          <h1 id="page-title" tabIndex={-1}>
+            {title}
+          </h1>
+          <p className="introduction">{introduction}</p>
+        </div>
+        {children}
+      </section>
+    </div>
+  )
+
+  if (!campusLayout) return <main className={shell}>{frame}</main>
+
   return (
-    <main className={`registration-shell registration-${variant}`}>
-      <div className="registration-frame">
-        {headerContent ?? (
-          <header className="registration-header">
-            <Link className="brand" to="/login">
-              Younity<span aria-hidden="true">.</span>
-            </Link>
-            <span className="registration-context">
-              {variant === 'student'
-                ? 'Student registration'
-                : variant === 'organizer'
-                  ? 'Organizer registration'
-                  : variant === 'pending'
-                    ? 'Organizer verification'
-                    : 'Create an account'}
-            </span>
-          </header>
-        )}
-        {beforeCard}
-        <section className="registration-card" aria-labelledby="page-title">
-          <div className="registration-title-block">
-            <h1 id="page-title" tabIndex={-1}>
-              {title}
-            </h1>
-            <p className="introduction">{introduction}</p>
-          </div>
-          {children}
-        </section>
-      </div>
-    </main>
+    <AuthPageLayout variant={variant === 'organizer' ? 'organizer' : 'student'}>
+      <div className={`${shell} ${styles.pane}`}>{frame}</div>
+    </AuthPageLayout>
   )
 }
 

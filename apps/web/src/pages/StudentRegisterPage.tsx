@@ -121,6 +121,7 @@ export default function StudentRegisterPage({
       variant={
         step === 1 ? 'student' : 'student-preferences'
       }
+      backToSignIn={step === 1 ? signInPath : undefined}
       headerContent={<StudentProgress step={step} />}
       title={
         step === 1
