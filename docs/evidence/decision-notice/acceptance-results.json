@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-22",
+  "backendCommit": "474efaf04465a652bcf97ac4e88e2c03a97d692e",
+  "componentSha256": "fb4e986a5b35cf566627579476b205ecc631d7b8b34641c98be6075fc6d180e4",
+  "browser": "Chromium 141 / Playwright 1.56.1 (Ubuntu 24.04 fallback build)",
+  "states": [
+    "PENDING",
+    "NEEDS_CHANGES",
+    "APPROVED",
+    "REJECTED"
+  ],
+  "widths": [
+    320,
+    390,
+    1440
+  ],
+  "accessibilityScans": 15,
+  "accessibilityViolations": 0,
+  "checks": [
+    "real owner session and partial draft recovery",
+    "real submission and admin request-changes",
+    "private correction and same-ID revision-2 resubmission",
+    "stale revision rejection",
+    "real approval and explicit acknowledgment callback",
+    "real rejection with no edit action",
+    "keyboard action callbacks and feedback expansion",
+    "busy state disables actions",
+    "no component fetching or duplicate refresh",
+    "long multilingual and HTML-like feedback",
+    "no horizontal overflow",
+    "no browser console errors"
+  ],
+  "screenshots": [
+    "approved-busy-390.png",
+    "pending-390.png",
+    "needs_changes-390.png",
+    "approved-390.png",
+    "rejected-390.png",
+    "approved-1440.png",
+    "long-feedback-expanded-320.png",
+    "long-feedback-collapsed-320.png"
+  ],
+  "scope": "Isolated acceptance harness; production page integration remains Aadel-owned. No developer database or real email delivery was used."
+}
