@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { configureApplication } from '../src/config/application.js';
 import { validateEnvironment } from '../src/config/environment.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
 
 // Require an explicit test URL so this suite never silently uses the developer DB.
 if (!process.env.TEST_DATABASE_URL)
@@ -42,11 +43,27 @@ describe('API foundation (e2e)', () => {
       .expect({ status: 'ok' });
   });
 
+  it('returns the public category catalog from the database without a session', async () => {
+    const categories = await app.get(PrismaService).category.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, slug: true },
+    });
+    expect(categories).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Hackathons', slug: 'hackathons' }),
+    ]));
+
+    await request(app.getHttpServer())
+      .get('/api/categories')
+      .expect(200)
+      .expect({ categories });
+  });
+
   it('publishes Swagger with prefixed endpoints', async () => {
     const response = await request(app.getHttpServer())
       .get('/api/docs-json')
       .expect(200);
     expect(response.body.paths).toHaveProperty('/api/health');
+    expect(response.body.paths).toHaveProperty('/api/categories');
     await request(app.getHttpServer()).get('/api/docs/').expect(200);
   });
 

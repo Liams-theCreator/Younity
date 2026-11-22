@@ -1,141 +1,32 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-import { Link, useNavigate } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Navigate, useNavigate } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import StudentPreferencesForm from '../components/StudentPreferencesForm'
 import { RegistrationLayout } from '../components/RegistrationForm'
-import { emptyPreferences } from '../registration/studentPreferences'
-import {
-  PreferencesError,
-  requestPreferences,
-} from '../student/preferences'
+import { useStudentPreferences } from '../student/useStudentPreferences'
 import './StudentPreferencesPage.css'
 
 export default function StudentPreferencesPage() {
-  const { destination, requestProtected, refreshSession } = useAuth()
-  const editingProfile = destination === '/student/dashboard'
+  const { destination } = useAuth()
+  // A session refresh during setup must not follow the redirect for old links.
+  const [enteredForSetup] = useState(destination === '/student/preferences')
+  return enteredForSetup ? <StudentPreferencesSetup /> : <Navigate to="/student/profile" replace />
+}
+
+function StudentPreferencesSetup() {
+  const { refreshSession } = useAuth()
   const navigate = useNavigate()
-
-  const [preferences, setPreferences] = useState({
-    ...emptyPreferences,
-  })
-  const [university, setUniversity] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [loaded, setLoaded] = useState(false)
-  const [saving, setSaving] = useState(false)
-
-  const operation = useRef<AbortController | null>(null)
-  const saveLock = useRef(false)
+  const { draft, setDraft, saved, loading, saving, error, retry, save } = useStudentPreferences()
   const alert = useRef<HTMLDivElement>(null)
-
-  const load = useCallback(
-    (controller: AbortController) => {
-      return requestPreferences(
-        requestProtected,
-        controller.signal,
-      )
-        .then(
-          (saved) => {
-            if (controller.signal.aborted) return
-
-            setPreferences(saved.preferences)
-            setUniversity(saved.university)
-            setLoaded(true)
-          },
-          (cause) => {
-            if (!controller.signal.aborted) {
-              setError(
-                cause instanceof PreferencesError
-                  ? cause.message
-                  : 'Could not load your preferences.',
-              )
-            }
-          },
-        )
-        .finally(() => {
-          if (!controller.signal.aborted) {
-            setLoading(false)
-          }
-        })
-    },
-    [requestProtected],
-  )
-
-  useEffect(() => {
-    const controller = new AbortController()
-    operation.current = controller
-    void load(controller)
-
-    return () => operation.current?.abort()
-  }, [load])
 
   useEffect(() => {
     if (error) alert.current?.focus()
   }, [error])
 
-  function retry() {
-    operation.current?.abort()
-
-    const controller = new AbortController()
-    operation.current = controller
-
-    setError('')
-    setLoading(true)
-    void load(controller)
-  }
-
-  async function save() {
-    if (
-      !loaded ||
-      loading ||
-      saveLock.current ||
-      operation.current?.signal.aborted
-    ) {
-      return
-    }
-
-    saveLock.current = true
-
-    const controller = new AbortController()
-    operation.current?.abort()
-    operation.current = controller
-
-    setSaving(true)
-    setError('')
-
-    try {
-      await requestPreferences(
-        requestProtected,
-        controller.signal,
-        { preferences, university },
-      )
-
-      if (controller.signal.aborted) return
-
-      // Refresh hides protected children while loading.
-      // Navigate only after the confirmed write, then refresh.
-      navigate(editingProfile ? '/student/profile' : '/student/dashboard', { replace: true })
-      void refreshSession()
-    } catch (cause) {
-      if (!controller.signal.aborted) {
-        setError(
-          cause instanceof PreferencesError
-            ? cause.message
-            : 'Could not save your preferences.',
-        )
-      }
-    } finally {
-      saveLock.current = false
-
-      if (!controller.signal.aborted) {
-        operation.current = null
-        setSaving(false)
-      }
+  async function completeOnboarding() {
+    if (await save()) {
+      navigate('/events', { replace: true })
+      void refreshSession({ background: true })
     }
   }
 
@@ -143,37 +34,24 @@ export default function StudentPreferencesPage() {
     <RegistrationLayout
       variant="student-preferences"
       title="Your discovery preferences"
-      headerContent={
-        <p className="helper">Student preferences</p>
-      }
+      headerContent={<p className="helper">Student preferences</p>}
       introduction="Choose at least two different interests. Academic information is optional."
     >
-      {loading && (
-        <p role="status">Loading your saved preferences…</p>
-      )}
+      {loading && <p role="status">Loading your saved preferences…</p>}
 
       {error && (
-        <div
-          ref={alert}
-          role="alert"
-          tabIndex={-1}
-          className="notice error"
-        >
+        <div ref={alert} role="alert" tabIndex={-1} className="notice error">
           {error}
         </div>
       )}
 
-      {!loading && !loaded && (
-        <button
-          className="secondary"
-          type="button"
-          onClick={retry}
-        >
+      {!loading && !saved && (
+        <button className="secondary" type="button" onClick={() => void retry()}>
           Retry loading preferences
         </button>
       )}
 
-      {!loading && loaded && (
+      {!loading && saved && (
         <>
           <div className="form-field">
             <label htmlFor="preferences-university">
@@ -185,32 +63,24 @@ export default function StudentPreferencesPage() {
               maxLength={255}
               autoComplete="organization"
               disabled={saving}
-              value={university}
-              onChange={(event) =>
-                setUniversity(event.target.value)
-              }
+              value={draft.university}
+              onChange={(event) => {
+                const university = event.target.value
+                setDraft((current) => ({ ...current, university }))
+              }}
             />
           </div>
 
           <StudentPreferencesForm
             mode="preferences"
-            preferences={preferences}
-            onChange={setPreferences}
-            onBack={editingProfile ? () => navigate('/student/profile') : undefined}
-            onSubmit={() => void save()}
+            preferences={draft.preferences}
+            onChange={(preferences) => setDraft((current) => ({ ...current, preferences }))}
+            onSubmit={() => void completeOnboarding()}
             disabled={saving}
           />
 
-          {saving && (
-            <p role="status">Saving preferences…</p>
-          )}
+          {saving && <p role="status">Saving preferences…</p>}
         </>
-      )}
-
-      {!loaded && editingProfile && (
-        <Link to="/student/profile">
-          Back to profile
-        </Link>
       )}
     </RegistrationLayout>
   )

@@ -86,6 +86,11 @@ beforeEach(() => {
           : new Response(null, { status: sessionStatus })
       }
 
+      if (input === '/api/categories') return Response.json({ categories: [] })
+      if (String(input).startsWith('/api/events?')) {
+        return Response.json({ items: [], categories: [], page: 1, pageSize: 12, total: 0 })
+      }
+
       if (input === '/api/student/preferences') {
         if (options?.method === 'PATCH') {
           if (saveGate) await saveGate
@@ -202,23 +207,42 @@ describe('Saved student preferences', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Edit profile' }))
     expect(await screen.findByRole('heading', { name: 'Student profile' })).toBeVisible()
 
-    await userEvent.click(
-      screen.getByRole('link', {
-        name: 'Edit discovery preferences',
-      }),
-    )
-
     expect(
       await screen.findByRole('checkbox', {
         name: /Robotics & Smart IoT/,
       }),
     ).toBeChecked()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Back to profile' }))
-    expect(await screen.findByRole('heading', { name: 'Student profile' })).toBeVisible()
+    const save = screen.getByRole('button', { name: 'Save changes' })
+    expect(save).toBeDisabled()
+    await userEvent.type(screen.getByLabelText('University / Academic Institution (optional)'), 'Campus University')
+    await userEvent.selectOptions(screen.getByLabelText('Academic level'), 'Second Year (L2)')
+
+    saveStatus = 503
+    await userEvent.click(save)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Preferences could not be loaded or saved')
+    expect(screen.getByLabelText('University / Academic Institution (optional)')).toHaveValue('Campus University')
+    expect(screen.getByRole('heading', { name: 'Student profile' })).toBeVisible()
+
+    saveStatus = 200
+    await userEvent.click(save)
+    expect(await screen.findByText('Preferences saved.')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Student profile' })).toBeVisible()
+    expect(screen.queryByRole('heading', { name: 'Your discovery preferences' })).not.toBeInTheDocument()
+    expect(save).toBeDisabled()
+    expect(profile).toMatchObject({ university: 'Campus University', studyLevel: 'SECOND_YEAR' })
 
     await userEvent.click(screen.getByRole('link', { name: 'Back to events' }))
     expect(await screen.findByRole('heading', { name: 'Campus events' })).toBeVisible()
+  })
+
+  it('opens the inline editor from a completed student’s old preferences link', async () => {
+    profile.interests = ['AI_DATA', 'ROBOTICS_IOT']
+    render(<MemoryRouter initialEntries={['/student/preferences']}><App /></MemoryRouter>)
+
+    expect(await screen.findByRole('heading', { name: 'Student profile' })).toBeVisible()
+    expect(await screen.findByRole('checkbox', { name: 'AI & Data Science' })).toBeChecked()
+    expect(screen.queryByRole('heading', { name: 'Your discovery preferences' })).not.toBeInTheDocument()
   })
 
   it.each([false, true])(

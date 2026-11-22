@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate } from 'react-router'
+import { Navigate } from 'react-router'
 import ProtectedRoute from '../auth/ProtectedRoute'
 import { useAuth } from '../auth/useAuth'
 import OrganizerStatusLayout from '../components/OrganizerStatusLayout'
 import decisionStyles from '../components/OrganizerStatusLayout.module.css'
-import styles from './AuthShell.module.css'
 
 export default function OrganizerApprovalPage() {
   const [exit, setExit] = useState<
@@ -128,20 +127,5 @@ function ApprovalChoices({
         Refresh status
       </button>
     </OrganizerStatusLayout>
-  )
-}
-
-export function EventsPortalPage() {
-  const { status } = useAuth()
-
-  return (
-    <main className={styles.page}>
-      <section className={styles.card}>
-        <h1>Campus events</h1>
-        <p>Event discovery is coming soon.</p>
-
-        {(status === 'anonymous' || status === 'error') && <Link to="/login">Sign in</Link>}
-      </section>
-    </main>
   )
 }

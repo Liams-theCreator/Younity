@@ -100,6 +100,15 @@ beforeEach(() => {
             })
       }
 
+      if (input === '/api/student/preferences') {
+        return Response.json({ interests: ['AI_DATA', 'ROBOTICS_IOT'], university: null, academicField: null, studyLevel: null, opportunityFormat: null })
+      }
+
+      if (input === '/api/categories') return Response.json({ categories: [] })
+      if (String(input).startsWith('/api/events?')) {
+        return Response.json({ items: [], categories: [], page: 1, pageSize: 12, total: 0 })
+      }
+
       if (input === '/api/auth/login') {
         const data = JSON.parse(
           options?.body as string,
@@ -235,7 +244,7 @@ describe('AUTH-05 frontend journeys', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(await screen.findByRole('link', { name: 'Sign in' })).toBeVisible()
-    expect(screen.queryByRole('navigation', { name: 'Account' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Account menu' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Current route')).toHaveTextContent('/events')
     expect(session).toBeNull()
   })
