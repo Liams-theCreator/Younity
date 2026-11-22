@@ -140,6 +140,7 @@ describe('Saved student preferences', () => {
     })
 
     expect(ai).toBeChecked()
+    expect(screen.getByText('1 selected')).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Back to profile' })).not.toBeInTheDocument()
 
     expect(
@@ -150,7 +151,7 @@ describe('Saved student preferences', () => {
 
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Save and continue',
+        name: 'Save preferences & enter Younity',
       }),
     )
 
@@ -169,9 +170,11 @@ describe('Saved student preferences', () => {
       }),
     )
 
+    expect(screen.getByText('2 selected')).toBeVisible()
+
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Save and continue',
+        name: 'Save preferences & enter Younity',
       }),
     )
 
@@ -260,7 +263,7 @@ describe('Saved student preferences', () => {
 
       expect(
         screen.queryByRole('button', {
-          name: 'Save and continue',
+          name: 'Save preferences & enter Younity',
         }),
       ).not.toBeInTheDocument()
 
@@ -298,7 +301,7 @@ describe('Saved student preferences', () => {
     )
 
     const button = screen.getByRole('button', {
-      name: 'Save and continue',
+      name: 'Save preferences & enter Younity',
     })
 
     fireEvent.submit(button.closest('form')!)
@@ -347,7 +350,7 @@ describe('Saved student preferences', () => {
 
     expect(
       screen.queryByRole('button', {
-        name: 'Save and continue',
+        name: 'Save preferences & enter Younity',
       }),
     ).not.toBeInTheDocument()
   })
