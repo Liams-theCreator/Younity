@@ -1,0 +1,131 @@
+.notice {
+  --decision-color: #1e40af;
+  --decision-background: #eff6ff;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(16px, 4vw, 32px);
+  border: 1px solid #dce1eb;
+  border-top: 4px solid var(--decision-color);
+  border-radius: 16px;
+  background: #fff;
+  color: #181c20;
+  overflow-wrap: anywhere;
+}
+
+.notice[data-decision='APPROVED'] {
+  --decision-color: #166534;
+  --decision-background: #f0fdf4;
+}
+
+.notice[data-decision='NEEDS_CHANGES'] {
+  --decision-color: #854d0e;
+  --decision-background: #fffbeb;
+}
+
+.notice[data-decision='REJECTED'] {
+  --decision-color: #991b1b;
+  --decision-background: #fff1f2;
+}
+
+.badge {
+  display: inline-block;
+  margin: 0 0 16px;
+  padding: 6px 12px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--decision-color);
+  background: var(--decision-background);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: clamp(22px, 4vw, 28px);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.description,
+.feedbackText,
+.progress {
+  margin: 0;
+  color: #434654;
+  line-height: 1.65;
+}
+
+.feedback {
+  margin-top: 20px;
+  padding: 16px;
+  border-left: 3px solid var(--decision-color);
+  background: #f7f9fe;
+}
+
+.feedbackLabel {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.feedbackText {
+  white-space: pre-wrap;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.actions button,
+.expand {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #b5bfd2;
+  border-radius: 8px;
+  background: #fff;
+  color: #003bba;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.expand {
+  margin-top: 12px;
+}
+
+.actions button:hover:not(:disabled),
+.expand:hover {
+  background: #eff6ff;
+}
+
+.actions button:focus-visible,
+.expand:focus-visible {
+  outline: 3px solid #2854d9;
+  outline-offset: 3px;
+}
+
+.actions button:disabled {
+  background: #f1f4f9;
+  color: #596174;
+  cursor: wait;
+}
+
+.progress {
+  margin-top: 12px;
+}
+
+@media (max-width: 480px) {
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions button {
+    width: 100%;
+  }
+}
