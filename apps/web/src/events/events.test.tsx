@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -77,38 +77,37 @@ describe('S3-07 proposed discovery contract', () => {
     await screen.findByRole('link', { name: event.title })
     await userEvent.type(screen.getByLabelText('Keyword'), 'none')
     await userEvent.selectOptions(screen.getByLabelText('Category'), 'ai-data')
-    await userEvent.type(screen.getByLabelText('City'), 'Rabat')
     await userEvent.selectOptions(screen.getByLabelText('Format'), 'HYBRID')
     await userEvent.click(screen.getByRole('button', { name: 'Search events' }))
     expect(await screen.findByRole('heading', { name: 'No events found' })).toBeVisible()
     const url = request.mock.calls.map(([p]) => String(p)).find(p => p.includes('q=none'))!
     const params = new URL(url, 'https://example.test').searchParams
-    expect(Object.fromEntries(params)).toMatchObject({ q: 'none', category: 'ai-data', city: 'Rabat', format: 'HYBRID', page: '1', pageSize: '12' })
+    expect(Object.fromEntries(params)).toMatchObject({ q: 'none', category: 'ai-data', format: 'HYBRID', page: '1', pageSize: '12' })
     await userEvent.click(screen.getByRole('button', { name: 'Show all events' }))
     expect(await screen.findByRole('link', { name: event.title })).toBeVisible()
     expect(screen.getByLabelText('Keyword')).toHaveValue('')
   })
 
   it('keeps filters during pagination and supports keyboard submission', async () => {
-    mount('/events?city=Rabat')
+    mount('/events?format=HYBRID')
     await screen.findByRole('link', { name: event.title })
     await userEvent.click(screen.getByRole('button', { name: 'Next' }))
     await screen.findByText('Page 2')
-    expect(request.mock.calls.some(([p]) => String(p).includes('city=Rabat&page=2'))).toBe(true)
+    expect(request.mock.calls.some(([p]) => String(p).includes('format=HYBRID&page=2'))).toBe(true)
     await userEvent.type(screen.getByLabelText('Keyword'), 'none{Enter}')
     expect(await screen.findByRole('heading', { name: 'No events found' })).toBeVisible()
   })
 
   it('removes an applied filter independently and clears unsent filter changes', async () => {
-    mount('/events?q=meetup&city=Rabat&category=ai-data&page=2')
+    mount('/events?q=meetup&format=HYBRID&category=ai-data&page=2')
     await screen.findByRole('link', { name: event.title })
     await userEvent.click(screen.getByRole('button', { name: 'Remove Category filter: AI & Data' }))
 
     await screen.findByText('Page 1')
     expect(screen.getByLabelText('Category')).toHaveValue('')
     expect(screen.getByLabelText('Keyword')).toHaveValue('meetup')
-    expect(screen.getByLabelText('City')).toHaveValue('Rabat')
-    expect(request.mock.calls.some(([path]) => String(path).includes('q=meetup&city=Rabat&page=1'))).toBe(true)
+    expect(screen.getByLabelText('Format')).toHaveValue('HYBRID')
+    expect(request.mock.calls.some(([path]) => String(path).includes('q=meetup&format=HYBRID&page=1'))).toBe(true)
 
     await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
     await screen.findByRole('link', { name: event.title })
@@ -119,26 +118,13 @@ describe('S3-07 proposed discovery contract', () => {
     expect(request.mock.calls.some(([path]) => String(path).includes('unsent'))).toBe(false)
   })
 
-  it('explains invalid dates before sending a search and allows correction', async () => {
-    mount()
-    await screen.findByRole('link', { name: event.title })
-    const callsBeforeSearch = request.mock.calls.length
-    const from = screen.getByLabelText('From')
-    const to = screen.getByLabelText('To')
-    fireEvent.change(from, { target: { value: '2027-01-12' } })
-    fireEvent.change(to, { target: { value: '2027-01-10' } })
-    await userEvent.click(screen.getByRole('button', { name: 'Search events' }))
-
-    expect(screen.getByRole('alert')).toHaveTextContent('End date must be on or after start date.')
-    expect(to).toHaveFocus()
-    expect(request).toHaveBeenCalledTimes(callsBeforeSearch)
-
-    fireEvent.change(to, { target: { value: '2027-01-14' } })
-    await userEvent.click(screen.getByRole('button', { name: 'Search events' }))
-    await screen.findByRole('link', { name: event.title })
-
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(request.mock.calls.some(([path]) => String(path).includes('from=2027-01-12&to=2027-01-14'))).toBe(true)
+  it('ignores city and date filters in a previously shared event URL', async () => {
+    mount('/events?city=Rabat&from=2027-01-14&to=2027-01-15')
+    expect(await screen.findByRole('link', { name: event.title })).toBeVisible()
+    expect(screen.queryByLabelText('City')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('From')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('To')).not.toBeInTheDocument()
+    expect(request.mock.calls.some(([path]) => String(path) === '/api/events?page=1&pageSize=12')).toBe(true)
   })
 
   it('shows a missing event without claiming a reservation', async () => {

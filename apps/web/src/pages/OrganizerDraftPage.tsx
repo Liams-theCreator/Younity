@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router'
 import ProtectedRoute from '../auth/ProtectedRoute'
 import { useAuth } from '../auth/useAuth'
+import MoroccanPhoneInput from '../components/MoroccanPhoneInput'
 import { RegistrationLayout } from '../components/RegistrationForm'
 import RegistrationSelect from '../components/RegistrationSelect'
 import {
@@ -30,24 +31,14 @@ export default function OrganizerDraftPage() {
 
   if (submitted) return <Navigate to="/organizer/pending" replace />
 
-  const destination =
-    user?.organizationStatus === 'NEEDS_CHANGES'
-      ? '/organizer/status'
-      : '/organizer/pending'
-
   return (
     <ProtectedRoute
-      destination={
-        user?.onboarding?.complete === false
-          ? '/organizer/application'
-          : destination
-      }
+      destination="/organizer/status"
       renderRedirect={(to) => <Navigate to={to} replace />}
     >
-      <DraftEditor
-        backTo={destination}
-        onSubmitted={() => setSubmitted(true)}
-      />
+      {user?.organizationStatus === 'NEEDS_CHANGES'
+        ? <DraftEditor onSubmitted={() => setSubmitted(true)} />
+        : <Navigate to="/organizer/status" replace />}
     </ProtectedRoute>
   )
 }
@@ -61,14 +52,11 @@ const inputs = [
 ] as const
 
 function DraftEditor({
-  backTo,
   onSubmitted,
 }: {
-  backTo: '/organizer/status' | '/organizer/pending'
   onSubmitted: () => void
 }) {
-  const { requestProtected, refreshSession, user } = useAuth()
-  const correcting = backTo === '/organizer/status'
+  const { requestProtected, refreshSession } = useAuth()
   const [snapshot, setSnapshot] = useState<DraftSnapshot | null>(null)
   const [values, setValues] = useState<DraftValues>({ ...emptyDraft })
   const [error, setError] = useState('')
@@ -252,17 +240,9 @@ function DraftEditor({
   return (
     <RegistrationLayout
       variant="organizer"
-      title={
-        correcting
-          ? 'Update your organizer application'
-          : 'Organizer application draft'
-      }
-      headerContent={
-        <p className="helper">
-          {correcting ? 'Application corrections' : 'Organizer onboarding'}
-        </p>
-      }
-      introduction="Save your information first, then submit it for review. Drafts can be incomplete. A supporting link is optional."
+      title="Update your organizer application"
+      headerContent={<p className="helper">Application corrections</p>}
+      introduction="Update the requested details, save your changes, and resubmit for review. A supporting link is optional."
     >
       {loading && <p role="status">Loading your saved draft…</p>}
 
@@ -324,7 +304,15 @@ function DraftEditor({
                     )}
                   </div>
 
-                  <input
+                  {field === 'phoneNumber' ? (
+                    <MoroccanPhoneInput
+                      id={`draft-${field}`}
+                      name={field}
+                      value={values[field]}
+                      error={fieldErrors[field]}
+                      onChange={(value) => change(field, value)}
+                    />
+                  ) : <input
                     id={`draft-${field}`}
                     name={field}
                     type={type}
@@ -340,7 +328,7 @@ function DraftEditor({
                         ? `draft-${field}-error`
                         : undefined
                     }
-                  />
+                  />}
 
                   {fieldErrors[field] && (
                     <p
@@ -393,11 +381,7 @@ function DraftEditor({
                     }
                     onClick={() => { void submit() }}
                   >
-                    {pending === 'submit'
-                      ? 'Submitting…'
-                      : correcting
-                        ? 'Resubmit application'
-                        : 'Submit application'}
+                    {pending === 'submit' ? 'Submitting…' : 'Resubmit application'}
                   </button>
                 </div>
               )}
@@ -420,17 +404,8 @@ function DraftEditor({
         </>
       )}
 
-      <Link
-        className="organizer-draft-back"
-        to={
-          user?.onboarding?.complete === false
-            ? '/events'
-            : backTo
-        }
-      >
-        {user?.onboarding?.complete === false
-          ? 'Explore events'
-          : 'Back to application status'}
+      <Link className="organizer-draft-back" to="/organizer/status">
+        Back to application status
       </Link>
     </RegistrationLayout>
   )

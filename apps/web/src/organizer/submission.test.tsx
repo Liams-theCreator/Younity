@@ -30,7 +30,7 @@ const patches = () => request.mock.calls.filter(([url, options]) => url === draf
 
 beforeEach(() => {
   draft = { ...complete }
-  organizationStatus = 'PENDING'
+  organizationStatus = 'NEEDS_CHANGES'
   canEdit = true
   status = 201
   readStatus = 200
@@ -69,14 +69,10 @@ async function load() {
 }
 
 describe('organizer submission and corrections', () => {
-  it.each([
-    ['PENDING', 201, 'Submit application'],
-    ['NEEDS_CHANGES', 200, 'Resubmit application'],
-  ])('submits the saved %s application and refreshes the real session', async (initial, code, button) => {
-    organizationStatus = initial
-    status = code
+  it('resubmits the saved correction and refreshes the real session', async () => {
+    status = 200
     await load()
-    await userEvent.click(screen.getByRole('button', { name: button }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     expect(await screen.findByRole('heading', { name: 'Institutional Dossier Submitted' })).toBeVisible()
     expect(posts()).toHaveLength(1)
     expect(posts()[0][1]).toEqual(expect.objectContaining({
@@ -90,14 +86,14 @@ describe('organizer submission and corrections', () => {
   it('requires an explicit save before submitting edits, then submits only the saved draft', async () => {
     await load()
     fireEvent.change(screen.getByLabelText(nameLabel), { target: { value: 'Updated Club' } })
-    expect(screen.getByRole('button', { name: 'Submit application' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Resubmit application' })).toBeDisabled()
     expect(posts()).toHaveLength(0)
     expect(patches()).toHaveLength(0)
     await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Submit application' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Resubmit application' })).toBeEnabled())
     expect(draft.organizationName).toBe('Updated Club')
     expect(posts()).toHaveLength(0)
-    await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     await screen.findByRole('heading', { name: 'Institutional Dossier Submitted' })
     expect(patches()).toHaveLength(1)
     expect(posts()).toHaveLength(1)
@@ -112,7 +108,7 @@ describe('organizer submission and corrections', () => {
   ] as const)('blocks submission with missing %s and focuses its associated error', async (field, label) => {
     draft[field] = null
     await load()
-    await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     const input = screen.getByLabelText(label)
     expect(await screen.findByRole('alert')).toHaveTextContent('Complete the required information')
     expect(input).toHaveFocus()
@@ -128,7 +124,7 @@ describe('organizer submission and corrections', () => {
   ] as const)('checks the format of saved %s before sending anything', async (field, value, label) => {
     draft[field] = value
     await load()
-    await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     expect(await screen.findByRole('alert')).toBeVisible()
     expect(screen.getByLabelText(label)).toHaveFocus()
     expect(posts()).toHaveLength(0)
@@ -138,7 +134,7 @@ describe('organizer submission and corrections', () => {
     let release!: () => void
     gate = new Promise<void>((resolve) => { release = resolve })
     await load()
-    const button = screen.getByRole('button', { name: 'Submit application' })
+    const button = screen.getByRole('button', { name: 'Resubmit application' })
     await act(async () => { fireEvent.click(button); fireEvent.click(button) })
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect(screen.getByLabelText(nameLabel)).toBeDisabled()
@@ -153,10 +149,10 @@ describe('organizer submission and corrections', () => {
   it.each([400, 422])('keeps information after a validation rejection (%s)', async (code) => {
     status = code
     await load()
-    await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('not accepted')
     expect(screen.getByLabelText(nameLabel)).toHaveValue('Campus Club')
-    expect(screen.getByRole('button', { name: 'Submit application' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Resubmit application' })).toBeEnabled()
     expect(screen.queryByRole('heading', { name: 'Institutional Dossier Submitted' })).not.toBeInTheDocument()
     expect(posts()).toHaveLength(1)
   })
@@ -166,15 +162,15 @@ describe('organizer submission and corrections', () => {
     else if (failure === 'malformed') responseBody = { organization: { verificationStatus: 'PENDING' } }
     else status = failure
     await load()
-    await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     expect(await screen.findByRole('alert')).toHaveFocus()
     expect(screen.getByLabelText(nameLabel)).toHaveValue('Campus Club')
     expect(screen.getByLabelText(nameLabel)).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Submit application' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Resubmit application' })).toBeDisabled()
     expect(posts()).toHaveLength(1)
     canEdit = false
     await userEvent.click(screen.getByRole('button', { name: 'Reload application' }))
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Submit application' })).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Resubmit application' })).not.toBeInTheDocument())
     expect(screen.getByLabelText(nameLabel)).toBeDisabled()
     expect(posts()).toHaveLength(1)
     expect(patches()).toHaveLength(0)
@@ -186,7 +182,7 @@ describe('organizer submission and corrections', () => {
   ])('rejects an invalid confirmation without treating it as submission', async (body) => {
     responseBody = body
     await load()
-    await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('could not be confirmed')
     expect(screen.queryByRole('heading', { name: 'Institutional Dossier Submitted' })).not.toBeInTheDocument()
   })
@@ -194,13 +190,13 @@ describe('organizer submission and corrections', () => {
   it('keeps actions locked if reloading after a conflict also fails', async () => {
     status = 409
     await load()
-    await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     await screen.findByRole('alert')
     readStatus = 503
     await userEvent.click(screen.getByRole('button', { name: 'Reload application' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('unavailable')
     expect(screen.getByLabelText(nameLabel)).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Submit application' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Resubmit application' })).toBeDisabled()
     expect(posts()).toHaveLength(1)
     readStatus = 200
     canEdit = false
@@ -213,17 +209,17 @@ describe('organizer submission and corrections', () => {
     await load()
     request.mockResolvedValueOnce(Response.json(responseBody, { status: 201 }))
     request.mockResolvedValueOnce(new Response(null, { status: 503 }))
-    await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('could not check your session')
     expect(screen.getByRole('button', { name: 'Retry session check' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Submit application' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Resubmit application' })).not.toBeInTheDocument()
     expect(posts()).toHaveLength(1)
   })
 
   it('uses the existing expired-session recovery on 401', async () => {
     status = 401
     await load()
-    await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     expect(await screen.findByRole('heading', { name: 'Welcome back to Younity' })).toBeVisible()
     expect(posts()).toHaveLength(1)
   })
@@ -232,7 +228,7 @@ describe('organizer submission and corrections', () => {
     let release!: () => void
     gate = new Promise<void>((resolve) => { release = resolve })
     const view = await load()
-    await userEvent.click(screen.getByRole('button', { name: 'Submit application' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     const signal = posts()[0][1]?.signal
     view.unmount()
     expect(signal?.aborted).toBe(true)
@@ -253,7 +249,7 @@ describe('organizer submission and corrections', () => {
   it('does not offer submission for a read-only application', async () => {
     canEdit = false
     await load()
-    expect(screen.queryByRole('button', { name: 'Submit application' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Resubmit application' })).not.toBeInTheDocument()
     expect(posts()).toHaveLength(0)
   })
 

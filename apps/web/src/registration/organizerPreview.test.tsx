@@ -27,7 +27,7 @@ async function fillDetails(user: ReturnType<typeof userEvent.setup>) {
     ['Organization / University Entity Name', 'Campus Club'],
     ['Representative Full Name', 'Yasmine Test'],
     ['Title / Academic Position', 'Coordinator'],
-    ['Direct Contact Phone', '+212600000000'],
+    ['Direct Contact Phone', '600000000'],
     ['Email Address', 'organizer@example.test'],
     ['Account Password', 'Abcdefg1!'],
     ['Confirm password', 'Abcdefg1!'],

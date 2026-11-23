@@ -3,7 +3,6 @@ import type { AuthAccessProfile } from './model'
 export type AuthDestination =
   | '/admin/applications'
   | '/student/preferences'
-  | '/organizer/application'
   | '/organizer/approved'
   | '/student/dashboard'
   | '/organizer/dashboard'
@@ -40,10 +39,6 @@ export function getAuthDestination(
   }
 
   if (profile.organizationStatus === 'PENDING') {
-    if (profile.onboarding?.complete === false) {
-      return '/organizer/application'
-    }
-
     return '/organizer/pending'
   }
 

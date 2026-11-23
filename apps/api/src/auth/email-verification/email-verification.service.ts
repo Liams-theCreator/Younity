@@ -1,7 +1,8 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { isUUID } from 'class-validator';
-import { UserRole, UserStatus } from '../../generated/prisma/enums.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import { UserRole, UserStatus, VerificationStatus } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { createHash, randomBytes } from 'node:crypto';
 import { VerifyEmailDto } from '../dto/email-verification.dto.js';
@@ -58,6 +59,9 @@ export class EmailVerificationService {
         },
         data: { emailVerifiedAt: now },
       });
+      if (user?.role === UserRole.ORGANIZER && user.status !== UserStatus.SUSPENDED) {
+        await this.submitRegisteredOrganizer(tx, verification.userId, now);
+      }
       await tx.emailVerificationToken.updateMany({
         where: { userId: verification.userId, usedAt: null },
         data: { usedAt: now },
@@ -71,6 +75,38 @@ export class EmailVerificationService {
       }
     });
     return { message: 'Email verified successfully.', ...(accessToken && { accessToken }) };
+  }
+
+  private async submitRegisteredOrganizer(tx: Prisma.TransactionClient, ownerId: string, submittedAt: Date) {
+    // Verification holds the owner row lock. Queue the signup details in the same transaction.
+    const organizations = await tx.organization.findMany({
+      where: { ownerId },
+      take: 2,
+      select: {
+        id: true,
+        verificationStatus: true,
+        orgName: true,
+        representativeFullName: true,
+        academicPosition: true,
+        phoneNumber: true,
+        applications: { select: { id: true }, take: 1 },
+      },
+    });
+    const [organization] = organizations;
+    if (!organization || organizations.length !== 1 ||
+      organization.verificationStatus !== VerificationStatus.PENDING || organization.applications.length > 0 ||
+      [organization.orgName, organization.representativeFullName, organization.academicPosition, organization.phoneNumber]
+        .some((value) => !value.trim())) return;
+
+    await tx.organizationApplication.create({
+      data: {
+        organizationId: organization.id,
+        submittedById: ownerId,
+        status: VerificationStatus.PENDING,
+        submittedAt,
+      },
+      select: { id: true },
+    });
   }
 
   async resendVerification(email: string) {

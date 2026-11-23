@@ -1,4 +1,5 @@
 import { organizationTypes } from '../registration/organizationDraft'
+import { isMoroccanPhoneNumber, moroccanDialCode, moroccanPhoneError } from '../registration/moroccanPhone'
 
 export const draftFields = [
   'organizationName', 'type', 'representativeFullName',
@@ -45,8 +46,9 @@ export function draftChanges(values: DraftValues, baseline: DraftValues) {
     if (field === 'type' && value && !organizationTypes.some((type) => type === value)) {
       throw new DraftError('Select a supported entity category.')
     }
-    if (field === 'phoneNumber' && value && !/^\+[1-9][0-9 ()-]{6,}$/.test(value)) {
-      throw new DraftError('Enter a contact phone number including its country code.')
+    if (field === 'phoneNumber' && value) {
+      const valid = value.startsWith(moroccanDialCode) ? isMoroccanPhoneNumber(value) : /^\+[1-9][0-9 ()-]{6,}$/.test(value)
+      if (!valid) throw new DraftError(moroccanPhoneError)
     }
     if (field === 'proofUrl' && value) {
       try {

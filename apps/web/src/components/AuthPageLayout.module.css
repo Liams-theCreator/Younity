@@ -210,11 +210,6 @@
   font-size: 1.125rem;
 }
 
-.organizerStatus .back {
-  min-height: 2.25rem;
-  padding-inline: .25rem;
-}
-
 @media (min-width: 64rem) {
   .layout {
     grid-template-columns: var(--hero-width) minmax(0, 1fr);

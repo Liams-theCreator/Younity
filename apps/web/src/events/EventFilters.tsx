@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import ReferenceIcon from '../components/ReferenceIcon'
 import { formats, formatLabels, type Category } from './model'
 import styles from './events.module.css'
@@ -7,14 +7,11 @@ const labels = {
   q: 'Keyword',
   format: 'Format',
   category: 'Category',
-  city: 'City',
-  from: 'From',
-  to: 'To',
 }
 type FilterName = keyof typeof labels
 const filterNames = Object.keys(labels) as FilterName[]
 const emptyFilters: Record<FilterName, string> = {
-  q: '', format: '', category: '', city: '', from: '', to: '',
+  q: '', format: '', category: '',
 }
 
 type FilterFieldProps = {
@@ -51,9 +48,6 @@ export default function EventFilters({ id, search, categories, onApply }: EventF
     for (const name of filterNames) initial[name] = applied.get(name) ?? ''
     return initial
   })
-  const [invalidDates, setInvalidDates] = useState(false)
-  const endDate = useRef<HTMLInputElement>(null)
-  const dateErrorId = `${id}-date-error`
   const fieldId = (name: FilterName) => `${id}-${name}`
 
   function control(name: FilterName) {
@@ -64,19 +58,12 @@ export default function EventFilters({ id, search, categories, onApply }: EventF
       onChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { value } = event.currentTarget
         setDraft(previous => ({ ...previous, [name]: value }))
-        if (name === 'from' || name === 'to') setInvalidDates(false)
       },
     }
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (draft.from && draft.to && draft.from > draft.to) {
-      setInvalidDates(true)
-      endDate.current?.focus()
-      return
-    }
-
     const next = new URLSearchParams()
     for (const name of filterNames) {
       const value = draft[name].trim()
@@ -88,7 +75,6 @@ export default function EventFilters({ id, search, categories, onApply }: EventF
   function reset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setDraft(emptyFilters)
-    setInvalidDates(false)
     onApply(new URLSearchParams())
   }
 
@@ -129,31 +115,9 @@ export default function EventFilters({ id, search, categories, onApply }: EventF
             </select>
           </FilterField>
         </div>
-        <div className={styles.searchMore}>
-          <FilterField id={fieldId('city')} name="city" icon="location_on">
-            <input {...control('city')} maxLength={100} placeholder="All cities" />
-          </FilterField>
-          <FilterField id={fieldId('from')} name="from" icon="calendar_month">
-            <input {...control('from')} type="date" />
-          </FilterField>
-          <FilterField id={fieldId('to')} name="to" icon="calendar_month">
-            <input
-              {...control('to')}
-              ref={endDate}
-              type="date"
-              aria-invalid={invalidDates || undefined}
-              aria-describedby={invalidDates ? dateErrorId : undefined}
-            />
-          </FilterField>
-        </div>
-        <button type="submit" className={`${styles.primaryButton} ${styles.searchSubmit}`}>
+        <button type="submit" className={styles.primaryButton}>
           Search events <ReferenceIcon name="arrow_forward" />
         </button>
-        {invalidDates && (
-          <p id={dateErrorId} className={styles.fieldError} role="alert">
-            End date must be on or after start date.
-          </p>
-        )}
       </div>
 
       <div className={styles.filterBar}>

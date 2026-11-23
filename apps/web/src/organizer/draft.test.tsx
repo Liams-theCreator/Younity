@@ -60,7 +60,7 @@ beforeEach(() => {
   readGate = null
   saveGate = null
   role = 'ORGANIZER'
-  organizationStatus = 'PENDING'
+  organizationStatus = 'NEEDS_CHANGES'
   request.mockReset().mockImplementation(async (url, options) => {
     if (url === '/api/auth/me') {
       return Response.json({
@@ -99,7 +99,7 @@ describe('organizer draft frontend integration', () => {
     expect(screen.getByLabelText('Entity Category')).toHaveValue('STUDENT_CLUB')
     expect(screen.getByLabelText('Representative Full Name')).toHaveValue('Sara Test')
     expect(screen.getByLabelText('Title / Academic Position')).toHaveValue('Coordinator')
-    expect(screen.getByLabelText('Direct Contact Phone')).toHaveValue('+212612345678')
+    expect(screen.getByLabelText('Direct Contact Phone')).toHaveValue('612345678')
     expect(screen.getByLabelText('Supporting link (optional)')).toHaveValue('https://example.test/club')
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument()
     expect(reads()).toHaveLength(1)
@@ -251,6 +251,7 @@ describe('organizer draft frontend integration', () => {
 
   it.each([
     ['STUDENT', 'PENDING', 'Campus events'],
+    ['ORGANIZER', 'PENDING', 'Institutional Dossier Submitted'],
     ['ORGANIZER', 'REJECTED', 'Institutional Dossier: Application Not Approved'],
     ['ORGANIZER', 'APPROVED', 'Organizer dashboard'],
   ])('blocks %s/%s before requesting draft data', async (accountRole, status, destination) => {

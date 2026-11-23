@@ -57,14 +57,12 @@ export default function OrganizerStatusLayout({
   applicationId,
   email,
   reviewerNote,
-  back,
   children,
 }: {
   status: OrganizationStatus
   applicationId?: string
   email?: string
   reviewerNote?: string | null
-  back?: ReactNode
   children: ReactNode
 }) {
   const decision = decisions[status]
@@ -75,8 +73,6 @@ export default function OrganizerStatusLayout({
   return (
     <AuthPageLayout variant={pending ? 'organizerPending' : 'organizerStatus'}>
       <div className={styles.frame}>
-        {back}
-
         <section className={`${layoutStyles.card} ${styles.card} ${decision.tone}`} aria-labelledby="organizer-status-title">
           <h1 id="organizer-status-title" className={styles.title}>{decision.title}</h1>
 

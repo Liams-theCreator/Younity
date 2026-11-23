@@ -7,7 +7,6 @@ import styles from './ScrollHeader.module.css'
 const accountLabels: Record<AuthDestination, string> = {
   '/student/dashboard': 'Edit profile',
   '/student/preferences': 'Continue registration',
-  '/organizer/application': 'Continue registration',
   '/organizer/pending': 'Application status',
   '/organizer/status': 'Application status',
   '/organizer/approved': 'Application decision',

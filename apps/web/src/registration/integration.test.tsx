@@ -42,7 +42,7 @@ async function fill(account: 'student' | 'organizer') {
     edit('Organization / University Entity Name', 'Campus Club')
     edit('Representative Full Name', 'Sara Test')
     edit('Title / Academic Position', 'Coordinator')
-    edit('Direct Contact Phone', '+212612345678')
+    edit('Direct Contact Phone', '0612345678')
     fireEvent.change(screen.getByLabelText('Entity Category'), { target: { value: 'STUDENT_CLUB' } })
   }
   edit('Email Address', email)

@@ -103,10 +103,13 @@ describe('verification integration with shared authentication', () => {
         return Response.json({
           id: 'verified-user', email, role,
           status: role === 'STUDENT' ? 'ACTIVE' : 'PENDING',
-          organization: role === 'STUDENT' ? null : { verificationStatus: 'PENDING' },
+          organization: role === 'STUDENT' ? null : {
+            verificationStatus: 'PENDING',
+            application: { id: 'verified-application', status: 'PENDING', reviewerNote: null },
+          },
           onboarding: {
-            complete: false,
-            nextStep: role === 'STUDENT' ? 'SELECT_INTERESTS' : 'COMPLETE_ORGANIZER_APPLICATION',
+            complete: role === 'ORGANIZER',
+            nextStep: role === 'STUDENT' ? 'SELECT_INTERESTS' : 'NONE',
           },
         })
       }
@@ -117,7 +120,6 @@ describe('verification integration with shared authentication', () => {
       if (url === '/api/student/preferences') {
         return Response.json({ interests: [], university: null, academicField: null, studyLevel: null, opportunityFormat: null })
       }
-      if (url === '/api/organizer-applications/draft') return Response.json({ draft: null, canEdit: true })
       throw new Error(`Unexpected request: ${String(url)}`)
     })
 
@@ -125,10 +127,11 @@ describe('verification integration with shared authentication', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Verify email' }))
 
     expect(await screen.findByRole('heading', {
-      name: role === 'STUDENT' ? 'Your discovery preferences' : 'Organizer application draft',
+      name: role === 'STUDENT' ? 'Your discovery preferences' : 'Institutional Dossier Submitted',
     })).toBeVisible()
     expect(screen.queryByRole('navigation', { name: 'Account' })).not.toBeInTheDocument()
     expect(request.mock.calls.some(([url]) => url === '/api/auth/login')).toBe(false)
+    expect(request.mock.calls.some(([url]) => url === '/api/organizer-applications/draft')).toBe(false)
   })
 
   it('registers a student with no academic fields and hands off verification recovery context without credentials', async () => {
@@ -158,6 +161,7 @@ describe('verification integration with shared authentication', () => {
     expect(payload).not.toHaveProperty('academicField')
     expect(payload).not.toHaveProperty('studyLevel')
     expect(request.mock.calls.some(([url]) => url === '/api/auth/login')).toBe(false)
+    expect(request.mock.calls.some(([url]) => url === '/api/organizer-applications/draft')).toBe(false)
     expect(request).toHaveBeenCalledWith('/api/email-verification/recovery-status', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ recoveryToken }),
     }))

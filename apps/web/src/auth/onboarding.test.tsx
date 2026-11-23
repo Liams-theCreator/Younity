@@ -130,7 +130,7 @@ describe('onboarding routing and approval acknowledgment', () => {
     ).toBeVisible()
   })
 
-  it('resumes an unsubmitted organizer on the saved draft instead of pending review', async () => {
+  it('shows submission status without opening the editor for an organizer with no application', async () => {
     complete = false
     status = 'PENDING'
 
@@ -138,13 +138,12 @@ describe('onboarding routing and approval acknowledgment', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Organizer application draft',
+        name: 'Organizer application status',
       }),
     ).toBeVisible()
 
-    expect(
-      screen.getByRole('link', { name: 'Explore events' }),
-    ).toHaveAttribute('href', '/events')
+    expect(screen.getByText('Your application hasn’t entered review yet.')).toBeVisible()
+    expect(request.mock.calls.some(([url]) => url === '/api/organizer-applications/draft')).toBe(false)
   })
 
   it('routes completed corrections by review status and displays real feedback', async () => {
@@ -281,7 +280,7 @@ describe('onboarding routing and approval acknowledgment', () => {
     })
     expect(screen.getByText('ID: application')).toBeVisible()
     expect(screen.getByText('Status: Queued')).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Back to Registration Step 2' })).toHaveAttribute('href', '/organizer/application')
+    expect(screen.queryByRole('link', { name: 'Update application' })).not.toBeInTheDocument()
 
     vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
     status = 'APPROVED'

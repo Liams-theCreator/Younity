@@ -57,6 +57,7 @@ describe('registration and email verification with PostgreSQL', () => {
     try {
       if (prisma) {
         await prisma.emailVerificationToken.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.organizationApplication.deleteMany({ where: { submittedById: { in: ids } } });
         await prisma.organization.deleteMany({ where: { ownerId: { in: ids } } });
         await prisma.studentProfile.deleteMany({ where: { userId: { in: ids } } });
         await prisma.user.deleteMany({ where: { id: { in: ids } } });
@@ -108,6 +109,7 @@ describe('registration and email verification with PostgreSQL', () => {
     expect(registration).toContain('Secure');
     const registrationCookie = registration!.split(';', 1)[0]!;
     await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', registrationCookie).expect(401);
+    expect(await prisma.organizationApplication.count({ where: { submittedById: created.body.id } })).toBe(0);
 
     const token = lastToken();
     const confirmed = await verify(token).set('Cookie', registrationCookie).expect(200);
@@ -119,11 +121,26 @@ describe('registration and email verification with PostgreSQL', () => {
     const me = await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', session!.split(';', 1)[0]!).expect(200);
     expect(me.body.id).toBe(created.body.id);
     expect(me.body.onboarding).toEqual({
-      complete: false,
-      nextStep: role === 'student' ? 'SELECT_INTERESTS' : 'COMPLETE_ORGANIZER_APPLICATION',
+      complete: role === 'organizer',
+      nextStep: role === 'student' ? 'SELECT_INTERESTS' : 'NONE',
     });
-    if (role === 'organizer') expect(me.body.organization.verificationStatus).toBe('PENDING');
     await verify(token).set('Cookie', registrationCookie).expect(400);
+    if (role === 'organizer') {
+      expect(me.body.organization.verificationStatus).toBe('PENDING');
+      const applications = await prisma.organizationApplication.findMany({
+        where: { submittedById: created.body.id },
+        include: { organization: true },
+      });
+      expect(applications).toHaveLength(1);
+      expect(applications[0]).toMatchObject({
+        id: me.body.organization.application.id,
+        status: 'PENDING',
+        revision: 1,
+        organization: { orgName: details.organizationName, phoneNumber: details.phoneNumber },
+      });
+      await request(app.getHttpServer()).patch('/api/organizer-applications/draft')
+        .set('Cookie', session!.split(';', 1)[0]!).send({ academicPosition: 'Updated role' }).expect(409);
+    }
   });
 
   it('verifies an email without signing in when the registration cookie belongs to another account', async () => {

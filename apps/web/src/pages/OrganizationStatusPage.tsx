@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
+import AuthPageLayout from '../components/AuthPageLayout'
 import layoutStyles from '../components/AuthPageLayout.module.css'
 import OrganizerStatusLayout from '../components/OrganizerStatusLayout'
 import ReferenceIcon from '../components/ReferenceIcon'
@@ -43,17 +44,26 @@ export default function OrganizationStatusPage() {
     }
   }, [status, refreshSession])
 
+  if (status === 'PENDING' && user?.onboarding?.complete === false) {
+    return (
+      <AuthPageLayout variant="organizerPending">
+        <section className={layoutStyles.card}>
+          <h1 className={layoutStyles.title}>Organizer application status</h1>
+          <p className={layoutStyles.subtitle}>Your application hasn’t entered review yet.</p>
+          <button className={styles.refresh} type="button" onClick={() => { void refreshSession() }}>
+            <ReferenceIcon name="refresh" /> Check status again
+          </button>
+        </section>
+      </AuthPageLayout>
+    )
+  }
+
   return (
     <OrganizerStatusLayout
       status={status}
       applicationId={user?.application?.id}
       email={user?.email}
       reviewerNote={user?.application?.reviewerNote}
-      back={status === 'PENDING' && (
-        <Link className={layoutStyles.back} to="/organizer/application">
-          <ReferenceIcon name="arrow_back" /> Back to Registration Step 2
-        </Link>
-      )}
     >
       <div className={styles.actions}>
         {!correcting && (

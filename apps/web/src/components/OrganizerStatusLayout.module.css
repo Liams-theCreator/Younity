@@ -1,6 +1,4 @@
 .frame {
-  display: grid;
-  gap: 1.5rem;
   width: min(100%, var(--auth-card-width));
   min-width: 0;
 }

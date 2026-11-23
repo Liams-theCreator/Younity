@@ -75,7 +75,7 @@ async function read(path: string, signal: AbortSignal, request = apiRequest): Pr
 }
 export function discoveryQuery(params: URLSearchParams): URLSearchParams {
   const query = new URLSearchParams()
-  for (const key of ['q', 'category', 'city', 'format', 'from', 'to']) {
+  for (const key of ['q', 'category', 'format']) {
     const value = params.get(key)?.trim()
     if (value) query.set(key, value)
   }
