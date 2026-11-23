@@ -10,12 +10,13 @@ import type { SaveOrganizerDraftDto } from './dto/save-organizer-draft.dto.js';
 import type { OrganizerApplicationDraft } from '../generated/prisma/client.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { advanceApplicationRevision } from '../admin/application-revision.js';
+import { proofMetadata, type ProofData } from './organizer-proof.js';
 
 @Injectable()
 export class OrganizerApplicationsService {
 	constructor(private readonly prisma: PrismaService) {}
 
-	async saveDraft(ownerId: string, dto: SaveOrganizerDraftDto) {
+	async saveDraft(ownerId: string, dto: SaveOrganizerDraftDto, proof?: ProofData) {
 		const fields: Pick<
 			SaveOrganizerDraftDto,
 			| 'organizationName'
@@ -73,35 +74,37 @@ export class OrganizerApplicationsService {
 										academicPosition: true,
 										phoneNumber: true,
 										proofUrl: true,
+										proof: { select: proofMetadata },
 									},
 								},
 							},
 						});
 
-					if (changesRequested) {
-						const submitted = changesRequested.organization;
-
-						return tx.organizerApplicationDraft.upsert({
-							where: { ownerId },
-							create: {
-								ownerId,
+					const submitted = changesRequested?.organization;
+					const saved = await tx.organizerApplicationDraft.upsert({
+						where: { ownerId },
+						create: {
+							ownerId,
+							...(submitted && {
 								organizationName: submitted.orgName,
 								type: submitted.type,
 								representativeFullName: submitted.representativeFullName,
 								academicPosition: submitted.academicPosition,
 								phoneNumber: submitted.phoneNumber,
 								proofUrl: submitted.proofUrl,
-								...fields,
-							},
-							update: fields,
-						});
-					}
-
-					return tx.organizerApplicationDraft.upsert({
-						where: { ownerId },
-						create: { ownerId, ...fields },
-						update: fields,
+							}),
+							...fields,
+							...(proof && { proof: { create: proof } }),
+						},
+						update: {
+							...fields,
+							...(proof && { proof: { upsert: { create: proof, update: proof } } }),
+						},
+						include: { proof: { select: proofMetadata } },
 					});
+					const { proof: savedProof, ...savedFields } = saved;
+					const effectiveProof = savedProof ?? submitted?.proof;
+					return { ...savedFields, ...(effectiveProof && { proof: effectiveProof }) };
 				},
 				{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
 			);
@@ -130,6 +133,7 @@ export class OrganizerApplicationsService {
 						academicPosition: true,
 						phoneNumber: true,
 						proofUrl: true,
+						proof: { select: proofMetadata },
 					},
 				}),
 				this.prisma.organizationApplication.findFirst({
@@ -144,6 +148,7 @@ export class OrganizerApplicationsService {
 								academicPosition: true,
 								phoneNumber: true,
 								proofUrl: true,
+								proof: { select: proofMetadata },
 							},
 						},
 					},
@@ -152,18 +157,22 @@ export class OrganizerApplicationsService {
 			{ isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
 		);
 
-		if (!application) {
-			return { draft: savedDraft, canEdit: true };
-		}
+		const submitted = application ? {
+			organizationName: application.organization.orgName,
+			type: application.organization.type,
+			representativeFullName: application.organization.representativeFullName,
+			academicPosition: application.organization.academicPosition,
+			phoneNumber: application.organization.phoneNumber,
+			proofUrl: application.organization.proofUrl,
+			proof: application.organization.proof,
+		} : null;
 
-		const { orgName, ...submittedFields } = application.organization;
-		const submitted = { organizationName: orgName, ...submittedFields };
-
-		if (application.status === 'NEEDS_CHANGES') {
-			return { draft: savedDraft ?? submitted, canEdit: true };
-		}
-
-		return { draft: submitted, canEdit: false };
+		const canEdit = !application || application.status === 'NEEDS_CHANGES';
+		const snapshot = canEdit ? savedDraft ?? submitted : submitted;
+		if (!snapshot) return { draft: null, canEdit };
+		const { proof, ...fields } = snapshot;
+		const effectiveProof = proof ?? submitted?.proof;
+		return { draft: { ...fields, ...(effectiveProof && { proof: effectiveProof }) }, canEdit };
 	}
 
 	private getMissingSubmissionFields(
@@ -241,6 +250,7 @@ export class OrganizerApplicationsService {
 
 					const draft = await tx.organizerApplicationDraft.findUnique({
 						where: { ownerId },
+						include: { proof: { select: { id: true } } },
 					});
 
 					if (!draft) {
@@ -275,9 +285,17 @@ export class OrganizerApplicationsService {
 							representativeFullName: draft.representativeFullName!,
 							academicPosition: draft.academicPosition!,
 							phoneNumber: draft.phoneNumber!,
-							proofUrl: draft.proofUrl,
+							proofUrl: draft.proof ? null : draft.proofUrl,
 						},
 					});
+
+					if (draft.proof) {
+						await tx.organizerProof.deleteMany({ where: { organizationId: organization.id } });
+						await tx.organizerProof.update({
+							where: { id: draft.proof.id },
+							data: { organizationId: organization.id, draftOwnerId: null },
+						});
+					}
 
 					const select = {
 						id: true,

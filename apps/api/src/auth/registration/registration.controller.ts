@@ -1,4 +1,5 @@
-import { Body, Controller, Header, Post, Res } from "@nestjs/common";
+import { Body, Controller, Header, Post, Res, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from '@nestjs/platform-express';
 import { RegistrationService } from "./registration.service.js";
 import { RegisterStudentDto } from "../dto/register-student.dto.js";
 import { RegisterOrganizerDto } from "../dto/register-organizer.dto.js";
@@ -9,9 +10,12 @@ import {
   ApiCreatedResponse,
   ApiBadRequestResponse,
   ApiConflictResponse,
+  ApiConsumes,
 } from '@nestjs/swagger';
 
 import type { Response } from 'express';
+import { proofUploadLimits, readProofUpload } from '../../organizer-applications/organizer-proof.js';
+import type { ProofUpload } from '../../organizer-applications/organizer-proof.js';
 import {
   REGISTRATION_VERIFICATION_COOKIE,
   registrationVerificationCookieOptions,
@@ -64,6 +68,8 @@ export class RegistrationController {
 
   @Post('organizer')
   @Header('Cache-Control', 'no-store')
+  @UseInterceptors(FileInterceptor('proof', { limits: proofUploadLimits }))
+  @ApiConsumes('application/json', 'multipart/form-data')
   @ApiOperation({
     summary: 'Register an organizer',
     description:
@@ -82,8 +88,12 @@ export class RegistrationController {
   @ApiConflictResponse({
     description: 'Email is already registered.',
   })
-  async registerOrganizer(@Body() dto: RegisterOrganizerDto, @Res({ passthrough: true }) response: Response) {
-    const registration = await this.registrationService.registerOrganizer(dto);
+  async registerOrganizer(
+    @Body() dto: RegisterOrganizerDto,
+    @Res({ passthrough: true }) response: Response,
+    @UploadedFile() file?: ProofUpload,
+  ) {
+    const registration = await this.registrationService.registerOrganizer(dto, file && readProofUpload(file));
     this.rememberRegistration(response, registration.verificationRecoveryToken);
     return registration;
   }

@@ -15,7 +15,7 @@ const nameLabel = 'Organization / University Entity Name'
 const complete = {
   organizationName: 'Campus Club', type: 'STUDENT_CLUB',
   representativeFullName: 'Sara Test', academicPosition: 'Coordinator',
-  phoneNumber: '+212612345678', proofUrl: null,
+  phoneNumber: '+212612345678',
 }
 let draft: Record<keyof DraftValues, string | null>
 let organizationStatus: string
@@ -118,15 +118,12 @@ describe('organizer submission and corrections', () => {
     expect(patches()).toHaveLength(0)
   })
 
-  it.each([
-    ['phoneNumber', 'not-a-phone', 'Direct Contact Phone'],
-    ['proofUrl', 'ftp://example.test/evidence', 'Supporting link (optional)'],
-  ] as const)('checks the format of saved %s before sending anything', async (field, value, label) => {
-    draft[field] = value
+  it('checks the format of the saved phone before sending anything', async () => {
+    draft.phoneNumber = 'not-a-phone'
     await load()
     await userEvent.click(screen.getByRole('button', { name: 'Resubmit application' }))
     expect(await screen.findByRole('alert')).toBeVisible()
-    expect(screen.getByLabelText(label)).toHaveFocus()
+    expect(screen.getByLabelText('Direct Contact Phone')).toHaveFocus()
     expect(posts()).toHaveLength(0)
   })
 
@@ -253,8 +250,8 @@ describe('organizer submission and corrections', () => {
     expect(posts()).toHaveLength(0)
   })
 
-  it('validates all supplied values, including unchanged overlong text, without requiring a supporting link', () => {
-    const values = { ...complete, proofUrl: '' }
+  it('validates all supplied values, including unchanged overlong text', () => {
+    const values = complete
     expect(submissionErrors(values)).toEqual({})
     expect(submissionErrors({ ...values, organizationName: 'x'.repeat(256) })).toHaveProperty('organizationName')
     expect(submissionErrors({ ...values, type: 'UNKNOWN' })).toHaveProperty('type')

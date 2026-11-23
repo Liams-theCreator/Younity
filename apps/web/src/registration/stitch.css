@@ -334,11 +334,12 @@
   outline: 2px solid #003bba;
   outline-offset: 2px;
 }
-.registration-organizer #document-note {
+.registration-organizer .document-note {
   margin: 12px 0 0;
   font-size: 11px;
   line-height: 14px;
-  color: #747686;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 .registration-organizer .organizer-consent {
   padding: 16px;

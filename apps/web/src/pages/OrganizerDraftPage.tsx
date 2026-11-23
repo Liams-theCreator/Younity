@@ -3,8 +3,10 @@ import { Link, Navigate } from 'react-router'
 import ProtectedRoute from '../auth/ProtectedRoute'
 import { useAuth } from '../auth/useAuth'
 import MoroccanPhoneInput from '../components/MoroccanPhoneInput'
+import OrganizerProofField from '../components/OrganizerProofField'
 import { RegistrationLayout } from '../components/RegistrationForm'
 import RegistrationSelect from '../components/RegistrationSelect'
+import { proofSelectionError } from '../organizer/proof'
 import {
   organizationTypeLabels,
   organizationTypes,
@@ -48,7 +50,6 @@ const inputs = [
   ['representativeFullName', 'Representative Full Name', 'text', 'name'],
   ['academicPosition', 'Title / Academic Position', 'text', 'organization-title'],
   ['phoneNumber', 'Direct Contact Phone', 'tel', 'tel'],
-  ['proofUrl', 'Supporting link (optional)', 'url', 'url'],
 ] as const
 
 function DraftEditor({
@@ -59,6 +60,7 @@ function DraftEditor({
   const { requestProtected, refreshSession } = useAuth()
   const [snapshot, setSnapshot] = useState<DraftSnapshot | null>(null)
   const [values, setValues] = useState<DraftValues>({ ...emptyDraft })
+  const [proof, setProof] = useState<File | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [loading, setLoading] = useState(true)
@@ -80,6 +82,7 @@ function DraftEditor({
         if (controller.signal.aborted) return
         setSnapshot(saved)
         setValues(saved.values)
+        setProof(null)
         setNeedsReload(false)
       },
       (cause) => {
@@ -123,7 +126,8 @@ function DraftEditor({
       !snapshot?.canEdit ||
       loading ||
       needsReload ||
-      mutationLock.current
+      mutationLock.current ||
+      proofSelectionError(proof)
     ) return
 
     setError('')
@@ -143,7 +147,7 @@ function DraftEditor({
       return
     }
 
-    if (!Object.keys(changes).length) return
+    if (!Object.keys(changes).length && !proof) return
 
     mutationLock.current = true
     operation.current?.abort()
@@ -157,12 +161,14 @@ function DraftEditor({
         requestProtected,
         controller.signal,
         changes,
+        proof ?? undefined,
       )
 
       if (controller.signal.aborted) return
 
       setSnapshot(saved)
       setValues(saved.values)
+      setProof(null)
       setNotice('Draft saved.')
     } catch (cause) {
       if (!controller.signal.aborted) {
@@ -180,10 +186,10 @@ function DraftEditor({
 
   const dirty =
     snapshot !== null &&
-    Object.keys(values).some((field) => {
+    (proof !== null || Object.keys(values).some((field) => {
       const key = field as keyof DraftValues
       return values[key].trim() !== snapshot.values[key].trim()
-    })
+    }))
 
   async function submit() {
     if (
@@ -242,7 +248,7 @@ function DraftEditor({
       variant="organizer"
       title="Update your organizer application"
       headerContent={<p className="helper">Application corrections</p>}
-      introduction="Update the requested details, save your changes, and resubmit for review. A supporting link is optional."
+      introduction="Update the requested details, save your changes, and resubmit for review."
     >
       {loading && <p role="status">Loading your saved draft…</p>}
 
@@ -297,11 +303,7 @@ function DraftEditor({
                   <div className="field-label">
                     <label htmlFor={`draft-${field}`}>{label}</label>
 
-                    {field !== 'proofUrl' && (
-                      <span className="required-hint">
-                        Required to submit
-                      </span>
-                    )}
+                    <span className="required-hint">Required to submit</span>
                   </div>
 
                   {field === 'phoneNumber' ? (
@@ -317,7 +319,7 @@ function DraftEditor({
                     name={field}
                     type={type}
                     autoComplete={autoComplete}
-                    maxLength={field === 'proofUrl' ? 512 : 255}
+                    maxLength={255}
                     value={values[field]}
                     onChange={(event) =>
                       change(field, event.target.value)
@@ -356,6 +358,20 @@ function DraftEditor({
                 onChange={(value) => change('type', value)}
               />
 
+              <section className="organizer-draft-proof" aria-labelledby="draft-proof-title">
+                <h2 id="draft-proof-title">Proof of affiliation &amp; authorization</h2>
+                <OrganizerProofField
+                  file={proof}
+                  savedName={snapshot.proof?.name}
+                  disabled={pending !== null || needsReload || !snapshot.canEdit}
+                  onChange={(file) => {
+                    setProof(file)
+                    setError('')
+                    setNotice('')
+                  }}
+                />
+              </section>
+
               {snapshot.canEdit && (
                 <div className="organizer-draft-actions">
                   <button
@@ -364,7 +380,8 @@ function DraftEditor({
                     disabled={
                       !dirty ||
                       pending !== null ||
-                      needsReload
+                      needsReload ||
+                      Boolean(proofSelectionError(proof))
                     }
                   >
                     {pending === 'save' ? 'Saving draft…' : 'Save draft'}

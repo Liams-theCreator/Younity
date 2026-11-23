@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { apiRequest } from '../api/client'
+import type { ProofDocument } from './proof'
 
 vi.mock('../api/client', () => ({ apiRequest: vi.fn() }))
 const request = vi.mocked(apiRequest)
@@ -17,6 +18,7 @@ type Draft = {
   academicPosition: string | null
   phoneNumber: string | null
   proofUrl: string | null
+  proof?: ProofDocument
 }
 
 const empty: Draft = {
@@ -73,8 +75,16 @@ beforeEach(() => {
     if (options?.method === 'PATCH') {
       if (saveGate) await saveGate
       if (saveStatus !== 200) return new Response(null, { status: saveStatus })
-      const changes = JSON.parse(String(options.body)) as Partial<Draft>
-      draft = { ...(draft ?? empty), ...changes }
+      const form = options.body instanceof FormData ? options.body : null
+      const changes = JSON.parse(String(form ? form.get('changes') : options.body)) as Partial<Draft>
+      const file = form?.get('proof')
+      draft = {
+        ...(draft ?? empty),
+        ...changes,
+        ...(file instanceof File && {
+          proof: { id: '182cfcf1-3678-41a8-a9f9-6771e216057b', name: file.name, mediaType: file.type },
+        }),
+      }
       return Response.json({ draft, canEdit })
     }
     if (readGate) await readGate
@@ -100,12 +110,32 @@ describe('organizer draft frontend integration', () => {
     expect(screen.getByLabelText('Representative Full Name')).toHaveValue('Sara Test')
     expect(screen.getByLabelText('Title / Academic Position')).toHaveValue('Coordinator')
     expect(screen.getByLabelText('Direct Contact Phone')).toHaveValue('612345678')
-    expect(screen.getByLabelText('Supporting link (optional)')).toHaveValue('https://example.test/club')
+    expect(screen.queryByLabelText(/supporting link/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument()
     expect(reads()).toHaveLength(1)
     expect(reads()[0][1]).toEqual(expect.objectContaining({ credentials: 'include', cache: 'no-store' }))
     expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled()
     expect(patches()).toHaveLength(0)
+  })
+
+  it('saves a replacement proof alongside the draft and restores its filename on reopen', async () => {
+    const view = mount()
+    const picker = await screen.findByLabelText('Affiliation or authorization document')
+    const file = new File(['replacement'], 'replacement.pdf', { type: 'application/pdf' })
+    await userEvent.upload(picker, file)
+    expect(screen.getByRole('button', { name: 'Resubmit application' })).toBeDisabled()
+    expect(patches()).toHaveLength(0)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+    expect(await screen.findByText('Saved proof: replacement.pdf')).toBeVisible()
+    expect(screen.queryByText('Selected: replacement.pdf')).not.toBeInTheDocument()
+    expect(patches()).toHaveLength(1)
+    const form = patches()[0][1]?.body as FormData
+    expect(form.get('changes')).toBe('{}')
+    expect(form.get('proof')).toMatchObject({ name: file.name, size: file.size })
+    view.unmount()
+    mount()
+    expect(await screen.findByText('Saved proof: replacement.pdf')).toBeVisible()
   })
 
   it('opens an empty form only after confirmed absence and saves a partial draft only on Save', async () => {

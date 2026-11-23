@@ -5,7 +5,7 @@ export type SubmissionErrors = Partial<Record<keyof DraftValues, string>>
 export function submissionErrors(values: DraftValues): SubmissionErrors {
   const errors: SubmissionErrors = {}
   for (const field of draftFields) {
-    if (field !== 'proofUrl' && !values[field].trim()) {
+    if (!values[field].trim()) {
       errors[field] = 'Required before submitting your application.'
       continue
     }

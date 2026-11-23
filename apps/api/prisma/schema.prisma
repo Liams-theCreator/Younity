@@ -194,6 +194,7 @@ model Organization {
   owner         User                      @relation("OrganizationOwnerId", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   verifiedBy    User?                     @relation("OrganizationVerifiedById", fields: [verifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   applications  OrganizationApplication[] @relation("OrganizationApplicationOrganizationId")
+  proof         OrganizerProof?
   events        Event[]                   @relation("EventOrganizationId")
   notifications Notification[]            @relation("NotificationOrganizationId")
   followers     OrganizationFollow[]      @relation("OrganizationFollowOrganizationId")
@@ -361,8 +362,23 @@ model OrganizerApplicationDraft {
   updatedAt              DateTime          @updatedAt @map("updated_at") @db.Timestamp(6)
 
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  proof OrganizerProof?
 
   @@map("organizer_application_drafts")
+}
+
+model OrganizerProof {
+  id             String  @id @default(uuid()) @db.Uuid
+  name           String  @db.VarChar(180)
+  mediaType      String  @map("media_type") @db.VarChar(40)
+  data           Bytes
+  organizationId String? @unique @map("organization_id") @db.Uuid
+  draftOwnerId   String? @unique @map("draft_owner_id") @db.Uuid
+
+  organization Organization?              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  draft        OrganizerApplicationDraft? @relation(fields: [draftOwnerId], references: [ownerId], onDelete: Cascade)
+
+  @@map("organizer_proofs")
 }
 
 // Append-only audit; latest application metadata remains compatible.

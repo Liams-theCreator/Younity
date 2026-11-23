@@ -68,7 +68,7 @@ beforeEach(() => {
     if (String(input).startsWith('/api/auth/register/')) {
       if (delayRegistration) await delayRegistration
       if (registrationError) return Response.json({ message: registrationError.message }, { status: registrationError.status })
-      const address = JSON.parse(String(options?.body)).email
+      const address = options?.body instanceof FormData ? options.body.get('email') : JSON.parse(String(options?.body)).email
       const recoveryToken = `registration-${verificationStates.size}-${address}`
       const expiresAt = mailFails ? null : new Date(Date.now() + 540000).toISOString()
       verificationStates.set(recoveryToken, { verified: false, unavailable: false, expiresAt })
@@ -136,12 +136,15 @@ describe('registration handoff to email verification', () => {
     expect(screen.getByLabelText('Current route')).toHaveTextContent('/verify-email')
   })
 
-  it('registers an organizer without a fabricated proof URL and waits for email verification', async () => {
+  it('uploads the organizer’s proof with registration and waits for email verification', async () => {
     mount('organizer'); await fill('organizer')
     await userEvent.upload(screen.getByLabelText('Affiliation or authorization document'), new File(['proof'], 'proof.pdf', { type: 'application/pdf' }))
     await submitRegistration('organizer')
     expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
-    const payload = JSON.parse(String(posts('/api/auth/register/organizer')[0][1]?.body))
+    const form = posts('/api/auth/register/organizer')[0][1]?.body as FormData
+    expect(form.get('proof')).toMatchObject({ name: 'proof.pdf', type: 'application/pdf' })
+    form.delete('proof')
+    const payload = Object.fromEntries(form)
     expect(payload).toEqual({ firstName: 'Sara', lastName: 'Test', email, password, organizationName: 'Campus Club', type: 'STUDENT_CLUB', representativeFullName: 'Sara Test', academicPosition: 'Coordinator', phoneNumber: '+212612345678' })
     expect(screen.getByLabelText('Current route')).toHaveTextContent('/verify-email')
     expect(screen.queryByText(/YNT-ORG-2025/)).not.toBeInTheDocument()

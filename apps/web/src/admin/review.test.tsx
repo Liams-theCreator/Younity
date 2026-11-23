@@ -253,6 +253,20 @@ describe('application details and decisions', () => {
     expect(screen.getByText('This application has no available review actions.')).toBeInTheDocument()
   })
 
+  it('previews and downloads the uploaded proof served for the current application', async () => {
+    const proof = { id: '182cfcf1-3678-41a8-a9f9-6771e216057b', name: 'affiliation.pdf', mediaType: 'application/pdf' }
+    const service = makeService()
+    service.detail.mockResolvedValue({ ...initial, application: { ...initial.application, proof } })
+    await openDetail(service)
+
+    const path = `/api/admin/applications/${initial.application.id}/proof/${proof.id}`
+    expect(screen.getByText(proof.name)).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Preview proof' })).toHaveAttribute('href', path)
+    const download = screen.getByRole('link', { name: 'Download proof' })
+    expect(download).toHaveAttribute('href', `${path}?download=1`)
+    expect(download).toHaveAttribute('download', proof.name)
+  })
+
   it.each(['javascript:alert(1)', 'data:text/html,unsafe', '/relative-unconfirmed-path'])('does not link unsafe or unconfirmed proof URL %s', async (proofUrl) => {
     const service = makeService()
     service.detail.mockResolvedValue({ ...initial, application: { ...initial.application, proofUrl } })

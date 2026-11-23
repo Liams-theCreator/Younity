@@ -52,8 +52,7 @@
 }
 
 .pane .card :global(.required-hint),
-.pane .card :global(.password-checks) li:not(:global(.is-met)),
-.pane .card :global(#document-note) {
+.pane .card :global(.password-checks) li:not(:global(.is-met)) {
   color: var(--muted);
 }
 

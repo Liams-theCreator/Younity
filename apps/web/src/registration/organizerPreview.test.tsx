@@ -92,19 +92,19 @@ describe('organizer local registration', () => {
     await user.keyboard('{Enter}')
     expect(click).toHaveBeenCalledTimes(1)
     click.mockRestore()
-    const file = new File(['local'], 'mandate.txt', { type: 'text/plain' })
+    const file = new File(['local'], 'mandate.pdf', { type: 'application/pdf' })
     fireEvent.drop(input.closest('.document-dropzone')!, { dataTransfer: { files: [file] } })
-    expect(screen.getByText('Selected: mandate.txt')).toBeVisible()
+    expect(screen.getByText('Selected: mandate.pdf')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Replace document' })).toBeVisible()
     fireEvent.change(input, { target: { files: [] } })
-    expect(screen.getByText('Selected: mandate.txt')).toBeVisible()
+    expect(screen.getByText('Selected: mandate.pdf')).toBeVisible()
     await user.upload(input, new File(['other'], 'replacement.pdf', { type: 'application/pdf' }))
     expect(screen.getByText('Selected: replacement.pdf')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Remove document' }))
     expect(screen.queryByText('Selected: replacement.pdf')).not.toBeInTheDocument()
     await user.upload(input, file)
-    expect(screen.getByText('Selected: mandate.txt')).toBeVisible()
-    expect(input).not.toHaveAttribute('accept')
+    expect(screen.getByText('Selected: mandate.pdf')).toBeVisible()
+    expect(input).toHaveAttribute('accept', '.pdf,.png,.jpg,.jpeg')
     expect(input).not.toBeRequired()
   })
 
@@ -116,7 +116,7 @@ describe('organizer local registration', () => {
     for (const target of [
       zone,
       screen.getByText(/Drop Faculty Endorsement/),
-      screen.getByText(/Optional local selection only/),
+      screen.getByText(/PDF, PNG, or JPEG/),
       zone.querySelector('.document-icon')!,
     ]) {
       click.mockClear()
