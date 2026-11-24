@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import styles from './AuthShell.module.css'
 
@@ -19,9 +20,9 @@ export default function OrganizerDashboardPage() {
         </p>
 
         <p>
-          Event management will be connected here in
-          the next feature.
+          Plan your next event or view your participants.
         </p>
+        <p><Link to="/organizer/events">My events</Link> · <Link to="/organizer/events/new">Create event</Link> · <Link to="/organizer/bookings">Bookings</Link></p>
       </section>
     </main>
   )
