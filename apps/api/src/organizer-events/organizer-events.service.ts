@@ -5,9 +5,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
 import {
+  EventFormat,
   EventStatus,
   Prisma,
+  RegistrationMode,
   VerificationStatus,
 } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -16,9 +20,39 @@ import { UpdateOrganizerEventDto } from './dto/update-organizer-event.dto.js';
 
 @Injectable()
 export class OrganizerEventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
-  async create(userId: string, dto: CreateOrganizerEventDto) {
+  create(userId: string, dto: CreateOrganizerEventDto) {
+    return this.createEvent(userId, dto, EventStatus.DRAFT);
+  }
+
+  async publish(userId: string, dto: CreateOrganizerEventDto) {
+    this.validatePublication(dto);
+    return this.createEvent(userId, dto, EventStatus.PUBLISHED);
+  }
+
+  async publishDraft(userId: string, id: string) {
+    const event = await this.findOne(userId, id);
+
+    if (event.status !== EventStatus.DRAFT) {
+      throw new ConflictException('Only draft events can be published');
+    }
+
+    this.validatePublication({
+      ...event,
+      startDate: event.startDate.toISOString(),
+      endDate: event.endDate.toISOString(),
+      registrationDeadline: event.registrationDeadline?.toISOString() ?? null,
+    });
+
+    return this.updateDraft(userId, event, { status: EventStatus.PUBLISHED });
+  }
+
+  private async createEvent(
+    userId: string,
+    dto: CreateOrganizerEventDto,
+    status: EventStatus,
+  ) {
     const organization = await this.prisma.organization.findFirst({
       where: {
         ownerId: userId,
@@ -49,7 +83,7 @@ export class OrganizerEventsService {
         registrationMode: dto.registrationMode,
         organizationId: organization.id,
         createdById: userId,
-        status: EventStatus.DRAFT,
+        status,
       },
     });
   }
@@ -82,10 +116,18 @@ export class OrganizerEventsService {
         : event.registrationDeadline,
     );
 
+    return this.updateDraft(userId, event, data);
+  }
+
+  private async updateDraft(
+    userId: string,
+    event: { id: string; updatedAt: Date },
+    data: Prisma.EventUpdateInput,
+  ) {
     try {
       return await this.prisma.event.update({
         where: {
-          id,
+          id: event.id,
           ...this.ownedEvent(userId),
           status: EventStatus.DRAFT,
           // Protect validation against concurrent changes to saved dates or status.
@@ -103,6 +145,54 @@ export class OrganizerEventsService {
         );
       }
       throw error;
+    }
+  }
+
+  private validatePublication(dto: CreateOrganizerEventDto) {
+    // Revalidate saved drafts too, including records created outside these routes.
+    const errors = validateSync(plainToInstance(CreateOrganizerEventDto, dto));
+    if (errors.length > 0) {
+      throw new BadRequestException(
+        errors.flatMap((error) => Object.values(error.constraints ?? {})),
+      );
+    }
+
+    const startDate = new Date(dto.startDate);
+    this.validateDates(
+      startDate,
+      new Date(dto.endDate),
+      dto.registrationDeadline ? new Date(dto.registrationDeadline) : null,
+    );
+    if (startDate.getTime() <= Date.now()) {
+      throw new BadRequestException(
+        'startDate must be in the future to publish an event',
+      );
+    }
+    if (
+      (dto.format === EventFormat.IN_PERSON ||
+        dto.format === EventFormat.HYBRID) &&
+      !dto.location?.trim()
+    ) {
+      throw new BadRequestException(
+        'location is required for in-person and hybrid events',
+      );
+    }
+    if (
+      (dto.format === EventFormat.ONLINE ||
+        dto.format === EventFormat.HYBRID) &&
+      !dto.onlineUrl
+    ) {
+      throw new BadRequestException(
+        'onlineUrl is required for online and hybrid events',
+      );
+    }
+    if (
+      dto.registrationMode === RegistrationMode.EXTERNAL &&
+      !dto.externalRegistrationUrl
+    ) {
+      throw new BadRequestException(
+        'externalRegistrationUrl is required for external registration',
+      );
     }
   }
 

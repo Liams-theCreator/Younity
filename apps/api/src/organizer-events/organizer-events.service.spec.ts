@@ -66,14 +66,16 @@ describe('OrganizerEventsService', () => {
     expect(prisma.event.create).not.toHaveBeenCalled();
   });
 
-  it.each(['read', 'update'])(
+  it.each(['read', 'update', 'publish'])(
     'returns 404 for a missing or another organizer’s event on %s',
     async (action) => {
       prisma.event.findFirst.mockResolvedValue(null);
       await expect(
         action === 'read'
           ? service.findOne('owner', 'event')
-          : service.update('owner', 'event', { title: 'Changed' }),
+          : action === 'update'
+            ? service.update('owner', 'event', { title: 'Changed' })
+            : service.publishDraft('owner', 'event'),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.event.findFirst).toHaveBeenCalledWith({
         where: {
@@ -158,5 +160,146 @@ describe('OrganizerEventsService', () => {
     await expect(
       service.update('owner', 'event', { title: 'Changed' }),
     ).rejects.toBe(error);
+  });
+
+  describe('publication', () => {
+    const completeForm = {
+      ...dto,
+      onlineUrl: 'https://example.com/meeting',
+    };
+    const draft = { ...event, onlineUrl: completeForm.onlineUrl };
+
+    beforeEach(() => {
+      vi.spyOn(Date, 'now').mockReturnValue(
+        new Date('2026-11-24T10:00:00Z').getTime(),
+      );
+      prisma.event.findFirst.mockResolvedValue(draft);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('creates the completed form directly as PUBLISHED in a single write', async () => {
+      const published = { ...draft, status: 'PUBLISHED' };
+      prisma.event.create.mockResolvedValue(published);
+      expect(await service.publish('owner', completeForm)).toEqual(published);
+      expect(prisma.event.create).toHaveBeenCalledExactlyOnceWith({
+        data: expect.objectContaining({
+          ...completeForm,
+          startDate: draft.startDate,
+          endDate: draft.endDate,
+          organizationId: 'organization',
+          createdById: 'owner',
+          status: 'PUBLISHED',
+        }),
+      });
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('requires an approved organization for direct publication', async () => {
+      prisma.organization.findFirst.mockResolvedValue(null);
+      await expect(
+        service.publish('owner', completeForm),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.event.create).not.toHaveBeenCalled();
+    });
+
+    it('publishes the same saved draft and preserves its fields', async () => {
+      const published = { ...draft, status: 'PUBLISHED' };
+      prisma.event.update.mockResolvedValue(published);
+      expect(await service.publishDraft('owner', 'event')).toEqual(published);
+      expect(prisma.event.update).toHaveBeenCalledExactlyOnceWith({
+        where: {
+          id: 'event',
+          createdById: 'owner',
+          organization: { ownerId: 'owner', verificationStatus: 'APPROVED' },
+          status: 'DRAFT',
+          updatedAt: draft.updatedAt,
+        },
+        data: { status: 'PUBLISHED' },
+      });
+      expect(prisma.event.create).not.toHaveBeenCalled();
+    });
+
+    it.each(['PENDING_REVIEW', 'PUBLISHED', 'FULL', 'CANCELLED', 'COMPLETED'])(
+      'rejects publication of a %s event, including a repeated publish',
+      async (status) => {
+        prisma.event.findFirst.mockResolvedValue({ ...draft, status });
+        await expect(
+          service.publishDraft('owner', 'event'),
+        ).rejects.toBeInstanceOf(ConflictException);
+        expect(prisma.event.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      { title: ' ' },
+      { description: '' },
+      { format: 'IN_PERSON' },
+      { format: 'HYBRID', location: ' ' },
+      { onlineUrl: null },
+      { onlineUrl: 'ftp://example.com/meeting' },
+      { registrationMode: 'EXTERNAL', externalRegistrationUrl: null },
+      { capacity: 0 },
+      { startDate: '2026-11-24T10:00:00Z' },
+      { endDate: dto.startDate },
+      { registrationDeadline: '2026-12-02T10:00:00Z' },
+    ])(
+      'rejects incomplete or invalid data for both publish paths: %j',
+      async (fields) => {
+        const form = { ...completeForm, ...fields } as typeof completeForm;
+        await expect(service.publish('owner', form)).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        prisma.event.findFirst.mockResolvedValue({
+          ...draft,
+          ...form,
+          startDate: new Date(form.startDate),
+          endDate: new Date(form.endDate),
+          registrationDeadline:
+            'registrationDeadline' in fields
+              ? new Date(fields.registrationDeadline!)
+              : draft.registrationDeadline,
+        });
+        await expect(
+          service.publishDraft('owner', 'event'),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(prisma.event.create).not.toHaveBeenCalled();
+        expect(prisma.event.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      { format: 'IN_PERSON', location: 'Main campus', onlineUrl: null },
+      { format: 'HYBRID', location: 'Main campus' },
+      {
+        registrationMode: 'EXTERNAL',
+        externalRegistrationUrl: 'https://example.com/register',
+      },
+    ])(
+      'allows complete format and registration combinations: %j',
+      async (fields) => {
+        const form = { ...completeForm, ...fields } as typeof completeForm;
+        prisma.event.create.mockResolvedValue({ ...form, status: 'PUBLISHED' });
+        await expect(service.publish('owner', form)).resolves.toMatchObject({
+          status: 'PUBLISHED',
+        });
+      },
+    );
+
+    it('rejects a concurrent edit or publication without retrying or overwriting fields', async () => {
+      prisma.event.update.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Draft changed', {
+          code: 'P2025',
+          clientVersion: '7.10.0',
+        }),
+      );
+      await expect(
+        service.publishDraft('owner', 'event'),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.event.update).toHaveBeenCalledTimes(1);
+      expect(prisma.event.create).not.toHaveBeenCalled();
+    });
   });
 });

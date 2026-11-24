@@ -16,6 +16,8 @@ describe('OrganizerEventsController', () => {
     create: vi.fn(),
     findOne: vi.fn(),
     update: vi.fn(),
+    publish: vi.fn(),
+    publishDraft: vi.fn(),
   };
   const body = {
     title: 'Campus event',
@@ -94,17 +96,40 @@ describe('OrganizerEventsController', () => {
     );
   });
 
-  it.each(['post', 'get', 'patch'] as const)(
-    'requires authentication for %s',
-    async (method) => {
-      user = undefined;
-      const path =
-        method === 'post'
-          ? '/api/organizer-events'
-          : `/api/organizer-events/${eventId}`;
-      await request(app.getHttpServer())[method](path).send(body).expect(401);
-    },
-  );
+  it('publishes a completed form with 201 and returns the published event', async () => {
+    const form = { ...body, onlineUrl: 'https://example.com/meeting' };
+    const published = { id: eventId, ...form, status: 'PUBLISHED' };
+    service.publish.mockResolvedValue(published);
+    const response = await request(app.getHttpServer())
+      .post('/api/organizer-events/publish')
+      .send(form)
+      .expect(201);
+    expect(response.body).toEqual(published);
+    expect(service.publish).toHaveBeenCalledWith(user!.id, form);
+    expect(service.create).not.toHaveBeenCalled();
+  });
+
+  it('publishes a saved draft with 200 using only its ID and the session owner', async () => {
+    const published = { id: eventId, ...body, status: 'PUBLISHED' };
+    service.publishDraft.mockResolvedValue(published);
+    const response = await request(app.getHttpServer())
+      .post(`/api/organizer-events/${eventId}/publish`)
+      .expect(200);
+    expect(response.body).toEqual(published);
+    expect(service.publishDraft).toHaveBeenCalledWith(user!.id, eventId);
+    expect(service.publish).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['post', '/api/organizer-events'],
+    ['get', `/api/organizer-events/${eventId}`],
+    ['patch', `/api/organizer-events/${eventId}`],
+    ['post', '/api/organizer-events/publish'],
+    ['post', `/api/organizer-events/${eventId}/publish`],
+  ] as const)('requires authentication for %s %s', async (method, path) => {
+    user = undefined;
+    await request(app.getHttpServer())[method](path).send(body).expect(401);
+  });
 
   it.each([
     'STUDENT',
@@ -130,9 +155,18 @@ describe('OrganizerEventsController', () => {
       .patch(`/api/organizer-events/${eventId}`)
       .send({ title: 'Updated' })
       .expect(403);
+    await request(app.getHttpServer())
+      .post('/api/organizer-events/publish')
+      .send(body)
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`/api/organizer-events/${eventId}/publish`)
+      .expect(403);
     expect(service.create).not.toHaveBeenCalled();
     expect(service.findOne).not.toHaveBeenCalled();
     expect(service.update).not.toHaveBeenCalled();
+    expect(service.publish).not.toHaveBeenCalled();
+    expect(service.publishDraft).not.toHaveBeenCalled();
   });
 
   it.each(['get', 'patch'] as const)(
@@ -144,6 +178,13 @@ describe('OrganizerEventsController', () => {
         .expect(400);
     },
   );
+
+  it('rejects malformed UUIDs for saved-draft publication', async () => {
+    await request(app.getHttpServer())
+      .post('/api/organizer-events/123/publish')
+      .expect(400);
+    expect(service.publishDraft).not.toHaveBeenCalled();
+  });
 
   it.each([
     { title: null },
@@ -162,11 +203,20 @@ describe('OrganizerEventsController', () => {
       .send(fields)
       .expect(400);
     expect(service.update).not.toHaveBeenCalled();
+    await request(app.getHttpServer())
+      .post('/api/organizer-events/publish')
+      .send({ ...body, ...fields })
+      .expect(400);
+    expect(service.publish).not.toHaveBeenCalled();
   });
 
   it('requires core fields on creation and permits clearing nullable fields on update', async () => {
     await request(app.getHttpServer())
       .post('/api/organizer-events')
+      .send({ title: 'Draft' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/organizer-events/publish')
       .send({ title: 'Draft' })
       .expect(400);
     service.update.mockResolvedValue({ id: eventId, location: null });

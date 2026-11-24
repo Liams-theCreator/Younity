@@ -4,6 +4,47 @@ NestJS, TypeScript ES modules, Prisma 7, and PostgreSQL. The API includes
 authentication, email verification, student preferences and administrator
 application reads. See the sections below for contracts and integration status.
 
+## Organizer event drafts and publishing
+
+These routes require an active, email-verified ORGANIZER session with one approved
+organization. Ownership comes from the session.
+
+- `POST /api/organizer-events` creates an event with status `DRAFT` and returns it
+  with HTTP 201.
+- `GET /api/organizer-events/:id` returns the organizer's saved event with HTTP 200
+  and `Cache-Control: no-store`.
+- `PATCH /api/organizer-events/:id` saves partial changes to a draft and returns
+  the updated event with HTTP 200. Omitted fields are preserved; nullable fields
+  can be cleared with `null`.
+- `POST /api/organizer-events/publish` accepts a completed form and creates an
+  event directly with status `PUBLISHED`, returning the event with HTTP 201.
+- `POST /api/organizer-events/:id/publish` publishes the persisted draft and
+  returns the same event with HTTP 200. No request body is needed; save form edits
+  with PATCH before publishing.
+
+Creation requires `title`, `description`, `format` (`IN_PERSON`, `ONLINE`, or
+`HYBRID`), `startDate`, `endDate`, and `registrationMode` (`AUTOMATIC` or
+`EXTERNAL`), matching the existing database requirements. Optional fields are
+`location`, `onlineUrl`, `imageUrl`, `registrationDeadline`, `capacity`, and
+`externalRegistrationUrl`. Dates use ISO 8601; the end must follow the start, and
+the registration deadline must not follow the start. Capacity must be a positive
+integer. Unknown fields, including ownership and status fields, are rejected.
+
+Both publish routes validate the complete event, require a future `startDate`,
+and enforce format and registration requirements: in-person events need
+`location`, online events need `onlineUrl`, hybrid events need both, and external
+registration needs `externalRegistrationUrl`. Image, capacity, and registration
+deadline remain optional. Incomplete drafts may still be saved through the draft
+routes, provided the core database fields are present. Successful publication
+sets `PUBLISHED` directly.
+
+Malformed UUIDs or invalid bodies return 400. Missing events and events owned by
+another organizer return 404. Editing or publishing a non-draft event (including
+a repeated publish), or a draft changed during the save/publication, returns 409.
+Reload after a conflict. Saving a draft does not publish it. Direct publication
+creates a new event on every successful request; use the saved-draft route when
+publishing an existing draft.
+
 ## Admin application reads (S2-06)
 
 `GET /api/admin/applications` and `GET /api/admin/applications/:id` require an

@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Header,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -37,6 +39,33 @@ export class OrganizerEventsController {
     @Body() dto: CreateOrganizerEventDto,
   ) {
     return this.organizerEventsService.create(user.id, dto);
+  }
+
+  @Post('publish')
+  @ApiOperation({
+    summary: 'Create and publish an event from a completed form',
+    description:
+      'Sets PUBLISHED directly. Requires a future start date, location for in-person/hybrid events, onlineUrl for online/hybrid events, and externalRegistrationUrl for external registration.',
+  })
+  publish(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateOrganizerEventDto,
+  ) {
+    return this.organizerEventsService.publish(user.id, dto);
+  }
+
+  @Post(':id/publish')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Publish the saved event draft without changing its fields',
+    description:
+      'No body required. Validates the persisted form and changes DRAFT to PUBLISHED. Returns 409 for an already published event or a concurrent change.',
+  })
+  publishDraft(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.organizerEventsService.publishDraft(user.id, id);
   }
 
   @Get(':id')
