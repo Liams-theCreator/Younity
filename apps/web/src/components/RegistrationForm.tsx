@@ -69,7 +69,7 @@ export function RegistrationLayout({
   if (!campusLayout) return <main className={shell}>{frame}</main>
 
   return (
-    <AuthPageLayout variant={variant === 'organizer' ? 'organizer' : 'student'}>
+    <AuthPageLayout>
       <div className={`${shell} ${styles.pane}`}>{frame}</div>
     </AuthPageLayout>
   )

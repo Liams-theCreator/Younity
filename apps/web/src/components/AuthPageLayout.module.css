@@ -1,4 +1,5 @@
 .layout {
+  --hero-width: 42%;
   --auth-card-width: 42rem;
   --auth-card-padding: clamp(1.125rem, 2.6vw, 2.25rem);
   --auth-card-radius: 1rem;
@@ -15,25 +16,7 @@
 }
 
 .login {
-  --hero-width: 50%;
-  --hero-image: url('../assets/auth-login-campus.webp');
-  --hero-position: 52%;
-  --hero-gradient: linear-gradient(155deg, rgb(14 26 57 / 68%), rgb(8 18 38 / 94%));
   --auth-card-width: 34rem;
-}
-
-.student {
-  --hero-width: 45%;
-  --hero-image: url('../assets/auth-registration-campus.webp');
-  --hero-position: 50%;
-  --hero-gradient: linear-gradient(155deg, rgb(23 51 112 / 74%), rgb(10 20 48 / 94%));
-}
-
-.organizer {
-  --hero-width: 41.667%;
-  --hero-image: url('../assets/auth-registration-campus.webp');
-  --hero-position: 62%;
-  --hero-gradient: linear-gradient(155deg, rgb(8 20 50 / 79%), rgb(13 35 87 / 94%));
 }
 
 .organizerStatus {
@@ -51,8 +34,15 @@
   align-content: space-between;
   gap: clamp(2rem, 5vw, 4rem);
   padding: clamp(1.25rem, 4vw, 4rem);
-  background: var(--hero-gradient), var(--hero-image) var(--hero-position) center / cover no-repeat, #0e1b34;
   color: white;
+}
+
+.authHero {
+  background:
+    radial-gradient(ellipse at 60% 49%, transparent 8%, rgb(3 12 30 / 28%) 57%, rgb(3 12 30 / 74%) 100%),
+    linear-gradient(180deg, rgb(11 23 49 / 75%), rgb(11 27 58 / 46%) 45%, rgb(6 18 43 / 87%) 100%),
+    url('../assets/auth-registration-campus.webp') 62% center / cover no-repeat,
+    #102142;
 }
 
 .brand {
@@ -75,9 +65,10 @@
   background: rgb(255 255 255 / 13%);
 }
 
-.organizer .mark {
+.authHero .mark {
   background: white;
   color: var(--link);
+  box-shadow: 0 .1875rem .75rem rgb(4 15 36 / 25%);
 }
 
 .organizerStatus .hero {
@@ -121,9 +112,11 @@
   text-wrap: balance;
 }
 
-.heroTitle em {
-  color: #c7ecfd;
-  font-style: inherit;
+.authHero .heroTitle {
+  max-width: 15ch;
+  line-height: 1.12;
+  text-wrap: wrap;
+  text-shadow: 0 .125rem 1rem rgb(1 9 25 / 55%);
 }
 
 .introduction {
@@ -134,6 +127,11 @@
   color: #ecf2ff;
   font-size: clamp(.875rem, 1.4vw, 1rem);
   line-height: 1.65;
+}
+
+.authHero .introduction {
+  max-width: 32ch;
+  text-shadow: 0 1px .5625rem #07132d;
 }
 
 .organizerStatus .heroTitle {
@@ -208,6 +206,22 @@
 
 .back :global(.reference-icon) {
   font-size: 1.125rem;
+}
+
+@media (max-width: 40rem) {
+  .authHero {
+    gap: .875rem;
+  }
+
+  .authHero .heroTitle {
+    max-width: 22ch;
+    font-size: 1.375rem;
+  }
+
+  .authHero .introduction {
+    margin-top: .5rem;
+    padding-top: .4375rem;
+  }
 }
 
 @media (min-width: 64rem) {
