@@ -97,7 +97,12 @@ describe('OrganizerEventsController', () => {
   });
 
   it('publishes a completed form with 201 and returns the published event', async () => {
-    const form = { ...body, onlineUrl: 'https://example.com/meeting' };
+    const form = {
+      ...body,
+      onlineUrl: 'https://example.com/meeting',
+      categoryIds: [eventId],
+      registrationDeadline: '2026-11-30T10:00:00.000Z',
+    };
     const published = { id: eventId, ...form, status: 'PUBLISHED' };
     service.publish.mockResolvedValue(published);
     const response = await request(app.getHttpServer())
@@ -191,6 +196,11 @@ describe('OrganizerEventsController', () => {
     { title: ' ' },
     { startDate: null },
     { startDate: '2026-02-30T10:00:00Z' },
+    { categoryIds: null },
+    { categoryIds: 'not-an-array' },
+    { categoryIds: ['invalid'] },
+    { categoryIds: [eventId, eventId] },
+    { categoryIds: [eventId, eventId.toUpperCase()] },
     { capacity: 0 },
     { capacity: '10' },
     { onlineUrl: 'ftp://example.com/event' },

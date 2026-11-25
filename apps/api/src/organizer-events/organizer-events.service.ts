@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
-import { validateSync } from 'class-validator';
+import { isUUID, validateSync } from 'class-validator';
 import {
   EventFormat,
   EventStatus,
@@ -20,7 +20,7 @@ import { UpdateOrganizerEventDto } from './dto/update-organizer-event.dto.js';
 
 @Injectable()
 export class OrganizerEventsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   create(userId: string, dto: CreateOrganizerEventDto) {
     return this.createEvent(userId, dto, EventStatus.DRAFT);
@@ -72,7 +72,8 @@ export class OrganizerEventsService {
       data.registrationDeadline,
     );
 
-    return this.prisma.event.create({
+    const categoryIds = await this.validateCategoryIds(dto.categoryIds);
+    const event = await this.prisma.event.create({
       data: {
         ...data,
         title: dto.title,
@@ -84,20 +85,28 @@ export class OrganizerEventsService {
         organizationId: organization.id,
         createdById: userId,
         status,
+        categories: {
+          create: (categoryIds ?? []).map((id) => ({
+            category: { connect: { id } },
+          })),
+        },
       },
+      include: { categories: { select: { categoryId: true } } },
     });
+    return this.withCategoryIds(event);
   }
 
   async findOne(userId: string, id: string) {
     const event = await this.prisma.event.findFirst({
       where: { id, ...this.ownedEvent(userId) },
+      include: { categories: { select: { categoryId: true } } },
     });
 
     if (!event) {
       throw new NotFoundException('Event not found');
     }
 
-    return event;
+    return this.withCategoryIds(event);
   }
 
   async update(userId: string, id: string, dto: UpdateOrganizerEventDto) {
@@ -116,7 +125,25 @@ export class OrganizerEventsService {
         : event.registrationDeadline,
     );
 
-    return this.updateDraft(userId, event, data);
+    const categoryIds = await this.validateCategoryIds(dto.categoryIds);
+    return this.updateDraft(userId, event, {
+      ...data,
+      ...(categoryIds === undefined
+        ? {}
+        : {
+            // Relation-only writes do not advance Prisma's parent @updatedAt.
+            // Always invalidate a competing read, even within one millisecond.
+            updatedAt: new Date(
+              Math.max(Date.now(), event.updatedAt.getTime() + 1),
+            ),
+            categories: {
+              deleteMany: {},
+              create: categoryIds.map((id) => ({
+                category: { connect: { id } },
+              })),
+            },
+          }),
+    });
   }
 
   private async updateDraft(
@@ -125,16 +152,18 @@ export class OrganizerEventsService {
     data: Prisma.EventUpdateInput,
   ) {
     try {
-      return await this.prisma.event.update({
+      const saved = await this.prisma.event.update({
         where: {
           id: event.id,
           ...this.ownedEvent(userId),
           status: EventStatus.DRAFT,
-          // Protect validation against concurrent changes to saved dates or status.
+          // Protect validation against concurrent changes to fields, links or status.
           updatedAt: event.updatedAt,
         },
         data,
+        include: { categories: { select: { categoryId: true } } },
       });
+      return this.withCategoryIds(saved);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -187,6 +216,19 @@ export class OrganizerEventsService {
       );
     }
     if (
+      dto.registrationMode === RegistrationMode.AUTOMATIC &&
+      !dto.registrationDeadline
+    ) {
+      throw new BadRequestException(
+        'registrationDeadline is required for automatic registration',
+      );
+    }
+    if (!dto.categoryIds?.length) {
+      throw new BadRequestException(
+        'categoryIds must contain at least one category to publish an event',
+      );
+    }
+    if (
       dto.registrationMode === RegistrationMode.EXTERNAL &&
       !dto.externalRegistrationUrl
     ) {
@@ -194,6 +236,44 @@ export class OrganizerEventsService {
         'externalRegistrationUrl is required for external registration',
       );
     }
+  }
+
+  private async validateCategoryIds(categoryIds?: string[]) {
+    if (categoryIds === undefined) return undefined;
+    if (
+      !Array.isArray(categoryIds) ||
+      categoryIds.some((id) => typeof id !== 'string' || !isUUID(id))
+    ) {
+      throw new BadRequestException(
+        'categoryIds must be an array of valid UUIDs',
+      );
+    }
+    const ids = categoryIds.map((id) => id.toLowerCase());
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException('categoryIds must contain distinct UUIDs');
+    }
+    if (ids.length > 0) {
+      const categories = await this.prisma.category.findMany({
+        where: { id: { in: ids } },
+        select: { id: true },
+      });
+      if (categories.length !== ids.length) {
+        throw new BadRequestException(
+          'categoryIds contains an unknown category',
+        );
+      }
+    }
+    return ids;
+  }
+
+  private withCategoryIds<T extends { categories: { categoryId: string }[] }>(
+    event: T,
+  ) {
+    const { categories, ...fields } = event;
+    return {
+      ...fields,
+      categoryIds: categories.map((link) => link.categoryId),
+    };
   }
 
   private ownedEvent(userId: string) {

@@ -45,7 +45,7 @@ export class OrganizerEventsController {
   @ApiOperation({
     summary: 'Create and publish an event from a completed form',
     description:
-      'Sets PUBLISHED directly. Requires a future start date, location for in-person/hybrid events, onlineUrl for online/hybrid events, and externalRegistrationUrl for external registration.',
+      'Sets PUBLISHED directly. Requires at least one existing category in categoryIds, a future start date, location for in-person/hybrid events, onlineUrl for online/hybrid events, registrationDeadline for automatic registration, and externalRegistrationUrl for external registration.',
   })
   publish(
     @CurrentUser() user: AuthenticatedUser,

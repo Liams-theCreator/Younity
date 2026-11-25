@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  ArrayUnique,
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
@@ -8,9 +10,11 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  IsUUID,
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { EventFormat, RegistrationMode } from '../../generated/prisma/enums.js';
 
@@ -43,6 +47,15 @@ export class CreateOrganizerEventDto {
   @ApiProperty({ enum: RegistrationMode })
   @IsEnum(RegistrationMode)
   registrationMode!: RegistrationMode;
+
+  @ApiPropertyOptional({ type: [String], format: 'uuid', uniqueItems: true })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsArray()
+  @ArrayUnique((id: unknown) =>
+    typeof id === 'string' ? id.toLowerCase() : id,
+  )
+  @IsUUID('all', { each: true })
+  categoryIds?: string[];
 
   @ApiPropertyOptional({ maxLength: 500, nullable: true })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
