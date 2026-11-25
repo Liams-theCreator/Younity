@@ -30,7 +30,7 @@ import { UpdateOrganizerEventDto } from './dto/update-organizer-event.dto.js';
 export class OrganizerEventsController {
   constructor(
     private readonly organizerEventsService: OrganizerEventsService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Save a new event as a draft' })
