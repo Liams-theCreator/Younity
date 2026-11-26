@@ -21,11 +21,11 @@ describe('Organizer events with PostgreSQL and real JWT guards', () => {
   const base = {
     title: 'S3-01 workflow',
     description: 'Isolated organizer event fixture',
-    format: 'ONLINE',
+    format: 'ONLINE' as const,
     onlineUrl: 'https://example.test/meeting',
     startDate: new Date(Date.now() + 7 * 86400000).toISOString(),
     endDate: new Date(Date.now() + 8 * 86400000).toISOString(),
-    registrationMode: 'AUTOMATIC',
+    registrationMode: 'AUTOMATIC' as const,
     registrationDeadline: new Date(Date.now() + 6 * 86400000).toISOString(),
   };
 
@@ -369,4 +369,165 @@ describe('Organizer events with PostgreSQL and real JWT guards', () => {
       .set('Cookie', cookie)
       .expect(200);
   });
+
+  it.each([
+    ['edit', 'edit'],
+    ['edit', 'publish'],
+    ['publish', 'publish'],
+  ] as const)(
+    'allows only one simultaneous %s / %s using the same snapshot',
+    async (first, second) => {
+      const draft = await createDraft();
+      const service = app.get(OrganizerEventsService);
+      const findOne = service.findOne.bind(service);
+      let release!: () => void;
+      const bothRead = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let arrivals = 0;
+      // Hold both requests after their reads so they genuinely compete on one version.
+      const read = vi
+        .spyOn(service, 'findOne')
+        .mockImplementation(async (userId, id) => {
+          const snapshot = await findOne(userId, id);
+          if (++arrivals === 2) release();
+          await bothRead;
+          return snapshot;
+        });
+      const actions = [first, second];
+      try {
+        const responses = await Promise.all(
+          actions.map((action, index) =>
+            action === 'publish'
+              ? request(app.getHttpServer())
+                  .post(`${path(draft.body.id)}/publish`)
+                  .set('Cookie', cookie)
+              : request(app.getHttpServer())
+                  .patch(path(draft.body.id))
+                  .set('Cookie', cookie)
+                  .send({
+                    title: `Competing edit ${index}`,
+                    categoryIds: [categoryIds[1]],
+                  }),
+          ),
+        );
+        expect(
+          responses.map((response) => response.status).sort((a, b) => a - b),
+        ).toEqual([200, 409]);
+        const winner = responses.findIndex(
+          (response) => response.status === 200,
+        );
+        const saved = await prisma.event.findUniqueOrThrow({
+          where: { id: draft.body.id },
+        });
+        expect(saved.status).toBe(
+          actions[winner] === 'publish' ? 'PUBLISHED' : 'DRAFT',
+        );
+        expect(saved.title).toBe(
+          actions[winner] === 'publish'
+            ? base.title
+            : `Competing edit ${winner}`,
+        );
+        expect(await links(draft.body.id)).toEqual([
+          categoryIds[actions[winner] === 'publish' ? 0 : 1],
+        ]);
+      } finally {
+        release();
+        read.mockRestore();
+      }
+    },
+  );
+
+  it('rolls back event fields and links if PostgreSQL rejects category persistence', async () => {
+    const draft = await createDraft();
+    const before = await prisma.event.findUniqueOrThrow({
+      where: { id: draft.body.id },
+    });
+    const count = await prisma.event.count({ where: { createdById: ownerId } });
+    const name = `fail_s301_${randomUUID().replaceAll('-', '')}`;
+    // Match the existing failure-injection convention; identifiers are generated UUIDs.
+    await prisma.$executeRawUnsafe(
+      `CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Injected S3-01 category persistence failure'; END $$`,
+    );
+    try {
+      await prisma.$executeRawUnsafe(
+        `CREATE TRIGGER ${name} BEFORE INSERT ON event_categories FOR EACH ROW WHEN (NEW.category_id = '${categoryIds[1]}'::uuid) EXECUTE FUNCTION ${name}()`,
+      );
+      const service = app.get(OrganizerEventsService);
+      await expect(
+        service.update(ownerId, draft.body.id, {
+          title: 'Must roll back',
+          categoryIds: [categoryIds[1]!],
+        }),
+      ).rejects.toThrow();
+      expect(
+        await prisma.event.findUniqueOrThrow({ where: { id: draft.body.id } }),
+      ).toEqual(before);
+      expect(await links(draft.body.id)).toEqual([categoryIds[0]]);
+      await expect(
+        service.publish(ownerId, { ...base, categoryIds: [categoryIds[1]!] }),
+      ).rejects.toThrow();
+      expect(
+        await prisma.event.count({ where: { createdById: ownerId } }),
+      ).toBe(count);
+    } finally {
+      await prisma.$executeRawUnsafe(
+        `DROP TRIGGER IF EXISTS ${name} ON event_categories`,
+      );
+      await prisma.$executeRawUnsafe(`DROP FUNCTION ${name}()`);
+    }
+  });
+
+  it.each(['approval', 'suspension'])(
+    'rejects the existing JWT after %s changes',
+    async (change) => {
+      const draft = await createDraft();
+      try {
+        if (change === 'approval') {
+          await prisma.organization.updateMany({
+            where: { ownerId },
+            data: { verificationStatus: 'REJECTED' },
+          });
+        } else {
+          await prisma.user.update({
+            where: { id: ownerId },
+            data: { status: 'SUSPENDED' },
+          });
+        }
+        await request(app.getHttpServer())
+          .get(path(draft.body.id))
+          .set('Cookie', cookie)
+          .expect(403);
+        await request(app.getHttpServer())
+          .patch(path(draft.body.id))
+          .set('Cookie', cookie)
+          .send({ categoryIds: [] })
+          .expect(403);
+        await request(app.getHttpServer())
+          .post(`${path(draft.body.id)}/publish`)
+          .set('Cookie', cookie)
+          .expect(403);
+        await request(app.getHttpServer())
+          .post('/api/organizer-events/publish')
+          .set('Cookie', cookie)
+          .send({ ...base, categoryIds })
+          .expect(403);
+        expect(await links(draft.body.id)).toEqual([categoryIds[0]]);
+        expect(
+          await prisma.event.findUniqueOrThrow({
+            where: { id: draft.body.id },
+          }),
+        ).toMatchObject({ status: 'DRAFT' });
+      } finally {
+        await prisma.organization.updateMany({
+          where: { ownerId },
+          data: { verificationStatus: 'APPROVED' },
+        });
+        await prisma.user.update({
+          where: { id: ownerId },
+          data: { status: 'ACTIVE' },
+        });
+      }
+    },
+  );
 });

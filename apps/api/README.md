@@ -151,19 +151,36 @@ clearing, no writes on validation failure, external registration, concurrent
 changes, and rejection of a different approved organizer. It does not exercise
 the S3-09 browser adapter or S3-05 discovery.
 
-Local verification on 2026-11-25 (Node 22.23.2, disposable PostgreSQL 17):
+Local verification and broader follow-up audit on 2026-11-25 (Node 22.23.2,
+disposable PostgreSQL 17 and local Mailpit):
 
 - `npm run db:setup`: all seven committed migrations applied; ten categories seeded.
 - `npm test -- organizer-events`: 90 tests passed across controller/service suites.
-- `npm run test:e2e -- organizer-events`: 20 tests passed against the isolated
-  `younity_s301_test` database, including category-only PATCH invalidating stale
-  edits/publication. A test read hook commits the competing PATCH before the
-  stale write; both requests use real guards and database operations.
+- `npm test`: all 257 API unit/controller tests passed across 19 files.
+- `npm run test:e2e`: all 162 database/HTTP tests passed across 11 files, with
+  `EMAIL_VERIFICATION_SMTP_TEST=1`, SMTP directed to the disposable local Mailpit
+  catcher, and no skipped tests. The follow-up used `younity_s301_audit_test`.
+  No email was delivered externally.
+- Organizer event database coverage now has 26 cases. It includes category-only
+  PATCH invalidating stale edits/publication, simultaneous edit/edit,
+  edit/publish and publish/publish against the same snapshot (one success and
+  one 409), transaction rollback when PostgreSQL rejects category persistence,
+  and denial of an existing JWT after approval revocation or suspension. Test
+  read hooks coordinate races; guards and database operations remain real.
 - `npm run lint`, `npm run build` (including Prisma generation), and
   `git diff --check`: passed. No schema migration was needed.
+- `npm run prisma:validate`, `npm run db:status`, and the CI Prisma migration
+  diff command: passed; migrations are current and no schema drift was detected.
 
-The full unrelated API test suites, hosted CI, S3-09 browser integration and
-S3-05 discovery were not run for this change. Before Aadel's review, confirm the
+No S3-01 functional failures were found in this audit; production code required
+no further changes. Expected failed-email fixtures log errors. The full database
+suite also emits an existing non-failing `pg` deprecation warning traced to
+`@prisma/adapter-pg` transaction queries; dependency compatibility with a future
+`pg` major version remains a separate maintenance item. Disposable test containers
+and their database volume were removed after verification.
+
+Hosted CI, S3-09 browser integration and S3-05 discovery were not run for this
+change. Before Aadel's review, confirm the
 category catalog source and S3-09 adapter mapping/validation described above;
 student visibility remains dependent on S3-05 integration.
 
