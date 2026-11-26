@@ -16,6 +16,11 @@ may describe retired mocks or earlier contracts.
 React 19, TypeScript, Vite, Tailwind CSS 4, and React Router. AUTH-04 owner:
 oussama; reviewer: abdellah. Branch: `feature/auth-04-registration-ui`.
 
+The reusable [organizer decision notice](../../docs/organizer-decision-notice.md)
+is a presentation component supplied by Said for Aadel's existing status-page
+integration. Its props, callbacks, tests, acceptance evidence and remaining
+review gates are documented separately; it performs no fetching or routing.
+
 
 **Latest organizer change:** At the owner's request, Account credentials and all
 four fields (First Name, Email, Password, Confirm password) were removed.
