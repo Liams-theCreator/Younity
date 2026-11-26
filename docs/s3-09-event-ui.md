@@ -310,3 +310,17 @@ checked using intercepted test responses, while the live demo organization
 correctly reports zero events/bookings and no capacity utilization.
 
 Full backend verification: build/lint passed and all 174 backend tests passed.
+
+## S3-02 integration PR preparation — 2026-11-26
+
+The requested PR base is feat/s3-02-connect-save-publish-events. The published
+base was 5bfeeccfe7de2285435579d88aea7687b77a8726 when checked. Its existing
+organizer-decision-notice changes were incorporated into this feature branch
+without conflicts. Final frontend build/lint pass with 380 tests passing and
+9 opt-in integration checks skipped. API build/lint and all 174 unit/controller
+tests pass. An existing admin abort test now explicitly waits for the pending
+request before reading its signal, resolving the observed timing race.
+
+S3-01/category integration, organizer draft listing, Aadel's participant contract,
+registration-mode agreement, and Smail's frontend review remain the acceptance
+dependencies described above.
