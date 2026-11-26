@@ -1,14 +1,18 @@
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import styles from '../pages/AuthShell.module.css'
 import AdminHeader from '../admin/AdminHeader'
+import { OrganizerEventHeader } from '../events/EventUi'
 
 export default function LogoutButton() {
   const { status, user, destination, signOut } = useAuth()
+  const { pathname } = useLocation()
 
   if (status !== 'authenticated') {
     return null
   }
+
+  if (destination === '/organizer/dashboard' && (pathname === '/organizer/dashboard' || pathname.startsWith('/organizer/events') || pathname === '/organizer/bookings')) return <OrganizerEventHeader />
 
   if (destination === '/admin/applications') return <AdminHeader />
 

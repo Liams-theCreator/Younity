@@ -22,20 +22,30 @@ import { useAuth } from './useAuth'
 import AdminApplicationsPage from '../admin/AdminApplicationsPage'
 import AdminApplicationDetailPage from '../admin/AdminApplicationDetailPage'
 import type { ApplicationReviewService } from '../admin/model'
+import { unavailableEventServices, type EventServices } from '../events/model'
+import EventCreationPage from '../events/EventCreationPage'
+import OrganizerEventsPage from '../events/OrganizerEventsPage'
+import OrganizerBookingsPage from '../events/OrganizerBookingsPage'
 
 type AuthRoutesProps = {
   pendingPage: ReactNode
   reviewService?: ApplicationReviewService
+  eventServices?: EventServices
 }
 
 export default function AuthRoutes({
   pendingPage,
   reviewService,
+  eventServices = unavailableEventServices,
 }: AuthRoutesProps) {
   const { destination } = useAuth()
 
   return (
     <Routes>
+      <Route path="/organizer/events" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><OrganizerEventsPage service={eventServices} /></ProtectedRoute>} />
+      <Route path="/organizer/events/new" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><EventCreationPage service={eventServices} /></ProtectedRoute>} />
+      <Route path="/organizer/events/:eventId/edit" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><EventCreationPage service={eventServices} /></ProtectedRoute>} />
+      <Route path="/organizer/bookings" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><OrganizerBookingsPage service={eventServices} /></ProtectedRoute>} />
       <Route
         path="/admin/applications"
         element={
@@ -126,7 +136,7 @@ export default function AuthRoutes({
             destination="/organizer/dashboard"
             renderRedirect={(to) => <Navigate to={to} replace />}
           >
-            <OrganizerDashboardPage />
+            <OrganizerDashboardPage service={eventServices} />
           </ProtectedRoute>
         }
       />

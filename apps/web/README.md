@@ -622,3 +622,33 @@ The live admin tests now use actual draft/submission/resubmission HTTP endpoints
 without a revision helper. [Acceptance evidence](../../docs/evidence/s2-05/README.md)
 includes the full mobile/keyboard flow, permissions, private corrections and
 stale-decision recovery. Reviewer approval is required before Done.
+
+## S3-09 organizer event workspace
+
+Approved active organizers can open `/organizer/events/new` from the dashboard.
+The latest supplied HTML reference is implemented with three white form cards,
+blue actions, an attendee preview, a calendar/time-range picker and a fixed action
+dock. The local Plus Jakarta Sans font and Material Symbols match the reference.
+Calendar changes are staged until Apply Schedule; Cancel/Escape restores the
+applied range. Month/day keyboard navigation, date presets, arbitrary minute
+precision and multi-day schedules are supported. Input icons have reserved space.
+
+The preview reflects current entries. Save confirmation and the last-saved time
+only come from the supplied write callback. Discard restores the confirmed draft
+or the empty form. The local reference cover is visibly labeled as an example in
+the banner panel and never becomes a saved image URL automatically. File uploads
+require the owner's optional `uploadBanner` callback; an image URL is also supported.
+Room/campus controls are provisional UI fields whose persistence mapping must be
+agreed with S3-01. The unsupported approval registration option stays disabled.
+
+`/organizer/events` displays draft cards with search/sorting and continue-editing
+links. `/organizer/bookings` uses simple confirmed/cancelled tabs and a read-only
+table with attendee/email/event, optional ticket/cancellation metadata and status.
+Counts/search describe the loaded page; pagination comes from the service adapter.
+The reference's example bookings are not production data.
+
+S3-01/S3-03 contracts and Abdellah's writer remain unconnected in this checkout.
+Save/publish stay disabled without callbacks; read failures show unavailable
+states. `App.eventServices` preserves the existing frontend integration boundary
+and Abdellah's ownership of writes. See [the S3-09 guide](../../docs/s3-09-event-ui.md)
+for behavior, verification and the remaining API handoff.
