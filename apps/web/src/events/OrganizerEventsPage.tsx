@@ -219,18 +219,21 @@ export default function OrganizerEventsPage({ service }: { service: EventService
     search.current?.focus()
   }
   return (
+    <div className={styles.workspace}>
     <main className={`${styles.page} ${styles.draftsPage}`}>
-      <header className={styles.pageHeader}>
+      <header className={`${styles.pageHeader} ${styles.collectionHeader}`}>
         <div>
           <h1 ref={title} tabIndex={-1}>
             My Events
           </h1>
-          <p>Manage your organization’s events and continue editing your saved drafts.</p>
+          <p>Good things start with a gathering. Pick up where you left off.</p>
         </div>
-        <Link className={styles.primaryLink} to="/organizer/events/new">
-          <EventIcon name="add" />
-          Create event
-        </Link>
+        <div className={styles.collectionAction}>
+          <Link className={styles.primaryLink} to="/organizer/events/new">
+            <EventIcon name="add" />
+            Create event
+          </Link>
+        </div>
       </header>
       <section aria-labelledby="saved-drafts" aria-busy={resource.loading}>
         <h2 id="saved-drafts" className={styles.srOnly}>
@@ -341,5 +344,6 @@ export default function OrganizerEventsPage({ service }: { service: EventService
         </div>
       </section>
     </main>
+    </div>
   )
 }

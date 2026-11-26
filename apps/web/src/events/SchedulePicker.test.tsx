@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import SchedulePicker from './SchedulePicker'
@@ -33,10 +33,10 @@ describe('event schedule picker', () => {
     await userEvent.click(trigger)
     expect(screen.getByLabelText('Start date & time')).toHaveValue('10:00')
   })
-  it('applies an overnight range atomically with duration and restores focus', async () => {
-    const { onApply, onEditingChange } = setup()
+  it('retains a saved overnight range without an end-date field and restores focus', async () => {
+    const { onApply, onEditingChange } = setup('2028-02-29T23:00', '2028-03-01T01:00')
+    expect(screen.queryByLabelText('Event end date')).not.toBeInTheDocument()
     await userEvent.selectOptions(screen.getByLabelText('Start date & time'), '23:30')
-    fireEvent.change(screen.getByLabelText('Event end date'), { target: { value: '2028-03-01' } })
     await userEvent.selectOptions(screen.getByLabelText('End date & time'), '01:00')
     expect(
       within(screen.getByRole('region', { name: 'Schedule picker' })).getByText('1h 30m'),
@@ -64,11 +64,10 @@ describe('event schedule picker', () => {
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByRole('region', { name: 'Schedule picker' })).not.toBeInTheDocument()
   })
-  it('keeps arbitrary minute precision and rejects reversed or missing ranges', async () => {
-    const { onApply } = setup()
-    await userEvent.selectOptions(screen.getByLabelText('Start date & time'), 'custom')
-    expect(screen.getByLabelText('Start date & time')).toHaveFocus()
-    fireEvent.change(screen.getByLabelText('Start date & time'), { target: { value: '11:17' } })
+  it('preserves a saved nonstandard time without offering custom time and rejects reversed ranges', async () => {
+    const { onApply } = setup('2028-02-29T11:17', '2028-02-29T12:00')
+    expect(screen.queryByRole('option', { name: /Custom time/ })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Start date & time')).toHaveValue('11:17')
     await userEvent.selectOptions(screen.getByLabelText('End date & time'), '10:00')
     await userEvent.click(screen.getByRole('button', { name: 'Apply Schedule' }))
     expect(screen.getByRole('alert')).toHaveTextContent('The end must be after the start.')
@@ -84,9 +83,13 @@ describe('event schedule picker', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Tomorrow' }))
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    expect(screen.getByLabelText('Event end date')).toHaveValue(dayKey(tomorrow))
+    expect(screen.queryByLabelText('Event end date')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Start date & time')).toHaveValue('')
     expect(onApply).not.toHaveBeenCalled()
+    await userEvent.selectOptions(screen.getByLabelText('Start date & time'), '10:00')
+    await userEvent.selectOptions(screen.getByLabelText('End date & time'), '12:00')
+    await userEvent.click(screen.getByRole('button', { name: 'Apply Schedule' }))
+    expect(onApply).toHaveBeenCalledExactlyOnceWith(`${dayKey(tomorrow)}T10:00`, `${dayKey(tomorrow)}T12:00`)
   })
   it('computes valid short and multi-day durations without accepting reversed ranges', () => {
     expect(scheduleDuration('2028-02-29T10:00', '2028-02-29T10:30')).toBe('0h 30m')

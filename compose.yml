@@ -39,6 +39,8 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       MAIL_FROM: "Younity <no-reply@younity.test>"
+    volumes:
+      - event_images:/app/uploads/event-images
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 5s
@@ -148,5 +150,6 @@ services:
 
 volumes:
   postgres_data:
+  event_images:
   caddy_data:
   caddy_config:

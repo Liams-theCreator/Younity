@@ -136,7 +136,7 @@ export default function AuthRoutes({
             destination="/organizer/dashboard"
             renderRedirect={(to) => <Navigate to={to} replace />}
           >
-            <OrganizerDashboardPage />
+            <OrganizerDashboardPage service={eventServices} />
           </ProtectedRoute>
         }
       />

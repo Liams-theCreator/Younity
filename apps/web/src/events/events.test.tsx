@@ -6,6 +6,7 @@ import App from '../App'
 import { apiRequest } from '../api/client'
 import {
   baselineRules,
+  unavailableEventServices,
   emptyEvent,
   EventUiError,
   type EventDraft,
@@ -80,7 +81,7 @@ function services() {
       })),
   } satisfies EventServices
 }
-function mount(service?: EventServices, path = '/organizer/events/new') {
+function mount(service: EventServices = unavailableEventServices, path = '/organizer/events/new') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <App eventServices={service} />
@@ -636,11 +637,12 @@ describe('saved drafts and participant screens', () => {
     expect(screen.getByText('No artwork')).toBeVisible()
     expect(screen.getByText('Update time unavailable')).toBeVisible()
     expect(screen.getByText('Format not set')).toBeVisible()
-    const image = document.querySelector('img')!
+    const drafts = screen.getByRole('list')
+    const image = drafts.querySelector('img')!
     expect(image).toHaveAttribute('src', 'https://example.test/banner.png')
     fireEvent.error(image)
     expect(await screen.findByText('Artwork unavailable')).toBeVisible()
-    expect(document.querySelector('img')).toBeNull()
+    expect(drafts.querySelector('img')).toBeNull()
   })
   it('shows loading and error/retry without inventing drafts', async () => {
     const service = services()
@@ -816,4 +818,19 @@ describe('event integration response safeguards', () => {
     expect(await screen.findByText('Booking time unavailable')).toBeVisible()
     expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
   })
+})
+
+it('requires an explicit save before publishing an edited persisted draft', async () => {
+  const service = services()
+  mount({ ...service, publishSavedOnly: true }, `/organizer/events/${draft.id}/edit`)
+  await screen.findByDisplayValue(values.title)
+  await userEvent.type(screen.getByRole('textbox', { name: 'Event title' }), ' updated')
+  expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+  expect(service.publish).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+  expect(await screen.findByText('Draft saved.', { exact: true })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Publish' })).toBeEnabled()
+  await userEvent.click(screen.getByRole('button', { name: 'Publish' }))
+  await waitFor(() => expect(service.publish).toHaveBeenCalledTimes(1))
+  expect(service.saveDraft).toHaveBeenCalledTimes(1)
 })

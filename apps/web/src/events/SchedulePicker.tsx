@@ -58,8 +58,6 @@ const SchedulePicker = forwardRef<
   const [focused, setFocused] = useState(() => parseDay(start.split('T')[0]) ?? today)
   const [preset, setPreset] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const [customStart, setCustomStart] = useState(false)
-  const [customEnd, setCustomEnd] = useState(false)
   const [focusTick, bumpFocus] = useReducer((value: number) => value + 1, 0)
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -193,7 +191,6 @@ const SchedulePicker = forwardRef<
     }
   }
   function timeControl(kind: 'start' | 'end') {
-    const custom = kind === 'start' ? customStart : customEnd
     const options = Array.from(
       { length: 48 },
       (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`,
@@ -207,51 +204,25 @@ const SchedulePicker = forwardRef<
         </label>
         <div className={styles.inputShell}>
           <EventIcon name={kind === 'start' ? 'play_circle' : 'stop_circle'} />
-          {custom ? (
-            <input
-              id={kind === 'start' ? 'event-startDate' : 'event-endDate'}
-              type="time"
-              value={stage[kind]}
-              required
-              disabled={disabled}
-              aria-label={kind === 'start' ? 'Start date & time' : 'End date & time'}
-              aria-invalid={Boolean(errors?.[kind === 'start' ? 'startDate' : 'endDate'])}
-              aria-describedby={
-                errors?.[kind === 'start' ? 'startDate' : 'endDate']
-                  ? `event-${kind === 'start' ? 'startDate' : 'endDate'}-error`
-                  : undefined
-              }
-              onChange={(event) => update({ ...stage, [kind]: event.target.value })}
-            />
-          ) : (
-            <select
-              id={kind === 'start' ? 'event-startDate' : 'event-endDate'}
-              value={stage[kind]}
-              required
-              disabled={disabled}
-              aria-label={kind === 'start' ? 'Start date & time' : 'End date & time'}
-              aria-invalid={Boolean(errors?.[kind === 'start' ? 'startDate' : 'endDate'])}
-              aria-describedby={
-                errors?.[kind === 'start' ? 'startDate' : 'endDate']
-                  ? `event-${kind === 'start' ? 'startDate' : 'endDate'}-error`
-                  : undefined
-              }
-              onChange={(event) => {
-                if (event.target.value === 'custom') {
-                  if (kind === 'start') setCustomStart(true)
-                  else setCustomEnd(true)
-                  focusRequest.current = kind === 'start' ? 'event-startDate' : 'event-endDate'
-                  bumpFocus()
-                } else update({ ...stage, [kind]: event.target.value })
-              }}
-            >
-              <option value="">Choose time</option>
-              {options.map((time) => (
-                <option key={time}>{time}</option>
-              ))}
-              <option value="custom">Custom time…</option>
-            </select>
-          )}
+          <select
+            id={kind === 'start' ? 'event-startDate' : 'event-endDate'}
+            value={stage[kind]}
+            required
+            disabled={disabled}
+            aria-label={kind === 'start' ? 'Start date & time' : 'End date & time'}
+            aria-invalid={Boolean(errors?.[kind === 'start' ? 'startDate' : 'endDate'])}
+            aria-describedby={
+              errors?.[kind === 'start' ? 'startDate' : 'endDate']
+                ? `event-${kind === 'start' ? 'startDate' : 'endDate'}-error`
+                : undefined
+            }
+            onChange={(event) => update({ ...stage, [kind]: event.target.value })}
+          >
+            <option value="">Choose time</option>
+            {options.map((time) => (
+              <option key={time}>{time}</option>
+            ))}
+          </select>
         </div>
       </div>
     )
@@ -415,17 +386,6 @@ const SchedulePicker = forwardRef<
             <div className={styles.timeRange}>
               {timeControl('start')}
               {timeControl('end')}
-              <label className={styles.endDay}>
-                End date
-                <input
-                  type="date"
-                  aria-label="Event end date"
-                  value={stage.endDay || stage.day}
-                  min={stage.day || undefined}
-                  disabled={disabled}
-                  onChange={(event) => update({ ...stage, endDay: event.target.value })}
-                />
-              </label>
               <div className={styles.duration}>
                 <span>
                   <EventIcon name="timelapse" />

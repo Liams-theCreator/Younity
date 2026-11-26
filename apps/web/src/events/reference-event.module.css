@@ -172,8 +172,7 @@
 }
 .field :is(input, select),
 .field textarea,
-.timeField :is(input, select),
-.endDay input {
+.timeField :is(input, select) {
   display: block;
   width: 100%;
   min-width: 0;
@@ -636,20 +635,6 @@
   top: 11px;
   font-size: 18px;
   color: #003bba;
-}
-.endDay {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  font-size: 11px;
-  font-weight: 500;
-}
-.endDay input {
-  height: 36px;
-  padding: 7px 9px;
-  background: #f1f4f9;
-  font-size: 12px;
-  box-shadow: none;
 }
 .duration {
   display: flex;
@@ -1218,4 +1203,27 @@
 .page .timeField .inputShell select {
   padding-right: 32px;
   background-position: right 8px center;
+}
+
+.introduction { margin: 10px 0 0; color: #434654; font-size: 14px; }
+.back { justify-content: flex-start; gap: 6px; font-size: 12px; }
+.page .pageHeader h1:focus { outline: none; }
+.field > label:has(> .required) { justify-content: flex-start; }
+.card { border: 1px solid #dce1eb; box-shadow: 0 1px 3px #181c200a, 0 4px 12px #2854d908; }
+.field [aria-invalid='true'] { box-shadow: 0 0 0 3px #ba1a1a33; }
+.preview { border: 1px solid #dce1eb; box-shadow: 0 1px 3px #181c200a, 0 4px 12px #2854d908; }
+.notice[data-error='true'] { background: #ffedec; color: #ba1a1a; }
+.actionDock { border-top: 1px solid #dce1eb; }
+@media (min-width: 1200px) {
+  .workspace { margin-left: 256px; }
+  .actionDock { left: 256px; width: calc(100% - 256px); }
+  .editorGrid > .form { grid-column: span 7; }
+  .editorGrid > .preview { grid-column: span 5; }
+}
+@media (min-width: 768px) and (max-width: 1199px) {
+  .workspace { margin-left: 80px; }
+  .actionDock { left: 80px; width: calc(100% - 80px); }
+}
+@media (max-width: 767px) {
+  .pageHeader h1 { font-size: 28px; line-height: 36px; }
 }

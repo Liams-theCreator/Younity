@@ -44,6 +44,11 @@ export type EventRules = {
   descriptionMaxLength?: number
   categoryRequired: boolean
   automaticDeadlineRequired: boolean
+  draftCoreRequired?: boolean
+  futureStartRequired?: boolean
+  capacityMax?: number
+  urlMaxLength?: number
+  locationMaxLength?: number
 }
 // Bounds/options reflect the current Prisma schema, not a final publish policy.
 export const baselineRules: EventRules = {
@@ -81,11 +86,25 @@ export type BookingPage = {
   nextPage: string | null
   label: string
 }
+export type OrganizerDashboard = {
+  organizationName: string
+  organizerName: string
+  metrics: { activeEvents: number; confirmedBookings: number; draftCount: number; capacityUtilization: number | null }
+  upcomingEvents: {
+    id: string; title: string; startDate: string; endDate: string; format: Exclude<EventFormat, ''>
+    location: string | null; imageUrl: string | null; capacity: number | null; confirmedCount: number
+  }[]
+  drafts: DraftSummary[]
+  recentBookings: { id: string; participantName: string; eventTitle: string; status: 'CONFIRMED' | 'CANCELLED'; updatedAt: string }[]
+}
 export type EventContext = { request: typeof fetch; signal: AbortSignal }
 export type EventServices = {
   // Integration-owned setting for new events; the form does not expose a selector.
   registrationMode?: Exclude<RegistrationMode, ''>
   rules?: EventRules
+  venueDetails?: boolean
+  publishSavedOnly?: boolean
+  dashboard?: (context: EventContext) => Promise<OrganizerDashboard>
   categories?: (context: EventContext) => Promise<CategoryOption[]>
   campuses?: CategoryOption[]
   // Owner-supplied upload integration; this does not specify an HTTP endpoint.

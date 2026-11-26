@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 import { useAuth } from '../auth/useAuth'
 import { EventUiError, type EventServices } from './model'
 import { useEventResource } from './useEventResource'
+import { EventIcon } from './EventUi'
 import styles from './simple-events.module.css'
 
 const statuses = ['CONFIRMED', 'CANCELLED'] as const
@@ -50,13 +51,23 @@ export default function OrganizerBookingsPage({ service }: { service: EventServi
     tabs.current[next]?.focus()
   }
   return (
+    <div className={styles.workspace}>
     <main className={styles.page}>
-      <section className={styles.card} aria-label="Event bookings">
-        <div className={styles.headingRow}>
+      <header className={styles.headingRow}>
+        <div>
           <h1 ref={title} tabIndex={-1}>
             Bookings
           </h1>
+          <p className={styles.introduction}>
+            The people behind every gathering. Keep track of who’s coming.
+          </p>
+        </div>
+      </header>
+      <section className={styles.card} aria-label="Event bookings">
+        <div className={styles.toolbar}>
+          <h2>Guest list</h2>
           <button type="button" disabled={resource.loading} onClick={resource.reload}>
+            <EventIcon name="refresh" />
             Refresh bookings
           </button>
         </div>
@@ -97,7 +108,8 @@ export default function OrganizerBookingsPage({ service }: { service: EventServi
           tabIndex={0}
         >
           <label className={styles.search}>
-            <span>Search this page</span>
+            <span className={styles.srOnly}>Search this page</span>
+            <EventIcon name="search" />
             <input
               type="search"
               placeholder="Search name, email, event or ticket…"
@@ -107,12 +119,19 @@ export default function OrganizerBookingsPage({ service }: { service: EventServi
             />
           </label>
           {resource.loading && (
-            <p className={styles.muted} role="status">
-              Loading bookings…
-            </p>
+            <div className={styles.loading} role="status">
+              <p>Loading bookings…</p>
+              <div aria-hidden="true" />
+              <div aria-hidden="true" />
+              <div aria-hidden="true" />
+            </div>
           )}
           {resource.error && (
             <div className={styles.errorNotice}>
+              <EventIcon name={resource.error.kind === 'forbidden' ? 'lock' : 'cloud_off'} />
+              <h2>
+                {resource.error.kind === 'forbidden' ? 'Access restricted' : 'Bookings unavailable'}
+              </h2>
               <p role="alert">{resource.error.message}</p>
               {resource.error.kind !== 'forbidden' && resource.error.kind !== 'not-found' && (
                 <button type="button" onClick={resource.reload}>
@@ -125,7 +144,15 @@ export default function OrganizerBookingsPage({ service }: { service: EventServi
             <>
               {items.length === 0 ? (
                 <div className={styles.empty}>
+                  <EventIcon name={term ? 'search_off' : 'confirmation_number'} />
                   <h2>{term ? 'No matching bookings' : `No ${status.toLowerCase()} bookings.`}</h2>
+                  <p>
+                    {term
+                      ? 'Try a different name, email, event or ticket.'
+                      : status === 'CONFIRMED'
+                        ? 'Confirmed attendees will appear here when bookings arrive.'
+                        : 'Cancelled bookings will appear here with any available cancellation details.'}
+                  </p>
                   {term && (
                     <button type="button" onClick={() => setQuery('')}>
                       Clear search
@@ -157,7 +184,14 @@ export default function OrganizerBookingsPage({ service }: { service: EventServi
                     <tbody>
                       {items.map((item) => (
                         <tr key={item.id}>
-                          <th scope="row">{item.participantName}</th>
+                          <th scope="row">
+                            <span className={styles.attendee}>
+                              <span className={styles.attendeeAvatar} aria-hidden="true">
+                                {item.participantName.trim().slice(0, 1).toLocaleUpperCase() || '?'}
+                              </span>
+                              {item.participantName}
+                            </span>
+                          </th>
                           <td data-label="Email">{item.email}</td>
                           <td data-label="Event">{item.eventTitle}</td>
                           <td data-label="Ticket">
@@ -230,5 +264,6 @@ export default function OrganizerBookingsPage({ service }: { service: EventServi
         </section>
       </section>
     </main>
+    </div>
   )
 }

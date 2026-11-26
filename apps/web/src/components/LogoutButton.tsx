@@ -12,7 +12,7 @@ export default function LogoutButton() {
     return null
   }
 
-  if (destination === '/organizer/dashboard' && (pathname.startsWith('/organizer/events') || pathname === '/organizer/bookings')) return <OrganizerEventHeader />
+  if (destination === '/organizer/dashboard' && (pathname === '/organizer/dashboard' || pathname.startsWith('/organizer/events') || pathname === '/organizer/bookings')) return <OrganizerEventHeader />
 
   if (destination === '/admin/applications') return <AdminHeader />
 

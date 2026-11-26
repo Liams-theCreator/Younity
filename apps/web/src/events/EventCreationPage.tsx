@@ -121,7 +121,7 @@ function Editor({
       (intent === 'draft' ? !service.saveDraft : !service.publish)
     )
       return
-    if (intent === 'publish' && !values.registrationMode) return
+    if (intent === 'publish' && (!values.registrationMode || (service.publishSavedOnly && id && dirty))) return
     if (schedulePending) {
       setNotice({ text: 'Apply or cancel your schedule changes before continuing.', error: true })
       return
@@ -343,7 +343,7 @@ function Editor({
           aria-label={dock ? 'Publish event from action dock' : undefined}
           className={styles.primary}
           disabled={
-            busy || locked || schedulePending || !service.publish || !values.registrationMode
+            busy || locked || schedulePending || !service.publish || !values.registrationMode || Boolean(service.publishSavedOnly && id && dirty)
           }
         >
           {!dock && <EventIcon name="publish" />}
@@ -362,10 +362,12 @@ function Editor({
           <div>
             <Link className={styles.back} to="/organizer/events" aria-label="Back to my events">
               <EventIcon name="arrow_back" />
+              My events
             </Link>
             <h1 ref={title} tabIndex={-1}>
               {id ? 'Edit Event' : 'Create Event'}
             </h1>
+            <p className={styles.introduction}>Bring your campus together. Start with the details.</p>
           </div>
           {!accessError && (
             <div className={styles.actionRow} role="group" aria-label="Event actions">
@@ -409,6 +411,9 @@ function Editor({
                       ))}
                   </ul>
                 )}
+                {savedDraft && !notice.error && !completed && (
+                  <Link to={`/organizer/events/${encodeURIComponent(savedDraft.id)}/edit`}>Open saved draft</Link>
+                )}
                 {locked && (
                   <div className={styles.actionRow}>
                     {reload && (
@@ -435,15 +440,14 @@ function Editor({
                     <div>
                       <h2 id="event-details-heading">Event Details</h2>
                       <p>
-                        Basic information about your university event visible across campus
-                        discovery.
+                        Give students a reason to be there.
                       </p>
                     </div>
                     <EventIcon name="info" />
                   </div>
                   {field('title', 'Event Title', {
                     required: true,
-                    placeholder: 'e.g. Annual Autonomous Robotics Showcase',
+                    placeholder: 'Give your event a memorable name',
                   })}
                   <div className={styles.field}>
                     <label htmlFor="event-description">
@@ -573,7 +577,7 @@ function Editor({
                   <div className={styles.sectionHeader}>
                     <div>
                       <h2 id="event-format-heading">Format &amp; Venue</h2>
-                      <p>Determine how and where student attendees will participate.</p>
+                      <p>Choose a place, a format, and a time to meet.</p>
                     </div>
                   </div>
                   <fieldset
@@ -623,12 +627,12 @@ function Editor({
                           icon: 'location_on',
                           placeholder: 'Building or venue name',
                         })}
-                        {field('room', 'Room / Space', {
+                        {service.venueDetails !== false && field('room', 'Room / Space', {
                           icon: 'meeting_room',
                           placeholder: 'Room or space',
                         })}
                       </div>
-                      {field('campus', 'Campus Location', {
+                      {service.venueDetails !== false && field('campus', 'Campus Location', {
                         icon: 'account_balance',
                         list: 'event-campus-options',
                         placeholder: 'Campus location',
@@ -642,8 +646,7 @@ function Editor({
                   )}
                   <p className={styles.formatHint}>
                     <EventIcon name="info" />
-                    For Hybrid or Online formats, an interactive video conference link field appears
-                    automatically.
+                    Hosting online? Choose Online or Hybrid to add your meeting link.
                   </p>
                   {(values.format === 'ONLINE' || values.format === 'HYBRID') &&
                     field('onlineUrl', 'Online event link', {
@@ -676,7 +679,7 @@ function Editor({
                   <div className={styles.sectionHeader}>
                     <div>
                       <h2 id="event-registration-heading">Registration &amp; Ticketing</h2>
-                      <p>Attendee thresholds, ticketing logic, and marketing media.</p>
+                      <p>Make room for your community and add the finishing touches.</p>
                     </div>
                   </div>
                   <div>
@@ -687,13 +690,13 @@ function Editor({
                       hint: 'Set the maximum number of attendees.',
                     })}
                   </div>
-                  {values.registrationMode === 'AUTOMATIC' &&
+                  {(values.registrationMode === 'AUTOMATIC' || (rules.draftCoreRequired && values.registrationDeadline)) &&
                     field(
                       'registrationDeadline',
-                      `Registration deadline${rules.automaticDeadlineRequired ? '' : ' (optional)'}`,
+                      `Registration deadline${values.registrationMode === 'AUTOMATIC' && rules.automaticDeadlineRequired ? '' : ' (optional)'}`,
                       {
                         type: 'datetime-local',
-                        required: rules.automaticDeadlineRequired,
+                        required: values.registrationMode === 'AUTOMATIC' && rules.automaticDeadlineRequired,
                         icon: 'schedule',
                       },
                     )}
@@ -735,7 +738,7 @@ function Editor({
                           type="file"
                           aria-label="Select event banner"
                           accept="image/png,image/jpeg,image/webp"
-                          disabled={busy || !service.uploadBanner}
+                          disabled={busy || locked || !service.uploadBanner}
                           onChange={(event) => {
                             void upload(event.target.files?.[0])
                           }}
@@ -743,7 +746,7 @@ function Editor({
                         <div className={styles.bannerActions}>
                           <button
                             type="button"
-                            disabled={busy || !service.uploadBanner}
+                            disabled={busy || locked || !service.uploadBanner}
                             onClick={() => fileInput.current?.click()}
                           >
                             <EventIcon name="file_upload" />
@@ -796,6 +799,7 @@ function Editor({
                       settings.
                     </p>
                   )}
+                  {service.publishSavedOnly && id && dirty && <p>Save your changes before publishing this draft.</p>}
                   {schedulePending && <p>Apply or cancel the schedule changes before saving.</p>}
                 </div>
                 <div className={styles.actionRow}>
@@ -832,12 +836,14 @@ function SavedEditor({ id, service }: { id: string; service: EventServices }) {
   const resource = useEventResource(load)
   if (!resource.data)
     return (
+      <div className={styles.workspace}>
       <main className={styles.page}>
         <section className={styles.card}>
           <Link to="/organizer/events">My events</Link>
           <EventState loading={resource.loading} error={resource.error} retry={resource.reload} />
         </section>
       </main>
+      </div>
     )
   return (
     <Editor

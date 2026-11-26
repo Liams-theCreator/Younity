@@ -9,7 +9,7 @@ function Cover({ url, alt }: { url: string | null; alt: string }) {
   const [failed, setFailed] = useState(false)
   return (
     <img
-      src={url && !failed ? url : '/images/reference-event-cover.jpg'}
+      src={url && !failed ? url : '/images/campus-gathering.webp'}
       alt={url && !failed ? alt : 'Example event cover'}
       onError={() => setFailed(true)}
       referrerPolicy="no-referrer"
@@ -38,7 +38,7 @@ export default function ReferencePreview({
       <div className={styles.previewTop}>
         <span>
           <i aria-hidden="true" />
-          PREVIEW · Attendee view
+          Live preview · Attendee view
         </span>
         <EventIcon name="visibility" />
       </div>
@@ -99,7 +99,9 @@ export default function ReferencePreview({
           <EventIcon name="arrow_forward" />
         </button>
       </div>
-      <div className={styles.previewFooter}>This is how your event information will appear.</div>
+      <div className={styles.previewFooter}>
+        {values.imageUrl ? 'Your event, as students will see it.' : 'Example artwork · Add a banner to make it yours.'}
+      </div>
     </aside>
   )
 }

@@ -32,7 +32,7 @@ export function validateEvent(
   for (const field of [
     'startDate',
     'endDate',
-    ...(values.registrationMode === 'AUTOMATIC' ? (['registrationDeadline'] as const) : []),
+    ...(values.registrationMode === 'AUTOMATIC' || rules.draftCoreRequired ? (['registrationDeadline'] as const) : []),
   ] as const) {
     if (
       values[field] &&
@@ -48,7 +48,7 @@ export function validateEvent(
   )
     errors.endDate = 'The end must be after the start.'
   if (
-    values.registrationMode === 'AUTOMATIC' &&
+    (values.registrationMode === 'AUTOMATIC' || rules.draftCoreRequired) &&
     values.registrationDeadline &&
     values.startDate &&
     timestamp(values.registrationDeadline) > timestamp(values.startDate)
@@ -59,6 +59,10 @@ export function validateEvent(
     (!/^[1-9]\d*$/.test(values.capacity) || !Number.isSafeInteger(Number(values.capacity)))
   )
     errors.capacity = 'Enter a positive whole number, or leave capacity blank.'
+  if (values.capacity && rules.capacityMax && Number(values.capacity) > rules.capacityMax)
+    errors.capacity = `Use at most ${rules.capacityMax.toLocaleString('en-GB')} attendees.`
+  if (values.format !== 'ONLINE' && rules.locationMaxLength && Array.from(values.location.trim()).length > rules.locationMaxLength)
+    errors.location = `Use at most ${rules.locationMaxLength} characters.`
   const urls = [
     'imageUrl',
     ...(values.format === 'ONLINE' || values.format === 'HYBRID' ? ['onlineUrl'] : []),
@@ -66,10 +70,12 @@ export function validateEvent(
   ] as const
   for (const field of urls) {
     const key = field as 'imageUrl' | 'onlineUrl' | 'externalRegistrationUrl'
-    if (values[key] && !safeImageUrl(values[key]))
+    if (rules.urlMaxLength && Array.from(values[key]).length > rules.urlMaxLength)
+      errors[key] = `Use at most ${rules.urlMaxLength} characters.`
+    else if (values[key] && !safeImageUrl(values[key]))
       errors[key] = 'Enter a complete http:// or https:// link without credentials.'
   }
-  if (intent === 'publish') {
+  if (intent === 'publish' || rules.draftCoreRequired) {
     for (const field of [
       'title',
       'description',
@@ -78,8 +84,12 @@ export function validateEvent(
       'endDate',
       'registrationMode',
     ] as const) {
-      if (!values[field].trim()) errors[field] = 'Required before publishing.'
+      if (!values[field].trim()) errors[field] = intent === 'publish' ? 'Required before publishing.' : 'Required to save a draft.'
     }
+  }
+  if (intent === 'publish') {
+    if (rules.futureStartRequired && values.startDate && timestamp(values.startDate) <= Date.now())
+      errors.startDate = 'Choose a future start date before publishing.'
     if (rules.categoryRequired && !values.categoryIds.length)
       errors.categoryIds = 'Choose at least one category.'
     if ((values.format === 'IN_PERSON' || values.format === 'HYBRID') && !values.location.trim())
