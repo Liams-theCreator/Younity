@@ -4,7 +4,7 @@ import { Prisma } from '../generated/prisma/client.js';
 
 @Injectable()
 export class OrganizerDashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   overview(userId: string) {
     return this.prisma.$transaction(async (tx) => {
@@ -23,8 +23,10 @@ export class OrganizerDashboardService {
         tx.event.findMany({
           where: active,
           orderBy: [{ startDate: 'asc' }, { id: 'asc' }], take: 3,
-          select: { id: true, title: true, startDate: true, endDate: true, format: true, location: true, imageUrl: true, capacity: true,
-            _count: { select: { registrations: { where: { status: 'CONFIRMED' } } } } },
+          select: {
+            id: true, title: true, startDate: true, endDate: true, format: true, location: true, imageUrl: true, capacity: true,
+            _count: { select: { registrations: { where: { status: 'CONFIRMED' } } } }
+          },
         }),
         tx.event.findMany({
           where: { ...owned, status: 'DRAFT' }, orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }], take: 3,
