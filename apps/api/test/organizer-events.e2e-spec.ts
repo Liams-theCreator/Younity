@@ -180,12 +180,12 @@ describe('Organizer events with PostgreSQL and real JWT guards', () => {
     await request(app.getHttpServer()).get(`/api/events/${randomUUID()}`).expect(404);
   });
 
-  it('keeps events public for one day after ending and returns missing automatic deadlines as closed', async () => {
+  it('keeps events public for 48 hours after ending and returns missing automatic deadlines as closed', async () => {
     const marker = randomUUID();
     const now = Date.now();
     const hour = 60 * 60 * 1000;
 
-    async function fixture(hoursUntilEnd: number) {
+    async function fixture(hoursUntilEnd: number, durationHours = 1) {
       const result = await request(app.getHttpServer())
         .post('/api/organizer-events/publish')
         .set('Cookie', cookie)
@@ -195,16 +195,18 @@ describe('Organizer events with PostgreSQL and real JWT guards', () => {
       return prisma.event.update({
         where: { id: result.body.id },
         data: {
-          startDate: new Date(endDate.getTime() - hour),
+          startDate: new Date(endDate.getTime() - durationHours * hour),
           endDate,
           registrationDeadline: null,
         },
       });
     }
 
-    const recent = await fixture(-23);
-    const expired = await fixture(-25);
-    const older = await fixture(-48);
+    const recent = await fixture(-47);
+    const mostRecent = await fixture(-2, 60);
+    const expired = await fixture(-49);
+    const older = await fixture(-72);
+    const ongoing = await fixture(1, 4);
     const upcoming = await fixture(48);
 
     const list = await request(app.getHttpServer())
@@ -212,12 +214,20 @@ describe('Organizer events with PostgreSQL and real JWT guards', () => {
       .query({ q: marker })
       .expect(200);
     expect(list.body).toMatchObject({
-      total: 2,
-      items: [upcoming, recent].map(({ id }) => ({
+      total: 4,
+      items: [upcoming, ongoing, mostRecent, recent].map(({ id }) => ({
         id, registrationMode: 'AUTOMATIC', registrationDeadline: null, availability: 'CLOSED',
       })),
     });
-    for (const { id } of [upcoming, recent]) {
+    const secondPage = await request(app.getHttpServer())
+      .get('/api/events')
+      .query({ q: marker, page: 2, pageSize: 2 })
+      .expect(200);
+    expect(secondPage.body).toMatchObject({
+      total: 4,
+      items: [{ id: mostRecent.id }, { id: recent.id }],
+    });
+    for (const { id } of [upcoming, ongoing, mostRecent, recent]) {
       const detail = await request(app.getHttpServer()).get(`/api/events/${id}`).expect(200);
       expect(detail.body.event).toMatchObject({
         registrationDeadline: null,
@@ -282,6 +292,16 @@ describe('Organizer events with PostgreSQL and real JWT guards', () => {
     });
     const atCapacity = await list().expect(200);
     expect(atCapacity.body.items).toMatchObject([{ id: sooner.body.id, availability: 'FULL' }]);
+
+    const ongoing = await publish(category.id, 7200000);
+    await prisma.event.update({
+      where: { id: ongoing.body.id },
+      data: { startDate: new Date(Date.now() - 3600000) },
+    });
+    const third = await list(studentCookie, 3).expect(200);
+    expect(third.body).toMatchObject({ total: 3, items: [{ id: ongoing.body.id }] });
+    const second = await list(studentCookie, 2).expect(200);
+    expect(second.body).toMatchObject({ total: 3, items: [{ id: sooner.body.id }] });
   });
 
   it('directly publishes with category links and preserves the event response fields', async () => {

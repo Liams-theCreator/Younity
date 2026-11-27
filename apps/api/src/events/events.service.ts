@@ -30,7 +30,7 @@ const interestSlugs: Record<Interests, string> = {
   CAREER_FAIRS_NETWORKING: 'career-fairs-networking',
 };
 
-const publicAfterEndMs = 24 * 60 * 60 * 1000;
+const publicAfterEndMs = 48 * 60 * 60 * 1000;
 
 function publicEvents(now: Date): Prisma.EventWhereInput {
   return {
@@ -171,17 +171,27 @@ export class EventsService {
         const items: SummaryRow[] = [];
         let skip = (page - 1) * pageSize;
         if (skip < total) {
-          // Interest rank precedes date rank. Each event belongs to exactly one group.
-          const groups = interestGroups.flatMap((interest) => [
+          const groups = [
+            ...interestGroups.map((interest) => ({
+              where: { AND: [where, interest, { startDate: { gt: now } }] },
+              orderBy: { startDate: 'asc' } as const,
+            })),
             {
-              where: { AND: [where, interest, { startDate: { gte: now } }] },
-              direction: 'asc' as const,
+              where: {
+                AND: [where, { startDate: { lte: now }, endDate: { gt: now } }],
+              },
+              orderBy: { startDate: 'asc' } as const,
             },
             {
-              where: { AND: [where, interest, { startDate: { lt: now } }] },
-              direction: 'desc' as const,
+              where: {
+                AND: [
+                  where,
+                  { startDate: { lte: now }, endDate: { lte: now } },
+                ],
+              },
+              orderBy: { endDate: 'desc' } as const,
             },
-          ]);
+          ];
           for (const group of groups) {
             if (skip > 0) {
               const count = await tx.event.count({ where: group.where });
@@ -194,7 +204,7 @@ export class EventsService {
               ...(await tx.event.findMany({
                 where: group.where,
                 select: summaryFields,
-                orderBy: [{ startDate: group.direction }, { id: 'asc' }],
+                orderBy: [group.orderBy, { id: 'asc' }],
                 skip,
                 take: pageSize - items.length,
               })),
