@@ -131,10 +131,11 @@ export class BookingsService {
 
   async listParticipants(
     userId: string,
-    { status, page, pageSize }: ListParticipantsDto,
+    { status, eventId, page, pageSize }: ListParticipantsDto,
   ) {
     const where = {
       status,
+      ...(eventId === undefined ? {} : { eventId }),
       event: {
         createdById: userId,
         organization: {

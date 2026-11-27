@@ -330,7 +330,7 @@ describe('Bookings with PostgreSQL and real JWT guards', () => {
   });
 
   it('rejects anonymous, student, unverified, inactive and revoked organizer sessions', async () => {
-    const query = { status: 'CONFIRMED' };
+    const query = { status: 'CONFIRMED', eventId: (await event()).id };
     await list(query).expect(401, { statusCode: 401, message: 'Unauthorized' });
     await list(query, alice.cookie).expect(403, {
       statusCode: 403,
@@ -524,5 +524,160 @@ describe('Bookings with PostgreSQL and real JWT guards', () => {
           body.items.map(({ eventId }: { eventId: string }) => eventId),
         ).toEqual([theirs.id]);
       });
+  });
+
+  it('validates the optional event filter without silently treating invalid input as unfiltered', async () => {
+    for (const suffix of [
+      'eventId=',
+      'eventId=invalid',
+      'eventId=null',
+      'eventId=11111111-1111-4111-8111-11111111111',
+      `eventId=${randomUUID()}&eventId=${randomUUID()}`,
+    ]) {
+      await request(app.getHttpServer())
+        .get(`/api/organizer/bookings?status=CONFIRMED&${suffix}`)
+        .set('Cookie', owner.cookie)
+        .expect(400)
+        .expect(({ body }) => {
+          expect(body.message).toEqual(['eventId must be a UUID']);
+        });
+    }
+    await request(app.getHttpServer())
+      .get('/api/docs-json')
+      .expect(200)
+      .expect(({ body }) => {
+        const parameters = body.paths['/api/organizer/bookings'].get.parameters;
+        expect(parameters).toContainEqual(
+          expect.objectContaining({
+            name: 'eventId',
+            in: 'query',
+            required: false,
+            schema: expect.objectContaining({ format: 'uuid' }),
+          }),
+        );
+      });
+  });
+
+  it.each(['CONFIRMED', 'CANCELLED'] as const)(
+    'filters %s items and totals by event before stable pagination and preserves the unfiltered read',
+    async (status) => {
+      const [selected, another] = await Promise.all([event(), event()]);
+      const excluded = await student();
+      const ids = [
+        '00000000-0000-4000-8000-000000000001',
+        '00000000-0000-4000-8000-000000000002',
+      ];
+      const registeredAt = new Date('2027-01-10T10:00:00.000Z');
+      const cancellationReason = status === 'CANCELLED' ? 'Fixture note' : null;
+      await prisma.eventRegistration.createMany({
+        data: [
+          {
+            id: ids[1],
+            eventId: selected.id,
+            studentId: bob.id,
+            status,
+            registeredAt,
+            cancellationReason,
+          },
+          {
+            id: ids[0],
+            eventId: selected.id,
+            studentId: alice.id,
+            status,
+            registeredAt,
+            cancellationReason,
+          },
+          { eventId: another.id, studentId: alice.id, status, registeredAt },
+          {
+            eventId: selected.id,
+            studentId: excluded.id,
+            status: status === 'CONFIRMED' ? 'CANCELLED' : 'CONFIRMED',
+            registeredAt,
+          },
+        ],
+      });
+      for (const [index, attendee] of [alice, bob].entries()) {
+        await list(
+          { status, eventId: selected.id, page: index + 1, pageSize: 1 },
+          owner.cookie,
+        )
+          .expect('Cache-Control', 'no-store')
+          .expect(200, {
+            items: [
+              {
+                id: ids[index],
+                eventId: selected.id,
+                eventTitle: selected.title,
+                participantName: 'Test Participant',
+                email: attendee.email,
+                registeredAt: registeredAt.toISOString(),
+                status,
+                cancellationReason,
+              },
+            ],
+            page: index + 1,
+            pageSize: 1,
+            total: 2,
+          });
+      }
+      await list(
+        { status, eventId: selected.id, page: 3, pageSize: 1 },
+        owner.cookie,
+      ).expect(200, { items: [], page: 3, pageSize: 1, total: 2 });
+      await list({ status, eventId: selected.id.toUpperCase() }, owner.cookie)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.total).toBe(2);
+          expect(body.items.map((item: { id: string }) => item.id)).toEqual(
+            ids,
+          );
+        });
+      await list({ status }, owner.cookie)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.total).toBe(3);
+          expect(body.items).toHaveLength(3);
+          expect(
+            body.items.map((item: { eventId: string }) => item.eventId).sort(),
+          ).toEqual([selected.id, selected.id, another.id].sort());
+        });
+    },
+  );
+
+  it('returns the same empty envelope for unknown, empty or inaccessible events without bypassing ownership', async () => {
+    const [empty, theirs, wrongCreator, wrongOrganization] = await Promise.all([
+      event(),
+      event({}, other),
+      event({ createdById: other.id }),
+      event({ organizationId: other.ownedOrganizations[0]!.id }),
+    ]);
+    await prisma.eventRegistration.createMany({
+      data: [theirs, wrongCreator, wrongOrganization].flatMap(
+        ({ id: eventId }) => [
+          { eventId, studentId: alice.id, status: 'CONFIRMED' as const },
+          { eventId, studentId: bob.id, status: 'CANCELLED' as const },
+        ],
+      ),
+    });
+    for (const status of ['CONFIRMED', 'CANCELLED']) {
+      for (const eventId of [
+        randomUUID(),
+        empty.id,
+        theirs.id,
+        wrongCreator.id,
+        wrongOrganization.id,
+      ]) {
+        await list({ status, eventId }, owner.cookie)
+          .expect('Cache-Control', 'no-store')
+          .expect(200, { items: [], page: 1, pageSize: 20, total: 0 });
+      }
+      await list({ status, eventId: theirs.id }, other.cookie)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.total).toBe(1);
+          expect(body.items).toHaveLength(1);
+          expect(body.items[0].eventId).toBe(theirs.id);
+        });
+    }
   });
 });
