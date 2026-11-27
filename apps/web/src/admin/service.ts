@@ -1,4 +1,5 @@
 import type { OrganizationStatus } from '../auth/model'
+import { isProofDocument } from '../organizer/proof'
 import {
   ReviewError, statusLabels, decisionReasonLength,
   type ApplicationDetail, type ApplicationReviewService, type ApplicationSummary,
@@ -55,10 +56,13 @@ function detail(value: unknown): ReviewDetail {
   const submittedBy = object(row.submittedBy)
   const type = text(organization.type)
   if (!organizationTypes.includes(type)) throw new ReviewError('unavailable')
+  const proof = organization.proof
+  if (proof != null && !isProofDocument(proof)) throw new ReviewError('unavailable')
   const application: ApplicationDetail = {
     ...summary({ ...row, orgName: organization.orgName, representativeFullName: organization.representativeFullName }),
     type, academicPosition: text(organization.academicPosition), phoneNumber: text(organization.phoneNumber),
     proofUrl: organization.proofUrl === null ? null : text(organization.proofUrl),
+    ...(proof && { proof }),
     submittedBy: { firstName: text(submittedBy.firstName), lastName: text(submittedBy.lastName, false), email: text(submittedBy.email) },
     reviewerNote: row.reviewerNote === null ? null : text(row.reviewerNote, false),
     reviewedAt: row.reviewedAt === null ? null : date(row.reviewedAt),

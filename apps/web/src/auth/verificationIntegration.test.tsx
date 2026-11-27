@@ -91,8 +91,47 @@ describe('verification integration with shared authentication', () => {
     await userEvent.type(screen.getByLabelText('Password'), 'Example-password-2026!')
     await userEvent.click(screen.getByRole('button', { name: 'Sign In to Younity' }))
     expect(await screen.findByRole('heading', {
-      name: role === 'STUDENT' ? 'Student dashboard' : 'Organization verification pending',
+      name: role === 'STUDENT' ? 'Campus events' : 'Institutional Dossier Submitted',
     })).toBeVisible()
+  })
+
+  it.each(['STUDENT', 'ORGANIZER'] as const)('resumes %s onboarding after verification creates a session', async (role) => {
+    let sessionCreated = false
+    request.mockImplementation(async (url) => {
+      if (url === '/api/auth/me') {
+        if (!sessionCreated) return new Response(null, { status: 401 })
+        return Response.json({
+          id: 'verified-user', email, role,
+          status: role === 'STUDENT' ? 'ACTIVE' : 'PENDING',
+          organization: role === 'STUDENT' ? null : {
+            verificationStatus: 'PENDING',
+            application: { id: 'verified-application', status: 'PENDING', reviewerNote: null },
+          },
+          onboarding: {
+            complete: role === 'ORGANIZER',
+            nextStep: role === 'STUDENT' ? 'SELECT_INTERESTS' : 'NONE',
+          },
+        })
+      }
+      if (url === '/api/email-verification/verify-email') {
+        sessionCreated = true
+        return Response.json({ message: 'Email verified successfully.', sessionCreated: true })
+      }
+      if (url === '/api/student/preferences') {
+        return Response.json({ interests: [], university: null, academicField: null, studyLevel: null, opportunityFormat: null })
+      }
+      throw new Error(`Unexpected request: ${String(url)}`)
+    })
+
+    mount(`/verify-email?token=${token}`)
+    await userEvent.click(await screen.findByRole('button', { name: 'Verify email' }))
+
+    expect(await screen.findByRole('heading', {
+      name: role === 'STUDENT' ? 'Your discovery preferences' : 'Institutional Dossier Submitted',
+    })).toBeVisible()
+    expect(screen.queryByRole('navigation', { name: 'Account' })).not.toBeInTheDocument()
+    expect(request.mock.calls.some(([url]) => url === '/api/auth/login')).toBe(false)
+    expect(request.mock.calls.some(([url]) => url === '/api/organizer-applications/draft')).toBe(false)
   })
 
   it('registers a student with no academic fields and hands off verification recovery context without credentials', async () => {
@@ -122,6 +161,7 @@ describe('verification integration with shared authentication', () => {
     expect(payload).not.toHaveProperty('academicField')
     expect(payload).not.toHaveProperty('studyLevel')
     expect(request.mock.calls.some(([url]) => url === '/api/auth/login')).toBe(false)
+    expect(request.mock.calls.some(([url]) => url === '/api/organizer-applications/draft')).toBe(false)
     expect(request).toHaveBeenCalledWith('/api/email-verification/recovery-status', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ recoveryToken }),
     }))

@@ -57,6 +57,10 @@ describe('registration and email verification with PostgreSQL', () => {
     try {
       if (prisma) {
         await prisma.emailVerificationToken.deleteMany({ where: { userId: { in: ids } } });
+        const application = { submittedById: { in: ids } };
+        await prisma.decisionEmail.deleteMany({ where: { decision: { application } } });
+        await prisma.applicationDecision.deleteMany({ where: { application } });
+        await prisma.organizationApplication.deleteMany({ where: { submittedById: { in: ids } } });
         await prisma.organization.deleteMany({ where: { ownerId: { in: ids } } });
         await prisma.studentProfile.deleteMany({ where: { userId: { in: ids } } });
         await prisma.user.deleteMany({ where: { id: { in: ids } } });
@@ -84,7 +88,8 @@ describe('registration and email verification with PostgreSQL', () => {
     const saved = await prisma.emailVerificationToken.findUniqueOrThrow({ where: { tokenHash: hash(token) } });
     expect(saved.expiresAt.getTime() - saved.createdAt.getTime()).toBeGreaterThan(590000);
     expect(saved.expiresAt.getTime() - saved.createdAt.getTime()).toBeLessThanOrEqual(600000);
-    await verify(token).expect(200);
+    const verification = await verify(token).expect(200);
+    expect(verification.headers['set-cookie']).toBeUndefined();
     await verify(token).expect(400);
     const login = await request(app.getHttpServer()).post('/api/auth/login').send(credentials).expect(200);
     expect(login.headers['set-cookie']).toBeDefined();
@@ -92,6 +97,133 @@ describe('registration and email verification with PostgreSQL', () => {
     expect(me.body.status).toBe(role === 'organizer' ? 'PENDING' : 'ACTIVE');
     if (role === 'organizer') expect(me.body.organization.verificationStatus).toBe('PENDING');
     await resend(credentials).expect(200);
+  });
+
+  it.each(['student', 'organizer'])('resumes %s onboarding from the registration browser', async (role) => {
+    const details = role === 'organizer' ? {
+      organizationName: 'Resume Club', type: 'STUDENT_CLUB', representativeFullName: 'Email Verification',
+      academicPosition: 'Coordinator', phoneNumber: '+212612345678',
+    } : {};
+    const created = await request(app.getHttpServer()).post(`/api/auth/register/${role}`).send({ ...input(), ...details }).expect(201);
+    ids.push(created.body.id);
+
+    const registration = created.get('Set-Cookie')?.find((cookie) => cookie.startsWith('registration_verification='));
+    expect(registration).toContain('HttpOnly');
+    expect(registration).toContain('Secure');
+    const registrationCookie = registration!.split(';', 1)[0]!;
+    await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', registrationCookie).expect(401);
+    expect(await prisma.organizationApplication.count({ where: { submittedById: created.body.id } })).toBe(0);
+
+    const token = lastToken();
+    const confirmed = await verify(token).set('Cookie', registrationCookie).expect(200);
+    expect(confirmed.body).toEqual({ message: 'Email verified successfully.', sessionCreated: true });
+    const session = confirmed.get('Set-Cookie')?.find((cookie) => cookie.startsWith('access_token='));
+    expect(session).toContain('HttpOnly');
+    expect(session).toContain('Secure');
+
+    const me = await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', session!.split(';', 1)[0]!).expect(200);
+    expect(me.body.id).toBe(created.body.id);
+    expect(me.body.onboarding).toEqual({
+      complete: role === 'organizer',
+      nextStep: role === 'student' ? 'SELECT_INTERESTS' : 'NONE',
+    });
+    await verify(token).set('Cookie', registrationCookie).expect(400);
+    if (role === 'organizer') {
+      expect(me.body.organization.verificationStatus).toBe('PENDING');
+      const applications = await prisma.organizationApplication.findMany({
+        where: { submittedById: created.body.id },
+        include: { organization: true },
+      });
+      expect(applications).toHaveLength(1);
+      expect(applications[0]).toMatchObject({
+        id: me.body.organization.application.id,
+        status: 'PENDING',
+        revision: 1,
+        organization: { orgName: details.organizationName, phoneNumber: details.phoneNumber },
+      });
+      await request(app.getHttpServer()).patch('/api/organizer-applications/draft')
+        .set('Cookie', session!.split(';', 1)[0]!).send({ academicPosition: 'Updated role' }).expect(409);
+    }
+  });
+
+  it('verifies an email without signing in when the registration cookie belongs to another account', async () => {
+    const { user: other } = await register();
+    await register();
+    const registration = `registration_verification=${other.verificationRecoveryToken}`;
+    const response = await verify(lastToken()).set('Cookie', registration).expect(200);
+    expect(response.body).toEqual({ message: 'Email verified successfully.' });
+    expect(response.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('publishes the signup proof and only replaces it in admin review after resubmission', async () => {
+    const original = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aFfsAAAAASUVORK5CYII=', 'base64');
+    const replacement = Buffer.from('%PDF-1.4\nOrganizer replacement\n%%EOF');
+    const credentials = {
+      ...input(),
+      organizationName: 'Proof Campus Club',
+      type: 'STUDENT_CLUB',
+      representativeFullName: 'Email Verification',
+      academicPosition: 'Coordinator',
+      phoneNumber: '+212612345678',
+    };
+    const registerWithProof = () => request(app.getHttpServer())
+      .post('/api/auth/register/organizer').field(credentials);
+    await registerWithProof().attach('proof', Buffer.from('Invalid document'), 'affiliation.png').expect(400);
+    expect(await prisma.user.count({ where: { email: credentials.email } })).toBe(0);
+
+    const created = await registerWithProof().attach('proof', original, 'affiliation.png').expect(201);
+    ids.push(created.body.id);
+    expect(await prisma.organizationApplication.count({ where: { submittedById: created.body.id } })).toBe(0);
+    const registration = created.get('Set-Cookie')!.find((cookie) => cookie.startsWith('registration_verification='))!.split(';', 1)[0]!;
+    const verified = await verify(lastToken()).set('Cookie', registration).expect(200);
+    const organizerCookie = verified.get('Set-Cookie')!.find((cookie) => cookie.startsWith('access_token='))!.split(';', 1)[0]!;
+    const session = await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', organizerCookie).expect(200);
+    const applicationId: string = session.body.organization.application.id;
+    const admin = await prisma.user.create({ data: {
+      email: `proof-admin-${randomUUID()}@example.test`, firstName: 'Proof', lastName: 'Reviewer',
+      role: 'ADMIN', status: 'ACTIVE', emailVerifiedAt: new Date(), passwordHash: 'proof-review-fixture',
+    } });
+    ids.push(admin.id);
+    const adminCookie = `access_token=${await jwt.signAsync({ sub: admin.id })}`;
+    const review = () => request(app.getHttpServer()).get(`/api/admin/applications/${applicationId}/review`).set('Cookie', adminCookie).expect(200);
+    const proofRoute = (proofId: string) => `/api/admin/applications/${applicationId}/proof/${proofId}`;
+    const readProof = (proofId: string) => request(app.getHttpServer()).get(proofRoute(proofId)).set('Cookie', adminCookie);
+    const originalProof = (await review()).body.organization.proof;
+    expect(originalProof).toEqual({ id: expect.any(String), name: 'affiliation.png', mediaType: 'image/png' });
+    await request(app.getHttpServer()).get(proofRoute(originalProof.id)).expect(401);
+    await request(app.getHttpServer()).get(proofRoute(originalProof.id)).set('Cookie', organizerCookie).expect(403);
+    await request(app.getHttpServer()).get(`/api/admin/applications/${randomUUID()}/proof/${originalProof.id}`).set('Cookie', adminCookie).expect(404);
+    const preview = await readProof(originalProof.id).expect('Content-Type', 'image/png')
+      .expect('Content-Disposition', /^inline; filename="affiliation\.png"/)
+      .expect('Cache-Control', 'private, no-store').expect(200);
+    expect(preview.body).toEqual(original);
+
+    await request(app.getHttpServer()).post(`/api/admin/applications/${applicationId}/request-changes`)
+      .set('Cookie', adminCookie).send({ reason: 'Please update your affiliation document.', expectedRevision: 1 }).expect(201);
+    const saved = await request(app.getHttpServer()).patch('/api/organizer-applications/draft').set('Cookie', organizerCookie)
+      .field('changes', JSON.stringify({ academicPosition: 'Faculty Advisor' }))
+      .attach('proof', replacement, 'updated-affiliation.pdf').expect(200);
+    const draftProof = saved.body.draft.proof;
+    expect(draftProof).toEqual({ id: expect.any(String), name: 'updated-affiliation.pdf', mediaType: 'application/pdf' });
+    expect((await request(app.getHttpServer()).get('/api/organizer-applications/draft').set('Cookie', organizerCookie).expect(200)).body.draft.proof).toEqual(draftProof);
+    expect((await review()).body.organization.proof).toEqual(originalProof);
+    await readProof(draftProof.id).expect(404);
+    await readProof(originalProof.id).expect(200);
+
+    await request(app.getHttpServer()).post('/api/organizer-applications/submit').set('Cookie', organizerCookie).expect(201);
+    expect((await review()).body).toMatchObject({ id: applicationId, revision: 2, status: 'PENDING',
+      organization: { academicPosition: 'Faculty Advisor', proof: draftProof } });
+    await readProof(originalProof.id).expect(404);
+    const download = await request(app.getHttpServer()).get(proofRoute(draftProof.id)).query({ download: 1 })
+      .set('Cookie', adminCookie).buffer(true)
+      .parse((res, done) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => done(null, Buffer.concat(chunks)));
+      })
+      .expect('Content-Type', 'application/pdf')
+      .expect('Content-Disposition', /^attachment; filename="updated-affiliation\.pdf"/).expect(200);
+    expect(download.body).toEqual(replacement);
   });
 
   it('returns the stored expiry privately, suppresses resends for the whole link lifetime and serializes two tabs at expiry', async () => {

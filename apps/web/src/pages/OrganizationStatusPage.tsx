@@ -1,12 +1,16 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
-import styles from './AuthShell.module.css'
+import AuthPageLayout from '../components/AuthPageLayout'
+import layoutStyles from '../components/AuthPageLayout.module.css'
+import OrganizerStatusLayout from '../components/OrganizerStatusLayout'
+import ReferenceIcon from '../components/ReferenceIcon'
+import styles from '../components/OrganizerStatusLayout.module.css'
 
 export default function OrganizationStatusPage() {
   const { user, refreshSession } = useAuth()
-  const status = user?.organizationStatus
-  const note = user?.application?.reviewerNote
+  const status = user?.organizationStatus ?? 'PENDING'
+  const correcting = status === 'NEEDS_CHANGES'
 
   useEffect(() => {
     if (status !== 'PENDING') return
@@ -40,52 +44,50 @@ export default function OrganizationStatusPage() {
     }
   }, [status, refreshSession])
 
+  if (status === 'PENDING' && user?.onboarding?.complete === false) {
+    return (
+      <AuthPageLayout variant="organizerPending">
+        <section className={layoutStyles.card}>
+          <h1 className={layoutStyles.title}>Organizer application status</h1>
+          <p className={layoutStyles.subtitle}>Your application hasn’t entered review yet.</p>
+          <button className={styles.refresh} type="button" onClick={() => { void refreshSession() }}>
+            <ReferenceIcon name="refresh" /> Check status again
+          </button>
+        </section>
+      </AuthPageLayout>
+    )
+  }
+
   return (
-    <main className={styles.page}>
-      <section className={styles.card}>
-        <p className={styles.eyebrow}>Organization verification</p>
-
-        <h1>
-          {status === 'NEEDS_CHANGES'
-            ? 'Your application needs changes'
-            : status === 'REJECTED'
-              ? 'Your application was not approved'
-              : 'Organization verification pending'}
-        </h1>
-
-        <p>
-          {status === 'NEEDS_CHANGES'
-            ? 'Update your saved application and resubmit it for review.'
-            : status === 'REJECTED'
-              ? 'This application is closed. Your organization cannot publish events.'
-              : 'Your application is waiting for review. This page checks for updates while it is visible.'}
-        </p>
-
-        {note && (
-          <div>
-            <p>{note.length > 200 ? `${note.slice(0, 200)}…` : note}</p>
-
-            {note.length > 200 && (
-              <details>
-                <summary>Read full feedback</summary>
-                <p>{note}</p>
-              </details>
-            )}
-          </div>
+    <OrganizerStatusLayout
+      status={status}
+      applicationId={user?.application?.id}
+      email={user?.email}
+      reviewerNote={user?.application?.reviewerNote}
+    >
+      <div className={styles.actions}>
+        {!correcting && (
+          <button type="button" onClick={() => { void refreshSession() }}>
+            <ReferenceIcon name="refresh" /> Check status again
+          </button>
         )}
 
-        <div className={styles.actions}>
-          {(status === 'PENDING' || status === 'NEEDS_CHANGES') && (
-            <Link to="/organizer/application">View application</Link>
-          )}
+        <Link className={correcting ? undefined : styles.primary} to="/events">
+          <ReferenceIcon name="explore" /> Explore Campus Events as Attendee
+        </Link>
 
-          <Link to="/events">Explore campus events</Link>
+        {correcting && (
+          <Link className={styles.primary} to="/organizer/application">
+            <ReferenceIcon name="edit_note" /> Update application
+          </Link>
+        )}
+      </div>
 
-          <button onClick={() => { void refreshSession() }}>
-            Check status again
-          </button>
-        </div>
-      </section>
-    </main>
+      {correcting && (
+        <button className={styles.refresh} type="button" onClick={() => { void refreshSession() }}>
+          <ReferenceIcon name="refresh" /> Check status again
+        </button>
+      )}
+    </OrganizerStatusLayout>
   )
 }

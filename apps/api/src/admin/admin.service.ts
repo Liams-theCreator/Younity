@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { submittedApplicationEligibility } from './application-eligibility.js';
+import { proofMetadata } from '../organizer-applications/organizer-proof.js';
 type Decision = 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
 @Injectable()
 export class AdminService {
@@ -29,6 +30,7 @@ export class AdminService {
                 academicPosition: true,
                 phoneNumber: true,
                 proofUrl: true,
+                proof: { select: proofMetadata },
               },
             },
             submittedBy: {
@@ -42,6 +44,20 @@ export class AdminService {
       { isolationLevel: 'RepeatableRead' },
     );
   }
+  async getApplicationProof(applicationId: string, proofId: string) {
+    const proof = await this.prisma.organizerProof.findFirst({
+      where: {
+        id: proofId,
+        organization: {
+          applications: { some: { id: applicationId, ...submittedApplicationEligibility() } },
+        },
+      },
+      select: { name: true, mediaType: true, data: true },
+    });
+    if (!proof) throw new NotFoundException('Supporting document not found');
+    return proof;
+  }
+
   approveApplication(
     id: string,
     adminId: string,

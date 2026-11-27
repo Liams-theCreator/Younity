@@ -6,6 +6,7 @@ import { RegisterStudentDto } from "../dto/register-student.dto.js";
 import { PrismaService } from "../../prisma/prisma.service.js";
 import { UserRole, UserStatus, VerificationStatus } from "../../generated/prisma/enums.js";
 import { EmailVerificationService } from "../email-verification/email-verification.service.js";
+import type { ProofData } from '../../organizer-applications/organizer-proof.js';
 
 @Injectable()
 export class RegistrationService {
@@ -142,7 +143,7 @@ export class RegistrationService {
     }
   }
 
-  async registerOrganizer(dto: RegisterOrganizerDto) {
+  async registerOrganizer(dto: RegisterOrganizerDto, proof?: ProofData) {
     const existingUser = await this.prisma.user.findUnique({
       where: {
         email: dto.email,
@@ -172,6 +173,7 @@ export class RegistrationService {
               representativeFullName: dto.representativeFullName,
               academicPosition: dto.academicPosition,
               proofUrl: dto.proofUrl,
+              ...(proof && { proof: { create: proof } }),
               phoneNumber: dto.phoneNumber,
               verificationStatus: VerificationStatus.PENDING,
             },

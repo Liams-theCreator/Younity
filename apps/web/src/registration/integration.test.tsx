@@ -42,7 +42,7 @@ async function fill(account: 'student' | 'organizer') {
     edit('Organization / University Entity Name', 'Campus Club')
     edit('Representative Full Name', 'Sara Test')
     edit('Title / Academic Position', 'Coordinator')
-    edit('Direct Contact Phone', '+212612345678')
+    edit('Direct Contact Phone', '0612345678')
     fireEvent.change(screen.getByLabelText('Entity Category'), { target: { value: 'STUDENT_CLUB' } })
   }
   edit('Email Address', email)
@@ -68,7 +68,7 @@ beforeEach(() => {
     if (String(input).startsWith('/api/auth/register/')) {
       if (delayRegistration) await delayRegistration
       if (registrationError) return Response.json({ message: registrationError.message }, { status: registrationError.status })
-      const address = JSON.parse(String(options?.body)).email
+      const address = options?.body instanceof FormData ? options.body.get('email') : JSON.parse(String(options?.body)).email
       const recoveryToken = `registration-${verificationStates.size}-${address}`
       const expiresAt = mailFails ? null : new Date(Date.now() + 540000).toISOString()
       verificationStates.set(recoveryToken, { verified: false, unavailable: false, expiresAt })
@@ -121,28 +121,30 @@ describe('registration handoff to email verification', () => {
     expect(screen.queryByRole('link', { name: /edit.*email|request a verification email/i })).not.toBeInTheDocument()
     expect(JSON.parse(sessionStorage.getItem('younity.emailVerification')!).resendAvailableAt).toBe(deadlineAfterRetry)
   })
-  it('registers all student preferences and waits for email verification', async () => {
+  it('submits student registration directly to email verification with no preferences selected', async () => {
     mount('student'); await fill('student')
-    await userEvent.click(screen.getByRole('button', { name: 'Continue to preferences' }))
-    await userEvent.click(screen.getByRole('checkbox', { name: /Computer Science & AI/ }))
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Second Year (L2)' }))
-    await userEvent.click(screen.getByRole('checkbox', { name: /AI & Data Science/ }))
-    await userEvent.click(screen.getByRole('checkbox', { name: /Robotics & Smart IoT/ }))
-    await userEvent.click(screen.getByRole('checkbox', { name: /Hybrid Events/ }))
+    expect(screen.queryByRole('button', { name: 'Continue to preferences' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/You can optionally choose your preferences/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^Sign In$/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('Already have an account?')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Register as organizer/ })).not.toBeInTheDocument()
     await submitRegistration('student')
     expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
     const payload = JSON.parse(String(posts('/api/auth/register/student')[0][1]?.body))
-    expect(payload).toEqual({ firstName: 'Sara', lastName: 'Test', email, password, university: 'Test Institute', interests: ['AI_DATA', 'ROBOTICS_IOT'], academicField: 'COMPUTER_SCIENCE', studyLevel: 'SECOND_YEAR', opportunityFormat: 'HYBRID' })
+    expect(payload).toEqual({ firstName: 'Sara', lastName: 'Test', email, password, university: 'Test Institute', interests: [] })
     expect(posts('/api/auth/login')).toHaveLength(0)
     expect(screen.getByLabelText('Current route')).toHaveTextContent('/verify-email')
   })
 
-  it('registers an organizer without a fabricated proof URL and waits for email verification', async () => {
+  it('uploads the organizer’s proof with registration and waits for email verification', async () => {
     mount('organizer'); await fill('organizer')
     await userEvent.upload(screen.getByLabelText('Affiliation or authorization document'), new File(['proof'], 'proof.pdf', { type: 'application/pdf' }))
     await submitRegistration('organizer')
     expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
-    const payload = JSON.parse(String(posts('/api/auth/register/organizer')[0][1]?.body))
+    const form = posts('/api/auth/register/organizer')[0][1]?.body as FormData
+    expect(form.get('proof')).toMatchObject({ name: 'proof.pdf', type: 'application/pdf' })
+    form.delete('proof')
+    const payload = Object.fromEntries(form)
     expect(payload).toEqual({ firstName: 'Sara', lastName: 'Test', email, password, organizationName: 'Campus Club', type: 'STUDENT_CLUB', representativeFullName: 'Sara Test', academicPosition: 'Coordinator', phoneNumber: '+212612345678' })
     expect(screen.getByLabelText('Current route')).toHaveTextContent('/verify-email')
     expect(screen.queryByText(/YNT-ORG-2025/)).not.toBeInTheDocument()
@@ -209,13 +211,5 @@ describe('registration handoff to email verification', () => {
     expect(signal?.aborted).toBe(true)
     await act(async () => { resolve(); await delayRegistration })
     expect(posts('/api/auth/login')).toHaveLength(0)
-  })
-
-  it('skips optional preferences without losing account details', async () => {
-    mount('student'); await fill('student')
-    await userEvent.click(screen.getByRole('button', { name: 'Continue to preferences' }))
-    await userEvent.click(screen.getByRole('button', { name: /Skip for now/ }))
-    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
-    expect(JSON.parse(String(posts('/api/auth/register/student')[0][1]?.body)).interests).toEqual([])
   })
 })

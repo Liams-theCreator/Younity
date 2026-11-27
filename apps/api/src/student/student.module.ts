@@ -3,6 +3,8 @@ import { PassportModule } from '@nestjs/passport';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { StudentPreferencesController } from './student-preferences.controller.js';
 import { StudentPreferencesService } from './student-preferences.service.js';
+import { StudentProfileController } from './student-profile.controller.js';
+import { StudentProfileService } from './student-profile.service.js';
 
 @Module({
   imports: [
@@ -12,11 +14,7 @@ import { StudentPreferencesService } from './student-preferences.service.js';
       session: false,
     }),
   ],
-  controllers: [
-    StudentPreferencesController,
-  ],
-  providers: [
-    StudentPreferencesService,
-  ],
+  controllers: [StudentPreferencesController, StudentProfileController],
+  providers: [StudentPreferencesService, StudentProfileService],
 })
 export class StudentModule {}

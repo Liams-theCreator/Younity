@@ -1,12 +1,13 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { isUUID } from 'class-validator';
-import { UserStatus } from '../../generated/prisma/enums.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import { UserRole, UserStatus, VerificationStatus } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { createHash, randomBytes } from 'node:crypto';
 import { VerifyEmailDto } from '../dto/email-verification.dto.js';
 import { MailService } from '../mail/mail.service.js';
-import { VERIFICATION_RECOVERY_AUDIENCE, VERIFICATION_TTL_MINUTES } from './settings.js';
+import { VERIFICATION_RECOVERY_AUDIENCE, VERIFICATION_RECOVERY_TTL_SECONDS, VERIFICATION_TTL_MINUTES } from './settings.js';
 
 @Injectable()
 export class EmailVerificationService {
@@ -16,10 +17,15 @@ export class EmailVerificationService {
     private readonly jwt: JwtService,
   ) { }
 
-  async verifyEmail(dto: VerifyEmailDto) {
+  async verifyEmail(dto: VerifyEmailDto, continuation?: { recoveryToken: string; ttlSeconds: number }) {
     const tokenHash = createHash('sha256').update(dto.token).digest('hex');
+    // The mail link alone verifies the address. A match with the originating
+    // registration browser is also required to establish a session.
+    const registrationUserId = continuation
+      ? await this.recoveryUserId(continuation.recoveryToken).catch(() => null)
+      : null;
 
-    await this.prisma.$transaction(async (tx) => {
+    const accessToken = await this.prisma.$transaction(async (tx) => {
       const verification = await tx.emailVerificationToken.findUnique({
         where: { tokenHash },
         select: { userId: true },
@@ -29,7 +35,9 @@ export class EmailVerificationService {
       }
       // Use the same lock order as resend, including for different links owned
       // by one account. This also prevents issuing a token during verification.
-      await tx.$queryRaw`SELECT id FROM users WHERE id = ${verification.userId}::uuid FOR UPDATE`;
+      const [user] = await tx.$queryRaw<{ status: UserStatus; role: UserRole; email_verified_at: Date | null }[]>`
+        SELECT status, role, email_verified_at FROM users WHERE id = ${verification.userId}::uuid FOR UPDATE
+      `;
       const now = new Date();
       const { count } = await tx.emailVerificationToken.updateMany({
         where: {
@@ -51,12 +59,54 @@ export class EmailVerificationService {
         },
         data: { emailVerifiedAt: now },
       });
+      if (user?.role === UserRole.ORGANIZER && user.status !== UserStatus.SUSPENDED) {
+        await this.submitRegisteredOrganizer(tx, verification.userId, now);
+      }
       await tx.emailVerificationToken.updateMany({
         where: { userId: verification.userId, usedAt: null },
         data: { usedAt: now },
       });
+      if (
+        continuation && registrationUserId === verification.userId && user &&
+        !user.email_verified_at && user.status !== UserStatus.SUSPENDED &&
+        (user.role === UserRole.STUDENT || user.role === UserRole.ORGANIZER)
+      ) {
+        return this.jwt.signAsync({ sub: verification.userId }, { expiresIn: continuation.ttlSeconds });
+      }
     });
-    return { message: 'Email verified successfully.' };
+    return { message: 'Email verified successfully.', ...(accessToken && { accessToken }) };
+  }
+
+  private async submitRegisteredOrganizer(tx: Prisma.TransactionClient, ownerId: string, submittedAt: Date) {
+    // Verification holds the owner row lock. Queue the signup details in the same transaction.
+    const organizations = await tx.organization.findMany({
+      where: { ownerId },
+      take: 2,
+      select: {
+        id: true,
+        verificationStatus: true,
+        orgName: true,
+        representativeFullName: true,
+        academicPosition: true,
+        phoneNumber: true,
+        applications: { select: { id: true }, take: 1 },
+      },
+    });
+    const [organization] = organizations;
+    if (!organization || organizations.length !== 1 ||
+      organization.verificationStatus !== VerificationStatus.PENDING || organization.applications.length > 0 ||
+      [organization.orgName, organization.representativeFullName, organization.academicPosition, organization.phoneNumber]
+        .some((value) => !value.trim())) return;
+
+    await tx.organizationApplication.create({
+      data: {
+        organizationId: organization.id,
+        submittedById: ownerId,
+        status: VerificationStatus.PENDING,
+        submittedAt,
+      },
+      select: { id: true },
+    });
   }
 
   async resendVerification(email: string) {
@@ -79,7 +129,7 @@ export class EmailVerificationService {
 
   createRecoveryToken(userId: string) {
     // Deliberately no JWT subject: this capability is never a login token.
-    return this.jwt.signAsync({ userId }, { audience: VERIFICATION_RECOVERY_AUDIENCE, expiresIn: '24h' });
+    return this.jwt.signAsync({ userId }, { audience: VERIFICATION_RECOVERY_AUDIENCE, expiresIn: VERIFICATION_RECOVERY_TTL_SECONDS });
   }
 
   private async recoveryUserId(recoveryToken: string): Promise<string> {

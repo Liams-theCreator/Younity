@@ -6,7 +6,7 @@ import {
   Routes,
 } from 'react-router'
 import LoginPage from '../pages/LoginPage'
-import StudentDashboardPage from '../pages/StudentDashboardPage'
+import StudentProfilePage from '../pages/StudentProfilePage'
 import StudentPreferencesPage from '../pages/StudentPreferencesPage'
 import OrganizerDashboardPage from '../pages/OrganizerDashboardPage'
 import StudentRegisterPage from '../pages/StudentRegisterPage'
@@ -15,9 +15,9 @@ import OrganizationStatusPage from '../pages/OrganizationStatusPage'
 import ProtectedRoute from './ProtectedRoute'
 import EmailVerificationPage from '../pages/EmailVerificationPage'
 import OrganizerDraftPage from '../pages/OrganizerDraftPage'
-import OrganizerApprovalPage, {
-  EventsPortalPage,
-} from '../pages/OrganizerApprovalPage'
+import OrganizerApprovalPage from '../pages/OrganizerApprovalPage'
+import EventsPage from '../events/EventsPage'
+import EventDetailPage from '../events/EventDetailPage'
 import { useAuth } from './useAuth'
 import AdminApplicationsPage from '../admin/AdminApplicationsPage'
 import AdminApplicationDetailPage from '../admin/AdminApplicationDetailPage'
@@ -70,7 +70,8 @@ export default function AuthRoutes({
         }
       />
 
-      <Route path="/events" element={<EventsPortalPage />} />
+      <Route path="/events" element={<EventsPage />} />
+      <Route path="/events/:eventId" element={<EventDetailPage />} />
       <Route
         path="/organizer/approved"
         element={<OrganizerApprovalPage />}
@@ -124,7 +125,19 @@ export default function AuthRoutes({
             destination="/student/dashboard"
             renderRedirect={(to) => <Navigate to={to} replace />}
           >
-            <StudentDashboardPage />
+            <Navigate to="/events" replace />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/student/profile"
+        element={
+          <ProtectedRoute
+            destination="/student/dashboard"
+            renderRedirect={(to) => <Navigate to={to} replace />}
+          >
+            <StudentProfilePage />
           </ProtectedRoute>
         }
       />

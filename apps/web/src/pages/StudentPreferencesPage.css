@@ -1,5 +1,195 @@
-.registration-student-preferences .student-preferences legend > span,
-.registration-student-preferences .discipline-card small,
-.registration-student-preferences .format-choice small {
+.registration-student-preferences .registration-card .registration-title-block {
+  margin-bottom: 1rem;
+}
+
+.registration-student-preferences .student-preferences {
+  container-type: inline-size;
+  margin-top: 1rem;
+}
+
+.registration-student-preferences .student-preferences > fieldset {
+  display: grid;
+  gap: 1.125rem;
+}
+
+.registration-student-preferences .student-preferences legend {
+  max-width: 100%;
+  margin: 0 0 .5rem;
+  color: var(--text);
+  font-size: .875rem;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.registration-student-preferences .student-preferences legend > span {
   color: var(--muted);
+}
+
+.registration-student-preferences .student-preferences legend .reference-icon {
+  margin-inline-end: .25rem;
+  color: var(--link);
+  font-size: 1.25rem;
+  vertical-align: middle;
+}
+
+.registration-student-preferences .student-preferences .academic-level-legend {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.registration-student-preferences .preference-hint {
+  margin-bottom: .5rem;
+}
+
+.registration-student-preferences .discipline-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: .5rem;
+}
+
+.registration-student-preferences .discipline-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: .625rem;
+  height: auto;
+  min-height: 3rem;
+  padding: .5rem 1.75rem .5rem .625rem;
+  border: 1px solid var(--border);
+  border-radius: .75rem;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(20 34 65 / 7%);
+}
+
+.registration-student-preferences .discipline-icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  border-radius: .5rem;
+  background: var(--panel);
+}
+
+.registration-student-preferences .discipline-icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.registration-student-preferences .discipline-choice input:checked + .discipline-card {
+  border-color: var(--primary);
+  background: #edf2ff;
+}
+
+.registration-student-preferences .discipline-choice input:checked + .discipline-card .discipline-icon {
+  background: var(--link);
+  color: white;
+}
+
+.registration-student-preferences .selection-mark {
+  top: .5rem;
+  right: .5rem;
+  font-size: .875rem;
+}
+
+.registration-student-preferences .academic-level-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .25rem;
+  padding: .25rem;
+  border-radius: .75rem;
+  background: var(--panel);
+}
+
+.registration-student-preferences .level-choice > span {
+  min-height: 2.75rem;
+  padding: .375rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.registration-student-preferences .level-choice input:checked + span {
+  background: var(--card);
+  color: var(--link);
+  box-shadow: 0 1px 3px rgb(20 34 65 / 14%);
+}
+
+.registration-student-preferences .interest-count {
+  margin: 0 0 .5rem;
+  font-weight: 700;
+}
+
+.registration-student-preferences .interest-count span {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.registration-student-preferences .interest-options {
+  gap: .375rem;
+}
+
+.registration-student-preferences .interest-choice > span {
+  gap: .375rem;
+  min-height: 2.75rem;
+  padding: .375rem .625rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.registration-student-preferences .interest-choice input:checked + span {
+  border-color: var(--link);
+  background: var(--link);
+  color: white;
+}
+
+.registration-student-preferences .interest-choice input:checked + span svg {
+  color: currentColor;
+}
+
+.registration-student-preferences .format-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: .5rem;
+}
+
+.registration-student-preferences .format-choice {
+  align-items: center;
+  min-height: 2.75rem;
+  padding: .5rem .625rem;
+  border-color: var(--border);
+  background: var(--card);
+}
+
+.registration-student-preferences .format-choice:has(input:checked) {
+  border-color: var(--primary);
+  background: #edf2ff;
+}
+
+.registration-student-preferences .discipline-card:hover,
+.registration-student-preferences .interest-choice > span:hover,
+.registration-student-preferences .format-choice:hover {
+  border-color: var(--primary);
+}
+
+.registration-student-preferences .preference-actions > div,
+.registration-student-preferences .preference-actions .primary {
+  width: 100%;
+}
+
+@container (min-width: 24rem) {
+  .registration-student-preferences .discipline-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 28rem) {
+  .registration-student-preferences .academic-level-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .registration-student-preferences .format-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }

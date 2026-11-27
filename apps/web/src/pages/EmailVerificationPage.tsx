@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
+import { useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { apiRequest } from '../api/client'
+import { AuthContext } from '../auth/AuthContext'
 import { maskEmail, resolveVerification, rememberVerification, VERIFICATION_TTL_MINUTES, type VerificationContext } from '../auth/emailVerification'
 import styles from './EmailVerificationPage.module.css'
 
@@ -88,8 +89,10 @@ function PublicRecoveryForm({ initialEmail }: { initialEmail: string }) {
 }
 
 function VerificationLink({ token, email }: { token: string; email: string }) {
+  const auth = useContext(AuthContext)
   const [invalid, setInvalid] = useState(!/^[a-f0-9]{64}$/.test(token))
   const [verified, setVerified] = useState(false)
+  const [sessionCreated, setSessionCreated] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const request = useRef<AbortController | null>(null)
@@ -106,13 +109,22 @@ function VerificationLink({ token, email }: { token: string; email: string }) {
       if (controller.signal.aborted) return
       if (response.status === 400) setInvalid(true)
       else if (!response.ok) setError('We could not verify your email. Please try again.')
-      else setVerified(true)
+      else {
+        const result: unknown = await response.json().catch(() => null)
+        if (result && typeof result === 'object' && 'sessionCreated' in result && result.sessionCreated === true && auth) {
+          await auth.refreshSession()
+          if (!controller.signal.aborted) setSessionCreated(true)
+        }
+        if (!controller.signal.aborted) setVerified(true)
+      }
     } catch {
       if (!controller.signal.aborted) setError('Unable to connect. Check your connection and try again.')
     } finally {
       if (!controller.signal.aborted) { request.current = null; setBusy(false) }
     }
   }
+  if (sessionCreated && auth?.destination) return <Navigate to={auth.destination} replace />
+
   return <Frame title={verified ? 'Email verified' : 'Verify email'} verified={verified}>
     <p className={styles.intro}>{verified ? 'Your email is verified. You can now sign in to Younity.' : `Confirm your email address to finish setting up your account. Verification links expire after ${VERIFICATION_TTL_MINUTES} minutes.`}</p>
     {error && <p className={styles.error} role="alert">{error}</p>}
@@ -125,6 +137,8 @@ function VerificationLink({ token, email }: { token: string; email: string }) {
 
 function RegistrationWaiting({ context }: { context: VerificationContext }) {
   const navigate = useNavigate()
+  const auth = useContext(AuthContext)
+  const refreshSession = auth?.refreshSession
   const [verification, setVerification] = useState(context)
   const current = useRef(context)
   const [status, setStatus] = useState<RecoveryStatus | null>(null)
@@ -164,6 +178,9 @@ function RegistrationWaiting({ context }: { context: VerificationContext }) {
         if (response.status === 401) { setExpiredSession(true); return }
         if (!response.ok) throw new Error()
         const state = parseStatus(await response.json())
+        if (state.verified && !state.unavailable && active && !request.current) {
+          await refreshSession?.({ background: true })
+        }
         if (!active || request.current) return
         persist(state); setError('')
       } catch {
@@ -174,7 +191,7 @@ function RegistrationWaiting({ context }: { context: VerificationContext }) {
     }
     void check()
     return () => { active = false; controller.abort() }
-  }, [context.recoveryToken, refresh, persist])
+  }, [context.recoveryToken, refresh, persist, refreshSession])
 
   useEffect(() => {
     const focus = () => { if (!request.current) setRefresh((value) => value + 1) }
@@ -213,6 +230,10 @@ function RegistrationWaiting({ context }: { context: VerificationContext }) {
   }
   const verified = status?.verified === true
   const canRetry = !checking && !expiredSession && !status?.unavailable && verification.resendAvailableAt <= now && (status !== null || verification.deliveryFailed)
+  if (verified && auth?.destination && auth.user?.email === verification.email) {
+    return <Navigate to={auth.destination} replace />
+  }
+
   return <Frame title={verified ? 'Email verified' : 'Check your email'} verified={verified}>
     <p className={styles.intro}>{verified ? 'Your email is verified. You can now sign in to Younity.' : `Open the verification link in your inbox to finish setting up your account. Check your spam folder too. Links expire after ${VERIFICATION_TTL_MINUTES} minutes.`}</p>
     {!verified && <>

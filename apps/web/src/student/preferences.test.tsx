@@ -39,13 +39,16 @@ const student = {
 
 const saved = {
   interests: ['AI_DATA'],
-  university: null,
+  university: null as string | null,
   academicField: null,
   studyLevel: null,
   opportunityFormat: null,
 }
 
 let profile: typeof saved
+let accountName: { firstName: string; lastName: string }
+let nameReadStatus: number
+let nameSaveStatus: number
 let readStatus: number
 let saveStatus: number
 let sessionStatus: number
@@ -60,6 +63,9 @@ const patches = () =>
 
 beforeEach(() => {
   profile = structuredClone(saved)
+  accountName = { firstName: 'Sara', lastName: 'Test' }
+  nameReadStatus = 200
+  nameSaveStatus = 200
   readStatus = 200
   saveStatus = 200
   sessionStatus = 200
@@ -70,6 +76,7 @@ beforeEach(() => {
   request.mockReset().mockImplementation(
     async (input, options) => {
       if (input === '/api/auth/me') {
+        const complete = new Set(profile.interests).size >= 2
         return sessionStatus === 200
           ? Response.json({
               ...student,
@@ -78,8 +85,26 @@ beforeEach(() => {
                 role === 'ORGANIZER'
                   ? { verificationStatus: 'PENDING' }
                   : null,
+              ...(role === 'STUDENT' && {
+                onboarding: { complete, nextStep: complete ? 'NONE' : 'SELECT_INTERESTS' },
+              }),
             })
           : new Response(null, { status: sessionStatus })
+      }
+
+      if (input === '/api/categories') return Response.json({ categories: [] })
+      if (String(input).startsWith('/api/events?')) {
+        return Response.json({ items: [], categories: [], page: 1, pageSize: 12, total: 0 })
+      }
+
+      if (input === '/api/student/profile') {
+        if (options?.method === 'PATCH') {
+          if (nameSaveStatus !== 200) return new Response(null, { status: nameSaveStatus })
+          accountName = { ...accountName, ...JSON.parse(String(options.body)) }
+        } else if (nameReadStatus !== 200) {
+          return new Response(null, { status: nameReadStatus })
+        }
+        return Response.json(accountName)
       }
 
       if (input === '/api/student/preferences') {
@@ -92,7 +117,7 @@ beforeEach(() => {
             })
           }
 
-          profile = JSON.parse(String(options.body))
+          profile = { ...profile, ...JSON.parse(String(options.body)) }
           return Response.json(profile)
         }
 
@@ -124,6 +149,7 @@ async function mount() {
 
 describe('Saved student preferences', () => {
   it('restores values, enforces two interests, saves real enum payload and refreshes the session', async () => {
+    profile.university = 'Campus University'
     await mount()
 
     const ai = await screen.findByRole('checkbox', {
@@ -131,6 +157,9 @@ describe('Saved student preferences', () => {
     })
 
     expect(ai).toBeChecked()
+    expect(screen.getByText('1 selected')).toBeVisible()
+    expect(screen.queryByLabelText(/University/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Back to profile' })).not.toBeInTheDocument()
 
     expect(
       screen.queryByRole('button', {
@@ -140,7 +169,7 @@ describe('Saved student preferences', () => {
 
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Save and continue',
+        name: 'Save preferences & enter Younity',
       }),
     )
 
@@ -159,15 +188,17 @@ describe('Saved student preferences', () => {
       }),
     )
 
+    expect(screen.getByText('2 selected')).toBeVisible()
+
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Save and continue',
+        name: 'Save preferences & enter Younity',
       }),
     )
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).toBeVisible()
 
@@ -176,9 +207,12 @@ describe('Saved student preferences', () => {
     expect(
       JSON.parse(String(patches()[0][1]?.body)),
     ).toEqual({
-      ...saved,
+      academicField: null,
+      studyLevel: null,
+      opportunityFormat: null,
       interests: ['AI_DATA', 'ROBOTICS_IOT'],
     })
+    expect(profile.university).toBe('Campus University')
 
     expect(
       patches()[0][1]?.credentials,
@@ -190,17 +224,96 @@ describe('Saved student preferences', () => {
       ),
     ).toHaveLength(2)
 
-    await userEvent.click(
-      screen.getByRole('link', {
-        name: 'Edit discovery preferences',
-      }),
-    )
+    expect(screen.queryByRole('link', { name: /your account/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit discovery preferences' })).not.toBeInTheDocument()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu' }))
+    await userEvent.click(screen.getByRole('link', { name: 'Edit profile' }))
+    expect(await screen.findByRole('heading', { name: 'Student profile' })).toBeVisible()
 
     expect(
       await screen.findByRole('checkbox', {
         name: /Robotics & Smart IoT/,
       }),
     ).toBeChecked()
+
+    const save = screen.getByRole('button', { name: 'Save changes' })
+    expect(save).toBeDisabled()
+    const university = screen.getByRole('combobox', { name: 'University / Academic Institution (optional)' })
+    const selectedUniversity = 'Mohammed V University (Rabat - ENSIAS, FSR, EMI)'
+    expect(university).toHaveValue('Campus University')
+    await userEvent.selectOptions(university, selectedUniversity)
+    await userEvent.selectOptions(screen.getByLabelText('Academic level'), 'Second Year (L2)')
+
+    saveStatus = 503
+    await userEvent.click(save)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Preferences could not be loaded or saved')
+    expect(university).toHaveValue(selectedUniversity)
+    expect(screen.getByRole('heading', { name: 'Student profile' })).toBeVisible()
+
+    saveStatus = 200
+    await userEvent.click(save)
+    expect(await screen.findByText('Preferences saved.')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Student profile' })).toBeVisible()
+    expect(screen.queryByRole('heading', { name: 'Your discovery preferences' })).not.toBeInTheDocument()
+    expect(save).toBeDisabled()
+    expect(profile).toMatchObject({ university: selectedUniversity, studyLevel: 'SECOND_YEAR' })
+
+    await userEvent.click(screen.getByRole('link', { name: 'Back to events' }))
+    expect(await screen.findByRole('heading', { name: 'Campus events' })).toBeVisible()
+  })
+
+  it('opens the inline editor from a completed student’s old preferences link', async () => {
+    profile.interests = ['AI_DATA', 'ROBOTICS_IOT']
+    render(<MemoryRouter initialEntries={['/student/preferences']}><App /></MemoryRouter>)
+
+    expect(await screen.findByRole('heading', { name: 'Student profile' })).toBeVisible()
+    expect(await screen.findByRole('checkbox', { name: 'AI & Data Science' })).toBeChecked()
+    expect(screen.queryByRole('heading', { name: 'Your discovery preferences' })).not.toBeInTheDocument()
+  })
+
+  it('edits the account name independently and retains unsaved names after a failed save', async () => {
+    profile.interests = ['AI_DATA', 'ROBOTICS_IOT']
+    nameReadStatus = 503
+    const view = render(<MemoryRouter initialEntries={['/student/profile']}><App /></MemoryRouter>)
+
+    const retry = await screen.findByRole('button', { name: 'Retry loading name' })
+    expect(screen.queryByLabelText('First name')).not.toBeInTheDocument()
+    nameReadStatus = 200
+    await userEvent.click(retry)
+
+    const firstName = await screen.findByRole('textbox', { name: 'First name' })
+    const lastName = screen.getByRole('textbox', { name: 'Last name' })
+    const save = screen.getByRole('button', { name: 'Save name' })
+    expect(firstName).toHaveValue('Sara')
+    expect(lastName).toHaveValue('Test')
+    expect(save).toBeDisabled()
+
+    await userEvent.clear(firstName)
+    await userEvent.type(firstName, ' Lina ')
+    nameSaveStatus = 503
+    await userEvent.click(save)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save your name')
+    expect(firstName).toHaveValue(' Lina ')
+
+    nameSaveStatus = 200
+    await userEvent.click(save)
+    expect(await screen.findByText('Name saved.')).toBeVisible()
+    expect(firstName).toHaveValue('Lina')
+    expect(patches().map(([path, options]) => [path, JSON.parse(String(options?.body))])).toEqual([
+      ['/api/student/profile', { firstName: 'Lina' }],
+      ['/api/student/profile', { firstName: 'Lina' }],
+    ])
+
+    await userEvent.clear(lastName)
+    await userEvent.type(lastName, 'El Idrissi')
+    await userEvent.click(save)
+    expect(await screen.findByText('Name saved.')).toBeVisible()
+    view.unmount()
+
+    render(<MemoryRouter initialEntries={['/student/profile']}><App /></MemoryRouter>)
+    expect(await screen.findByRole('textbox', { name: 'First name' })).toHaveValue('Lina')
+    expect(screen.getByRole('textbox', { name: 'Last name' })).toHaveValue('El Idrissi')
   })
 
   it.each([false, true])(
@@ -214,10 +327,11 @@ describe('Saved student preferences', () => {
       expect(
         await screen.findByRole('alert'),
       ).toBeVisible()
+      expect(screen.queryByRole('link', { name: 'Back to profile' })).not.toBeInTheDocument()
 
       expect(
         screen.queryByRole('button', {
-          name: 'Save and continue',
+          name: 'Save preferences & enter Younity',
         }),
       ).not.toBeInTheDocument()
 
@@ -255,7 +369,7 @@ describe('Saved student preferences', () => {
     )
 
     const button = screen.getByRole('button', {
-      name: 'Save and continue',
+      name: 'Save preferences & enter Younity',
     })
 
     fireEvent.submit(button.closest('form')!)
@@ -288,7 +402,7 @@ describe('Saved student preferences', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).toBeVisible()
   })
@@ -304,7 +418,7 @@ describe('Saved student preferences', () => {
 
     expect(
       screen.queryByRole('button', {
-        name: 'Save and continue',
+        name: 'Save preferences & enter Younity',
       }),
     ).not.toBeInTheDocument()
   })
@@ -336,7 +450,7 @@ describe('Saved student preferences', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Organization verification pending',
+        name: 'Institutional Dossier Submitted',
       }),
     ).toBeVisible()
 

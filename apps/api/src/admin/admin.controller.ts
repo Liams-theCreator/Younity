@@ -8,6 +8,8 @@ import {
   ParseUUIDPipe,
   UseGuards,
   Body,
+  Query,
+  StreamableFile,
 } from '@nestjs/common';
 import { AdminService } from './admin.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -17,6 +19,7 @@ import { UserRole } from '../generated/prisma/enums.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user.type.js';
 import { AdminDecisionDto } from './dto/admin-decision-dto.js';
+import { proofDisposition } from '../organizer-applications/organizer-proof.js';
 
 @ApiTags('Admin applications')
 @ApiCookieAuth()
@@ -42,6 +45,25 @@ export class AdminController {
   getApplication(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.adminService.getApplication(id);
   }
+
+  @Get('applications/:id/proof/:proofId')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  @Header('Cross-Origin-Resource-Policy', 'same-origin')
+  @Header('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'")
+  async getProof(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('proofId', new ParseUUIDPipe()) proofId: string,
+    @Query('download') download?: string,
+  ) {
+    const proof = await this.adminService.getApplicationProof(id, proofId);
+    return new StreamableFile(proof.data, {
+      type: proof.mediaType,
+      disposition: proofDisposition(proof.name, download === '1'),
+      length: proof.data.byteLength,
+    });
+  }
+
   @ApiResponse({
     status: 201,
     description: 'Decision committed',
