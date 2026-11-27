@@ -180,6 +180,55 @@ describe('Organizer events with PostgreSQL and real JWT guards', () => {
     await request(app.getHttpServer()).get(`/api/events/${randomUUID()}`).expect(404);
   });
 
+  it('keeps events public for one day after ending and returns missing automatic deadlines as closed', async () => {
+    const marker = randomUUID();
+    const now = Date.now();
+    const hour = 60 * 60 * 1000;
+
+    async function fixture(hoursUntilEnd: number) {
+      const result = await request(app.getHttpServer())
+        .post('/api/organizer-events/publish')
+        .set('Cookie', cookie)
+        .send({ ...base, title: marker, categoryIds: [categoryIds[0]] })
+        .expect(201);
+      const endDate = new Date(now + hoursUntilEnd * hour);
+      return prisma.event.update({
+        where: { id: result.body.id },
+        data: {
+          startDate: new Date(endDate.getTime() - hour),
+          endDate,
+          registrationDeadline: null,
+        },
+      });
+    }
+
+    const recent = await fixture(-23);
+    const expired = await fixture(-25);
+    const older = await fixture(-48);
+    const upcoming = await fixture(48);
+
+    const list = await request(app.getHttpServer())
+      .get('/api/events')
+      .query({ q: marker })
+      .expect(200);
+    expect(list.body).toMatchObject({
+      total: 2,
+      items: [upcoming, recent].map(({ id }) => ({
+        id, registrationMode: 'AUTOMATIC', registrationDeadline: null, availability: 'CLOSED',
+      })),
+    });
+    for (const { id } of [upcoming, recent]) {
+      const detail = await request(app.getHttpServer()).get(`/api/events/${id}`).expect(200);
+      expect(detail.body.event).toMatchObject({
+        registrationDeadline: null,
+        availability: 'CLOSED',
+      });
+    }
+    for (const { id } of [expired, older]) {
+      await request(app.getHttpServer()).get(`/api/events/${id}`).expect(404);
+    }
+  });
+
   it('ranks student interests before pagination while preserving anonymous browsing', async () => {
     const marker = randomUUID();
     const category = await prisma.category.findUniqueOrThrow({

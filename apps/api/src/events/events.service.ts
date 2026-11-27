@@ -30,9 +30,14 @@ const interestSlugs: Record<Interests, string> = {
   CAREER_FAIRS_NETWORKING: 'career-fairs-networking',
 };
 
-const publicStatus: Prisma.EventWhereInput = {
-  status: { in: [EventStatus.PUBLISHED, EventStatus.FULL] },
-};
+const publicAfterEndMs = 24 * 60 * 60 * 1000;
+
+function publicEvents(now: Date): Prisma.EventWhereInput {
+  return {
+    status: { in: [EventStatus.PUBLISHED, EventStatus.FULL] },
+    endDate: { gte: new Date(now.getTime() - publicAfterEndMs) },
+  };
+}
 
 const categoryFields = { id: true, name: true, slug: true } as const;
 const summaryFields = {
@@ -102,7 +107,7 @@ function contains(value: string): Prisma.StringFilter {
   return { contains: value.replace(/[\\%_]/g, '\\$&'), mode: 'insensitive' };
 }
 
-function filters(query: DiscoveryQueryDto): Prisma.EventWhereInput {
+function filters(query: DiscoveryQueryDto, now: Date): Prisma.EventWhereInput {
   const { q, category, city, format, from, to } = query;
   if (from && to && from > to) {
     throw new BadRequestException('from must be on or before to');
@@ -113,7 +118,7 @@ function filters(query: DiscoveryQueryDto): Prisma.EventWhereInput {
 
   const keyword = q ? contains(q) : undefined;
   return {
-    ...publicStatus,
+    ...publicEvents(now),
     format,
     categories: category
       ? { some: { category: { slug: category } } }
@@ -135,9 +140,9 @@ export class EventsService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async list(query: DiscoveryQueryDto, user?: AuthenticatedUser) {
-    const where = filters(query);
-    const { page = 1, pageSize = 12 } = query;
     const now = new Date();
+    const where = filters(query, now);
+    const { page = 1, pageSize = 12 } = query;
 
     return this.prisma.$transaction(
       async (tx) => {
@@ -212,8 +217,9 @@ export class EventsService {
   }
 
   async detail(id: string) {
+    const now = new Date();
     const event = await this.prisma.event.findFirst({
-      where: { id, ...publicStatus },
+      where: { id, ...publicEvents(now) },
       select: {
         ...summaryFields,
         description: true,
@@ -224,7 +230,7 @@ export class EventsService {
 
     return {
       event: {
-        ...summary(event, new Date()),
+        ...summary(event, now),
         description: event.description,
         externalRegistrationUrl:
           event.registrationMode === RegistrationMode.EXTERNAL
