@@ -125,8 +125,8 @@ else
   exit 1
 fi
 
-echo "Frontend: https://localhost"
-echo "Backend:  https://localhost/api/"
+echo "Frontend: https://localhost:8443"
+echo "Backend:  https://localhost:8443/api/"
 if [[ "$detach" == true ]]; then
   detach_services
 fi

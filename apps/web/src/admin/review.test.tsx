@@ -393,6 +393,7 @@ describe('application details and decisions', () => {
     service.detail.mockReturnValueOnce(response.promise)
     mount(service, '/admin/applications/application-fixture')
     await screen.findByText('Loading application…')
+    await waitFor(() => expect(service.detail).toHaveBeenCalledTimes(1))
     const signal = service.detail.mock.calls[0][1].signal
     await userEvent.click(screen.getByRole('link', { name: 'Back to applications' }))
     await screen.findByRole('heading', { name: 'Application reviews' })

@@ -6,7 +6,7 @@ RUN apt-get update \
 
 WORKDIR /app
 
-RUN chown node:node /app
+RUN mkdir -p /app/uploads/event-images && chown -R node:node /app
 USER node
 
 COPY --chown=node:node package.json package-lock.json ./
