@@ -13,6 +13,7 @@ import { AdminModule } from './admin/admin.module.js';
 import { EventsModule } from './events/events.module.js';
 import { CategoriesController } from './categories.controller.js';
 import { OrganizerEventsModule } from './organizer-events/organizer-events.module.js';
+import { BookingsModule } from './bookings/bookings.module.js';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { OrganizerEventsModule } from './organizer-events/organizer-events.modul
     AdminModule,
     OrganizerEventsModule,
     EventsModule,
+    BookingsModule,
   ],
   controllers: [
     AppController,
