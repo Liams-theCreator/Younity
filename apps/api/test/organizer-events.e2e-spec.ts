@@ -106,6 +106,7 @@ describe('Organizer events with PostgreSQL and real JWT guards', () => {
     try {
       if (prisma) {
         const events = { createdById: { in: userIds } };
+        await prisma.eventRegistration.deleteMany({ where: { event: events } });
         await prisma.eventCategory.deleteMany({ where: { event: events } });
         await prisma.event.deleteMany({ where: events });
         await prisma.category.deleteMany({
@@ -114,11 +115,124 @@ describe('Organizer events with PostgreSQL and real JWT guards', () => {
         await prisma.organization.deleteMany({
           where: { ownerId: { in: userIds } },
         });
+        await prisma.studentProfile.deleteMany({ where: { userId: { in: userIds } } });
         await prisma.user.deleteMany({ where: { id: { in: userIds } } });
       }
     } finally {
       await app?.close();
     }
+  });
+
+  it('discovers only public events with combined filters and protected details', async () => {
+    const q = randomUUID();
+    const [{ slug: category }] = await prisma.category.findMany({
+      where: { id: categoryIds[0] },
+    });
+    const fields = {
+      ...base,
+      title: `Workshop ${q}`,
+      format: 'HYBRID',
+      location: 'Campus, Rabat',
+      categoryIds: [categoryIds[0]],
+    };
+    const draft = await createDraft(fields);
+    const published = await request(app.getHttpServer())
+      .post('/api/organizer-events/publish')
+      .set('Cookie', cookie)
+      .send({
+        ...fields,
+        registrationMode: 'EXTERNAL',
+        externalRegistrationUrl: 'https://example.test/register',
+      })
+      .expect(201);
+    const day = base.startDate.slice(0, 10);
+    const filters = { q: q.toUpperCase(), category, city: 'rABAT', format: 'HYBRID', from: day, to: day };
+    const list = (query: Record<string, string | number>) =>
+      request(app.getHttpServer()).get('/api/events').query(query);
+
+    const result = await list(filters).expect(200);
+    expect(result.headers['cache-control']).toBe('private, no-store');
+    expect(result.body).toMatchObject({ page: 1, pageSize: 12, total: 1 });
+    expect(result.body.items).toEqual([expect.objectContaining({ id: published.body.id })]);
+    expect(result.body.items[0]).not.toHaveProperty('description');
+    expect(result.body.items[0]).not.toHaveProperty('externalRegistrationUrl');
+    expect(result.body.categories).toContainEqual(expect.objectContaining({ slug: category }));
+    for (const change of [
+      { category: 'unknown' }, { city: 'Tangier' }, { format: 'ONLINE' },
+      { from: '2000-01-01', to: '2000-01-01' }, { q: '%' },
+    ]) {
+      const empty = await list({ ...filters, ...change }).expect(200);
+      expect(empty.body).toMatchObject({ items: [], total: 0, categories: result.body.categories });
+    }
+    await list({ ...filters, pageSize: 101 }).expect(400);
+    await list({ ...filters, from: '2027-02-30' }).expect(400);
+    await list({ from: '2027-02-01', to: '2027-01-01' }).expect(400);
+
+    const detail = await request(app.getHttpServer()).get(`/api/events/${published.body.id}`).expect(200);
+    expect(detail.body.event).toEqual({
+      ...result.body.items[0],
+      description: base.description,
+      externalRegistrationUrl: 'https://example.test/register',
+    });
+    expect(detail.body.event).not.toHaveProperty('onlineUrl');
+    expect(detail.body.event).not.toHaveProperty('createdById');
+    await request(app.getHttpServer()).get(`/api/events/${draft.body.id}`).expect(404);
+    await request(app.getHttpServer()).get(`/api/events/${randomUUID()}`).expect(404);
+  });
+
+  it('ranks student interests before pagination while preserving anonymous browsing', async () => {
+    const marker = randomUUID();
+    const category = await prisma.category.findUniqueOrThrow({
+      where: { slug: 'ai-data' },
+    });
+    const student = await prisma.user.create({
+      data: {
+        firstName: 'Discovery', lastName: 'Student', email: `${marker}@example.test`,
+        passwordHash: 'unused-fixture', role: 'STUDENT', status: 'ACTIVE',
+        emailVerifiedAt: new Date(),
+        studentProfile: { create: { interests: ['AI_DATA'] } },
+      },
+    });
+    userIds.push(student.id);
+    const studentCookie = `access_token=${await app.get(JwtService).signAsync({ sub: student.id })}`;
+
+    async function publish(categoryId: string, delay: number) {
+      return request(app.getHttpServer()).post('/api/organizer-events/publish')
+        .set('Cookie', cookie)
+        .send({
+          ...base, title: marker, categoryIds: [categoryId],
+          startDate: new Date(Date.parse(base.startDate) + delay).toISOString(),
+        })
+        .expect(201);
+    }
+
+    const sooner = await publish(categoryIds[0], 0);
+    const matched = await publish(category.id, 3600000);
+    await prisma.event.update({ where: { id: matched.body.id }, data: { status: 'FULL' } });
+
+    const list = (session?: string, page = 1) => {
+      const req = request(app.getHttpServer()).get('/api/events')
+        .query({ q: marker, page, pageSize: 1 });
+      return session ? req.set('Cookie', session) : req;
+    };
+
+    const anonymous = await list().expect(200);
+    expect(anonymous.body).toMatchObject({ total: 2, items: [{ id: sooner.body.id }] });
+    const invalidSession = await list('access_token=invalid').expect(200);
+    expect(invalidSession.body).toEqual(anonymous.body);
+    const personalized = await list(studentCookie).expect(200);
+    expect(personalized.body).toMatchObject({ total: 2, items: [{ id: matched.body.id, availability: 'FULL' }] });
+    const next = await list(studentCookie, 2).expect(200);
+    expect(next.body).toMatchObject({ page: 2, total: 2, items: [{ id: sooner.body.id }] });
+    const detail = await request(app.getHttpServer()).get(`/api/events/${matched.body.id}`).expect(200);
+    expect(detail.body.event).toMatchObject({ availability: 'FULL', externalRegistrationUrl: null });
+
+    await prisma.event.update({ where: { id: sooner.body.id }, data: { capacity: 1 } });
+    await prisma.eventRegistration.create({
+      data: { eventId: sooner.body.id, studentId: student.id, status: 'CONFIRMED' },
+    });
+    const atCapacity = await list().expect(200);
+    expect(atCapacity.body.items).toMatchObject([{ id: sooner.body.id, availability: 'FULL' }]);
   });
 
   it('directly publishes with category links and preserves the event response fields', async () => {

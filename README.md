@@ -15,7 +15,7 @@
 - Email verification is integrated with SMTP delivery, expiring single-use links, recovery status, and rate-limited retry/resend endpoints. Verification links expire after ten minutes. Compose includes Mailpit for inspecting development emails.
 - Active, email-verified students can load and update saved preferences at `/student/preferences`. The API requires at least two distinct interests when updating. Registration also accepts optional preferences during account creation.
 - Admin review and organizer activation are not implemented on `main`. Organizer registration creates a pending organization, but does not yet create an organization application record. There is no admin UI.
-- Approved organizers can create, retrieve, and edit event drafts through the API, publish a completed form, or publish an existing draft. See the [API contract](apps/api/README.md#organizer-event-drafts-and-publishing). Event discovery, event registration, notifications, and follow workflows are not implemented.
+- Approved organizers can create, retrieve, and edit event drafts through the API, publish a completed form, or publish an existing draft. See the [API contract](apps/api/README.md#organizer-event-drafts-and-publishing). The public discovery API lists and filters published events and serves their public details. See the [discovery API contract](apps/api/README.md#public-event-discovery-yp-06). The discovery UI, event registration, notifications, and follow workflows are not implemented on this branch.
 
 ## Project structure
 
