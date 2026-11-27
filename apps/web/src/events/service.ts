@@ -1,6 +1,6 @@
 import {
   EventUiError, emptyEvent,
-  type OrganizerDashboard, type EventContext, type EventDraft, type EventServices, type EventValues, type FieldErrors,
+  type BookingPage, type OrganizerDashboard, type EventContext, type EventDraft, type EventServices, type EventValues, type FieldErrors,
 } from './model'
 import { safeImageUrl, validateEvent } from './validation'
 
@@ -130,6 +130,35 @@ function rows(value: unknown): unknown[] {
   if (!Array.isArray(value)) throw new EventUiError('unavailable')
   return value
 }
+const bookingPageSize = 20
+function bookingPage(value: unknown, status: 'CONFIRMED' | 'CANCELLED', requestedPage: number): BookingPage {
+  const data = record(value)
+  const page = count(data.page)
+  const pageSize = count(data.pageSize)
+  const total = count(data.total)
+  if (page !== requestedPage || pageSize !== bookingPageSize) throw new EventUiError('unavailable')
+  const last = Math.ceil(total / pageSize)
+  const items = rows(data.items).map(value => {
+    const item = record(value)
+    if (item.status !== status) throw new EventUiError('unavailable')
+    uuid(item.eventId)
+    return {
+      id: uuid(item.id), eventTitle: text(item.eventTitle), participantName: text(item.participantName),
+      email: text(item.email), registeredAt: isoDate(item.registeredAt), status,
+      cancellationReason: item.cancellationReason === null ? null : text(item.cancellationReason),
+    }
+  })
+  const expectedCount = page <= last ? Math.min(pageSize, total - (page - 1) * pageSize) : 0
+  if (items.length !== expectedCount || new Set(items.map(item => item.id.toLowerCase())).size !== items.length) {
+    throw new EventUiError('unavailable')
+  }
+  return {
+    items,
+    previousPage: total > 0 && page > 1 ? String(Math.min(page - 1, last)) : null,
+    nextPage: page < last ? String(page + 1) : null,
+    label: `Page ${page}`,
+  }
+}
 function format(value: unknown): Exclude<EventValues['format'], ''> {
   if (value !== 'IN_PERSON' && value !== 'ONLINE' && value !== 'HYBRID') throw new EventUiError('unavailable')
   return value
@@ -171,6 +200,15 @@ export const organizerEventService: EventServices = {
   publishSavedOnly: true,
   async dashboard(context) {
     return dashboard(await json(await response('/api/organizer/dashboard', context)))
+  },
+  async bookings({ status, page }, context) {
+    if ((status !== 'CONFIRMED' && status !== 'CANCELLED') ||
+        (page !== null && (!/^[1-9]\d*$/.test(page) || !Number.isSafeInteger(Number(page))))) {
+      throw new EventUiError('unavailable')
+    }
+    const query = new URLSearchParams({ status, pageSize: String(bookingPageSize) })
+    if (page !== null) query.set('page', page)
+    return bookingPage(await json(await response(`/api/organizer/bookings?${query}`, context)), status, page === null ? 1 : Number(page))
   },
   async uploadBanner(file, context) {
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {

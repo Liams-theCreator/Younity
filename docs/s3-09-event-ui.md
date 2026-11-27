@@ -1,8 +1,8 @@
 # S3-09 — organizer event and participant screens
 
-Owner: Oussama. Reviewer: Smail. Branch: `S3-09_Event-creation-participants`.
-Started from main `474efaf` on 2026-11-20. No teammate branch was merged or copied
-into this feature branch.
+Owner: Oussama. Reviewer: Smail. Original branch: `S3-09_Event-creation-participants`.
+Follow-up: `fix/s3-09-bookings-adapter`, based on Abdo's integration branch at
+`42f35d4`. PR #22 was merged into that branch; S3-01 is now included there too.
 
 ## Delivery status
 
@@ -13,10 +13,8 @@ navigation drawer. The campus illustration remains a labeled example cover.
 
 The production frontend now uses one S3-01 adapter in `events/service.ts`, based on
 [Abdellah's PR #21](https://github.com/Liams-theCreator/Younity/pull/21) at
-`615926aaee0fc582d878d73f90d73e1e90ec2567`. His backend stays on its own branch.
-No backend writer was copied or reimplemented. PR #21 was open when inspected.
-This checkout's API has not incorporated that module and was not running during
-browser verification.
+`615926aaee0fc582d878d73f90d73e1e90ec2567`. PR #21 is now merged. No backend
+writer was copied or reimplemented by this follow-up.
 
 Supported frontend integration includes new draft creation, draft GET/PATCH,
 direct publication, and saved-draft publication. The form uses the six required
@@ -30,9 +28,14 @@ adapter because their separate fields are outside the DTO.
 draft-list, category-list, upload, or participant APIs. The category callback uses
 `GET /api/categories` from `origin/feature/s3-07-event-discovery`
 (`CategoriesController`, `{ categories: [{ id, name, slug }] }`). That discovery
-module must be integrated into the target API. Draft listing and bookings retain
-injected callbacks and render their unavailable states until the owners supply
-those endpoints. No guessed collection routes or generated category IDs are used.
+module must be integrated into the target API. Draft listing retains its injected
+callback. Bookings now use Aadel's agreed `GET /api/organizer/bookings` contract
+from `feat/student-reservations` at `2b3d8fb`. That backend branch must be integrated
+into the running API. No additional participant endpoint is implemented here.
+
+The current booking integration and verification are documented in
+[the participant integration report](s3-09-bookings-integration.md). Earlier
+verification sections below describe the original PR #22 environment.
 
 ## Screens and permissions
 
@@ -137,7 +140,7 @@ existing integration. `service.ts` is the single frontend HTTP boundary for S3-0
 | `draft(id)` | Saved values, identity and last-saved timestamp. |
 | `saveDraft({id?, values})` | POST/PATCH through the S3-01 adapter; returns the confirmed saved draft. |
 | `publish({id?, values})` | New forms POST /publish; saved drafts POST /:id/publish without a body. |
-| `bookings({status, page})` | Aadel's owner-scoped data and pagination metadata. |
+| `bookings({status, page})` | GET /api/organizer/bookings with status, page and pageSize=20. |
 
 Adapters receive the existing protected request and AbortSignal. They must map
 local datetime strings, null/omission, inactive mode fields and optional UI venue
@@ -146,9 +149,10 @@ owner's save/publish/upload clients.
 
 Needed before full live acceptance:
 
-1. Integrate Abdellah's PR #21 backend and the discovery category catalog module.
-2. Supply an owner-scoped draft-list contract and Aadel's confirmed/cancelled
-   participant contract, including pagination and error examples.
+1. Integrate the discovery category catalog module. Abdellah's PR #21 is merged.
+2. Supply an owner-scoped draft-list contract and integrate Aadel's participant
+   backend. Its confirmed/cancelled read contract is now connected and verified
+   against the separate S3-03 backend.
 3. Confirm the new-event registration default and any future venue/media mapping.
 4. Exercise the full authenticated API/database journey and obtain team review.
 
