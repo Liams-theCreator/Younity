@@ -37,6 +37,6 @@ import { RegistrationModule } from './registration/registration.module.js';
 	],
 	controllers: [AuthController],
 	providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, ResendRateLimitGuard],
-  	exports: [PassportModule, JwtAuthGuard, RolesGuard],
+	exports: [PassportModule, JwtAuthGuard, RolesGuard, AuthService],
 })
 export class AuthModule {}
