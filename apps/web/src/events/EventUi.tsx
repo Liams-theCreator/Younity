@@ -35,7 +35,7 @@ export function OrganizerEventHeader() {
           <Link to="/organizer/events" aria-current={eventsCurrent ? 'page' : undefined} onClick={() => menu.current?.close()}><EventIcon name="calendar_month" />My events</Link>
           <NavLink to="/organizer/events/new" onClick={() => menu.current?.close()}><EventIcon name="add_circle" />Create event</NavLink>
           <NavLink to="/organizer/bookings" onClick={() => menu.current?.close()}><EventIcon name="confirmation_number" />Bookings</NavLink>
-          <NavLink to="/organizer/dashboard" onClick={() => menu.current?.close()}><EventIcon name="dashboard" />Dashboard</NavLink>
+          <NavLink to="/organizer/" end onClick={() => menu.current?.close()}><EventIcon name="dashboard" />Dashboard</NavLink>
           <button type="button" onClick={() => { void signOut().catch(() => undefined) }}>Sign out</button>
         </nav>
       </dialog>
@@ -50,7 +50,7 @@ export function OrganizerEventHeader() {
           Organizer workspace
         </span>
         <div className={styles.navLinks}>
-          <NavLink to="/organizer/dashboard" title="Dashboard"><EventIcon name="dashboard" /><span className={styles.navLabel}>Dashboard</span></NavLink>
+          <NavLink to="/organizer/" end title="Dashboard"><EventIcon name="dashboard" /><span className={styles.navLabel}>Dashboard</span></NavLink>
           <Link to="/organizer/events" aria-current={eventsCurrent ? 'page' : undefined} title="My events"><EventIcon name="calendar_month" /><span className={styles.navLabel}>My events</span></Link>
           <NavLink to="/organizer/events/new" title="Create event"><EventIcon name="add_circle" /><span className={styles.navLabel}>Create event</span></NavLink>
           <NavLink to="/organizer/bookings" title="Bookings"><EventIcon name="confirmation_number" /><span className={styles.navLabel}>Bookings</span></NavLink>
@@ -78,7 +78,7 @@ export function OrganizerEventHeader() {
               <EventIcon name="expand_more" />
             </summary>
             <div className={styles.accountMenu}>
-              <Link to="/organizer/dashboard">Dashboard</Link>
+              <Link to="/organizer/">Dashboard</Link>
               <button
                 type="button"
                 className={styles.signOut}

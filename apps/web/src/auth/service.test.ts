@@ -313,7 +313,7 @@ describe('AUTH-05 role/status destinations', () => {
       'ORGANIZER',
       'ACTIVE',
       'APPROVED',
-      '/organizer/dashboard',
+      '/organizer/',
     ],
     [
       'ORGANIZER',

@@ -103,7 +103,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function mount(path = '/organizer/dashboard') {
+function mount(path = '/organizer/') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <App />
@@ -149,7 +149,7 @@ describe('onboarding routing and approval acknowledgment', () => {
 
   it('routes completed corrections by review status and displays real feedback', async () => {
     status = 'NEEDS_CHANGES'
-    mount('/organizer/dashboard')
+    mount('/organizer/')
 
     expect(
       await screen.findByRole('heading', {

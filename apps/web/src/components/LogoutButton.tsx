@@ -12,7 +12,9 @@ export default function LogoutButton() {
     return null
   }
 
-  if (destination === '/organizer/dashboard' && (pathname === '/organizer/dashboard' || pathname.startsWith('/organizer/events') || pathname === '/organizer/bookings')) return <OrganizerEventHeader />
+  const organizerPage = pathname === '/organizer' || pathname === '/organizer/' ||
+    pathname.startsWith('/organizer/events') || pathname === '/organizer/bookings'
+  if (destination === '/organizer/' && organizerPage) return <OrganizerEventHeader />
 
   if (destination === '/admin/applications') return <AdminHeader />
 

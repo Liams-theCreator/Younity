@@ -41,6 +41,8 @@ verification sections below describe the original PR #22 environment.
 
 Approved ACTIVE organizers can use:
 
+- `/organizer/` — dashboard and post-login destination. The previous
+  `/organizer/dashboard` address redirects here.
 - `/organizer/events/new` — event details, format/venue, schedule and registration/media.
 - `/organizer/events/:eventId/edit` — loads the actual saved draft into that form.
 - `/organizer/events` — draft cards, loaded-draft count, search, sorting and edit links.
@@ -289,7 +291,7 @@ and management shortcuts, four metrics, upcoming events, recent drafts, recent
 confirmed/cancelled booking activity, and workspace tools. Reference names, campus
 resources and example totals were replaced by data-backed content.
 
-GET /api/organizer/dashboard is a session-guarded, no-store read. All event and
+GET /api/organizer-dashboard is a session-guarded, no-store read. All event and
 participant queries require the session user to be the event creator and approved
 organization owner. Metrics and bounded lists are read in one repeatable-read
 transaction. Active events are PUBLISHED/FULL events whose end is in the future.

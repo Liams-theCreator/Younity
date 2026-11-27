@@ -151,7 +151,7 @@ try {
   await page.getByLabel('Email Address', { exact: true }).fill(owner.email)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Sign In to Younity', exact: true }).click()
-  await page.waitForURL('**/organizer/dashboard')
+  await page.waitForURL('**/organizer/')
   await page.goto(`${webUrl}/organizer/bookings`)
   await page.getByRole('cell', { name: student.email, exact: true }).waitFor()
   assert.equal(await page.locator('tbody tr').count(), 20)

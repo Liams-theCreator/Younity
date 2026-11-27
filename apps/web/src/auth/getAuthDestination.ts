@@ -6,7 +6,7 @@ export type AuthDestination =
   | '/organizer/application'
   | '/organizer/approved'
   | '/student/dashboard'
-  | '/organizer/dashboard'
+  | '/organizer/'
   | '/organizer/pending'
   | '/organizer/status'
 
@@ -62,7 +62,7 @@ export function getAuthDestination(
       return '/organizer/approved'
     }
 
-    return '/organizer/dashboard'
+    return '/organizer/'
   }
 
   return null

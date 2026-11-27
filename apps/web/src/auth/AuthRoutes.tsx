@@ -42,10 +42,10 @@ export default function AuthRoutes({
 
   return (
     <Routes>
-      <Route path="/organizer/events" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><OrganizerEventsPage service={eventServices} /></ProtectedRoute>} />
-      <Route path="/organizer/events/new" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><EventCreationPage service={eventServices} /></ProtectedRoute>} />
-      <Route path="/organizer/events/:eventId/edit" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><EventCreationPage service={eventServices} /></ProtectedRoute>} />
-      <Route path="/organizer/bookings" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><OrganizerBookingsPage service={eventServices} /></ProtectedRoute>} />
+      <Route path="/organizer/events" element={<ProtectedRoute destination="/organizer/" renderRedirect={to => <Navigate to={to} replace />}><OrganizerEventsPage service={eventServices} /></ProtectedRoute>} />
+      <Route path="/organizer/events/new" element={<ProtectedRoute destination="/organizer/" renderRedirect={to => <Navigate to={to} replace />}><EventCreationPage service={eventServices} /></ProtectedRoute>} />
+      <Route path="/organizer/events/:eventId/edit" element={<ProtectedRoute destination="/organizer/" renderRedirect={to => <Navigate to={to} replace />}><EventCreationPage service={eventServices} /></ProtectedRoute>} />
+      <Route path="/organizer/bookings" element={<ProtectedRoute destination="/organizer/" renderRedirect={to => <Navigate to={to} replace />}><OrganizerBookingsPage service={eventServices} /></ProtectedRoute>} />
       <Route
         path="/admin/applications"
         element={
@@ -131,9 +131,13 @@ export default function AuthRoutes({
 
       <Route
         path="/organizer/dashboard"
+        element={<Navigate to="/organizer/" replace />}
+      />
+      <Route
+        path="/organizer/"
         element={
           <ProtectedRoute
-            destination="/organizer/dashboard"
+            destination="/organizer/"
             renderRedirect={(to) => <Navigate to={to} replace />}
           >
             <OrganizerDashboardPage service={eventServices} />

@@ -81,7 +81,7 @@ function ExpiryProbe() {
 function mount(path = '/login') {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <App />
+      <App eventServices={{}} />
       <Location />
     </MemoryRouter>,
   )
@@ -310,8 +310,8 @@ describe('AUTH-05 frontend journeys', () => {
     ).toBeInTheDocument()
   })
 
-  it('redirects an anonymous direct visit to login', async () => {
-    mount('/organizer/dashboard')
+  it.each(['/organizer/', '/organizer/dashboard'])('redirects an anonymous direct visit to %s to login', async (path) => {
+    mount(path)
 
     await screen.findByRole('form')
 
@@ -320,12 +320,21 @@ describe('AUTH-05 frontend journeys', () => {
     ).toHaveTextContent('/login')
   })
 
+  it('redirects the legacy organizer dashboard address to the organizer root', async () => {
+    session = organizer
+    mount('/organizer/dashboard')
+    await screen.findByRole('heading', { name: 'Organizer dashboard' })
+    expect(screen.getByLabelText('Current route')).toHaveTextContent('/organizer/')
+    expect(screen.getByRole('navigation', { name: 'Organizer workspace' }))
+      .toHaveTextContent('Dashboard')
+  })
+
   it.each([
     [
       'APPROVED',
       'ACTIVE',
       'Organizer dashboard',
-      '/organizer/dashboard',
+      '/organizer/',
     ],
     [
       'PENDING',

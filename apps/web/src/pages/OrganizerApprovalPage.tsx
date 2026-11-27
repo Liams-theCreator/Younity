@@ -6,7 +6,7 @@ import styles from './AuthShell.module.css'
 
 export default function OrganizerApprovalPage() {
   const [exit, setExit] = useState<
-    '/events' | '/organizer/dashboard' | null
+    '/events' | '/organizer/' | null
   >(null)
 
   if (exit) return <Navigate to={exit} replace />
@@ -24,7 +24,7 @@ export default function OrganizerApprovalPage() {
 function ApprovalChoices({
   onExit,
 }: {
-  onExit: (to: '/events' | '/organizer/dashboard') => void
+  onExit: (to: '/events' | '/organizer/') => void
 }) {
   const { requestProtected, refreshSession } = useAuth()
   const [busy, setBusy] = useState(false)
@@ -39,7 +39,7 @@ function ApprovalChoices({
     if (error) alert.current?.focus()
   }, [error])
 
-  async function leave(to: '/events' | '/organizer/dashboard') {
+  async function leave(to: '/events' | '/organizer/') {
     if (lock.current) return
 
     lock.current = true
@@ -108,7 +108,7 @@ function ApprovalChoices({
 
           <button
             disabled={busy}
-            onClick={() => { void leave('/organizer/dashboard') }}
+            onClick={() => { void leave('/organizer/') }}
           >
             Enter organizer dashboard
           </button>

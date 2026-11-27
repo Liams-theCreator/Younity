@@ -10,7 +10,7 @@ import { OrganizerDashboardService } from './organizer-dashboard.service.js';
 
 @ApiTags('Organizer dashboard')
 @ApiCookieAuth()
-@Controller('organizer/dashboard')
+@Controller('organizer-dashboard')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ORGANIZER)
 export class OrganizerDashboardController {

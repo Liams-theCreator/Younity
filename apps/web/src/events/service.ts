@@ -199,7 +199,7 @@ export const organizerEventService: EventServices = {
   venueDetails: false,
   publishSavedOnly: true,
   async dashboard(context) {
-    return dashboard(await json(await response('/api/organizer/dashboard', context)))
+    return dashboard(await json(await response('/api/organizer-dashboard', context)))
   },
   async bookings({ status, page }, context) {
     if ((status !== 'CONFIRMED' && status !== 'CANCELLED') ||

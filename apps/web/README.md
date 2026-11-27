@@ -479,7 +479,7 @@ runs registration and auth suites together.
 
 `ProtectedRoute` and `getAuthDestination` replace the earlier sign-in-only guard.
 Active students reach `/student/dashboard`; approved active organizers reach
-`/organizer/dashboard`; pending organizers reach `/organizer/pending`; rejected
+`/organizer/`; pending organizers reach `/organizer/pending`; rejected
 or needs-changes organizers reach `/organizer/status`. Unsupported or suspended
 profiles are blocked. The one pending route renders AUTH-04's pending page:
 development can show the existing preview, while production explicitly reports
