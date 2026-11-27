@@ -4,6 +4,186 @@ NestJS, TypeScript ES modules, Prisma 7, and PostgreSQL. The API includes
 authentication, email verification, student preferences and administrator
 application reads. See the sections below for contracts and integration status.
 
+## Organizer event drafts and publishing
+
+These routes require an active, email-verified ORGANIZER session with one approved
+organization. Ownership comes from the session.
+
+- `POST /api/organizer-events` creates an event with status `DRAFT` and returns it
+  with HTTP 201.
+- `GET /api/organizer-events/:id` returns the organizer's saved event with HTTP 200
+  and `Cache-Control: no-store`.
+- `PATCH /api/organizer-events/:id` saves partial changes to a draft and returns
+  the updated event with HTTP 200. Omitted fields are preserved; nullable fields
+  can be cleared with `null`. For `categoryIds`, omission preserves the saved
+  selection, `[]` clears it, and a supplied list replaces it atomically with the
+  event changes. `categoryIds: null` is invalid.
+- `POST /api/organizer-events/publish` accepts a completed form and creates an
+  event directly with status `PUBLISHED`, returning the event with HTTP 201.
+- `POST /api/organizer-events/:id/publish` publishes the persisted draft and
+  returns the same event with HTTP 200. No request body is needed; save form edits
+  with PATCH before publishing.
+
+Creation requires `title`, `description`, `format` (`IN_PERSON`, `ONLINE`, or
+`HYBRID`), `startDate`, `endDate`, and `registrationMode` (`AUTOMATIC` or
+`EXTERNAL`), matching the existing database requirements. Optional fields are
+`location`, `onlineUrl`, `imageUrl`, `registrationDeadline`, `capacity`, and
+`externalRegistrationUrl`, plus `categoryIds` (an array of distinct category UUIDs).
+Every supplied ID must exist in the category catalog. Malformed, duplicate
+(case-insensitive), or unknown IDs return 400 before saving any changes. Drafts
+may omit categories or save an empty array. All five routes return the existing
+event fields plus `categoryIds`, including `[]` when no links are saved; GET thus
+restores the React selection. Category order is not guaranteed.
+Dates use ISO 8601; the end must follow the start, and
+the registration deadline must not follow the start. Capacity must be a positive
+integer. Unknown fields, including ownership and status fields, are rejected.
+
+Both publish routes validate the complete event, require a future `startDate`,
+and enforce format and registration requirements: in-person events need
+`location`, online events need `onlineUrl`, hybrid events need both, and external
+registration needs a valid HTTP(S) `externalRegistrationUrl`. AUTOMATIC registration
+requires an explicit `registrationDeadline`; the API never substitutes `startDate`.
+The existing deadline date-order rule applies whenever a deadline is supplied,
+including EXTERNAL events. EXTERNAL events may omit the deadline.
+Direct publish requires at least one existing category in the request; saved-draft
+publish requires at least one persisted category link. An invalid direct publish
+creates no event; a rejected saved-draft publish leaves it DRAFT and unchanged.
+Image and capacity remain optional. Deadlines remain optional when saving drafts.
+Incomplete drafts may still be saved through the draft
+routes, provided the core database fields are present. Successful publication
+sets `PUBLISHED` directly.
+
+Malformed UUIDs or invalid bodies return 400. Missing events and events owned by
+another organizer return 404. Editing or publishing a non-draft event (including
+a repeated publish), or a draft changed during the save/publication, returns 409.
+Reload after a conflict. Saving a draft does not publish it. Direct publication
+creates a new event on every successful request; use the saved-draft route when
+publishing an existing draft.
+
+### S3-09 handoff and example payloads
+
+Checked Oussama's `S3-09_Event-creation-participants` at `18a6aa0`:
+`apps/web/src/events/model.ts` uses `categoryIds: string[]`; its view models are
+explicitly not HTTP DTOs. The adapter should set
+`rules: { titleMaxLength: 255, categoryRequired: true, automaticDeadlineRequired: true }`.
+These last two rules apply to publication; the API preserves the six core draft
+fields above. The UI currently permits more incomplete drafts, so Oussama must
+align draft feedback with these minimum fields before integration. Description
+has no API maximum. For new events supply the agreed `service.registrationMode`;
+the UI does not select a default. Convert local schedule values to ISO timestamps
+with the intended timezone, capacity to a positive integer, and optional blank
+fields to omission/null as appropriate. Do not send `room` or `campus` as separate
+fields; their mapping into `location` remains a team decision.
+
+Replace the category UUID below with an existing catalog ID from the target
+database (the seed preserves IDs but does not assign portable fixed UUIDs). These
+routes do not add a category-list endpoint; Oussama's `categories` callback still
+needs an agreed catalog source. Use dates in the future when trying these examples.
+Requests use the existing `access_token` session cookie.
+
+Save a draft with `POST /api/organizer-events` (201); categories and deadline may
+be omitted:
+
+```json
+{
+  "title": "Campus technology meetup",
+  "description": "Student talks and discussion",
+  "format": "ONLINE",
+  "startDate": "2027-06-10T10:00:00.000Z",
+  "endDate": "2027-06-10T12:00:00.000Z",
+  "registrationMode": "AUTOMATIC"
+}
+```
+
+Edit the returned ID with `PATCH /api/organizer-events/:id` (200):
+
+```json
+{
+  "onlineUrl": "https://example.com/meetup",
+  "registrationDeadline": "2027-06-09T18:00:00.000Z",
+  "categoryIds": ["a7495653-79c3-4fd2-98f5-84f92aa5e2da"]
+}
+```
+
+`{"title":"Revised meetup"}` leaves categories alone; `{"categoryIds":[]}`
+clears them and prevents publication until a valid selection is saved. Reload
+with GET, then `POST /api/organizer-events/:id/publish` with no body (200).
+
+Alternatively, direct publish with `POST /api/organizer-events/publish` (201):
+
+```json
+{
+  "title": "Campus technology meetup",
+  "description": "Student talks and discussion",
+  "format": "ONLINE",
+  "onlineUrl": "https://example.com/meetup",
+  "startDate": "2027-06-10T10:00:00.000Z",
+  "endDate": "2027-06-10T12:00:00.000Z",
+  "registrationMode": "AUTOMATIC",
+  "registrationDeadline": "2027-06-09T18:00:00.000Z",
+  "categoryIds": ["a7495653-79c3-4fd2-98f5-84f92aa5e2da"]
+}
+```
+
+For EXTERNAL, change `registrationMode` to `EXTERNAL`, omit the deadline if
+unused, and include `"externalRegistrationUrl":"https://example.com/register"`.
+For IN_PERSON supply `location`; HYBRID requires both `location` and `onlineUrl`.
+Registration URLs keep their existing URL validation even on draft saves.
+
+Student discovery is an **S3-05 integration dependency**. A PUBLISHED response
+and saved category links verify this writer; visibility/filtering in student
+discovery must be verified separately after S3-05 integration. S3-01 does not add
+discovery, draft listing, media uploads, or participant APIs.
+
+Focused checks from `apps/api`:
+
+```bash
+npm test -- organizer-events
+npm run lint
+npm run build
+# After db:setup on an explicit isolated *_test database, with both DB URLs set:
+npm run test:e2e -- organizer-events
+```
+
+The focused database suite uses real JWT guards and Prisma to check direct
+publish, draft/edit/reload/publish, category persistence, omission/replacement/
+clearing, no writes on validation failure, external registration, concurrent
+changes, and rejection of a different approved organizer. It does not exercise
+the S3-09 browser adapter or S3-05 discovery.
+
+Local verification and broader follow-up audit on 2026-11-25 (Node 22.23.2,
+disposable PostgreSQL 17 and local Mailpit):
+
+- `npm run db:setup`: all seven committed migrations applied; ten categories seeded.
+- `npm test -- organizer-events`: 90 tests passed across controller/service suites.
+- `npm test`: all 257 API unit/controller tests passed across 19 files.
+- `npm run test:e2e`: all 162 database/HTTP tests passed across 11 files, with
+  `EMAIL_VERIFICATION_SMTP_TEST=1`, SMTP directed to the disposable local Mailpit
+  catcher, and no skipped tests. The follow-up used `younity_s301_audit_test`.
+  No email was delivered externally.
+- Organizer event database coverage now has 26 cases. It includes category-only
+  PATCH invalidating stale edits/publication, simultaneous edit/edit,
+  edit/publish and publish/publish against the same snapshot (one success and
+  one 409), transaction rollback when PostgreSQL rejects category persistence,
+  and denial of an existing JWT after approval revocation or suspension. Test
+  read hooks coordinate races; guards and database operations remain real.
+- `npm run lint`, `npm run build` (including Prisma generation), and
+  `git diff --check`: passed. No schema migration was needed.
+- `npm run prisma:validate`, `npm run db:status`, and the CI Prisma migration
+  diff command: passed; migrations are current and no schema drift was detected.
+
+No S3-01 functional failures were found in this audit; production code required
+no further changes. Expected failed-email fixtures log errors. The full database
+suite also emits an existing non-failing `pg` deprecation warning traced to
+`@prisma/adapter-pg` transaction queries; dependency compatibility with a future
+`pg` major version remains a separate maintenance item. Disposable test containers
+and their database volume were removed after verification.
+
+Hosted CI, S3-09 browser integration and S3-05 discovery were not run for this
+change. Before Aadel's review, confirm the
+category catalog source and S3-09 adapter mapping/validation described above;
+student visibility remains dependent on S3-05 integration.
+
 ## Admin application reads (S2-06)
 
 `GET /api/admin/applications` and `GET /api/admin/applications/:id` require an

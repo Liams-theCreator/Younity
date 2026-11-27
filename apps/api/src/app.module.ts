@@ -11,6 +11,8 @@ import { AuthModule } from './auth/auth.module.js';
 import { StudentModule } from './student/student.module.js';
 import { OrganizerApplicationsModule } from './organizer-applications/organizer-applications.module.js';
 import { AdminModule } from './admin/admin.module.js';
+import { OrganizerEventsModule } from './organizer-events/organizer-events.module.js';
+import { BookingsModule } from './bookings/bookings.module.js';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { AdminModule } from './admin/admin.module.js';
     StudentModule,
     OrganizerApplicationsModule,
     AdminModule,
+    OrganizerEventsModule,
+    BookingsModule,
   ],
   controllers: [
     AppController,
