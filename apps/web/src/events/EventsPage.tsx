@@ -6,9 +6,9 @@ import scrollStyles from '../components/ScrollHeader.module.css'
 import EventCard from './EventCard'
 import EventFilters from './EventFilters'
 import EventGridSkeleton from './EventGridSkeleton'
-import { discoveryQuery, getCategories, getEvents } from './service'
+import { discoveryQuery, getCategories, getEvents } from './discovery.service'
 import { useResource } from './useResource'
-import styles from './events.module.css'
+import styles from './discovery.module.css'
 
 export default function EventsPage() {
   const auth = useAuth()

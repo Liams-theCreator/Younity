@@ -1,10 +1,10 @@
 import { useCallback } from 'react'
 import { Link, useParams } from 'react-router'
 import { useAuth } from '../auth/useAuth'
-import { getEvent, getMyBooking } from './service'
-import { eventDate, formatLabels } from './model'
+import { getEvent, getMyBooking } from './discovery.service'
+import { eventDate, formatLabels } from './discovery.model'
 import { useResource } from './useResource'
-import styles from './events.module.css'
+import styles from './discovery.module.css'
 
 function BookingStatus({ eventId }: { eventId: string }) {
   const { requestProtected, user } = useAuth()

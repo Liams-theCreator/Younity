@@ -1,4 +1,4 @@
-import styles from './events.module.css'
+import styles from './discovery.module.css'
 
 const cardLayouts = ['block', 'hidden min-[600px]:block', 'hidden min-[1000px]:block']
 const bar = 'rounded-full bg-[var(--border)]'

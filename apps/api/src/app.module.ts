@@ -1,4 +1,6 @@
 import { AdminApplicationsModule } from './admin-applications/admin-applications.module.js';
+import { EventImagesModule } from './event-images/event-images.module.js';
+import { OrganizerDashboardModule } from './organizer-dashboard/organizer-dashboard.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
@@ -17,6 +19,8 @@ import { BookingsModule } from './bookings/bookings.module.js';
 @Module({
   imports: [
     AdminApplicationsModule,
+    EventImagesModule,
+    OrganizerDashboardModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateEnvironment,

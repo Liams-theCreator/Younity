@@ -1,253 +1,862 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { apiRequest } from '../api/client'
-import { discoveryQuery, getEvent, getEvents, getMyBooking } from './service'
-import { EventsError } from './model'
+import {
+  baselineRules,
+  unavailableEventServices,
+  emptyEvent,
+  EventUiError,
+  type EventDraft,
+  type DraftSummary,
+  type EventServices,
+  type EventValues,
+} from './model'
+import { safeImageUrl, validateEvent } from './validation'
+import { organizerEventService } from './service'
 
 vi.mock('../api/client', () => ({ apiRequest: vi.fn() }))
 const request = vi.mocked(apiRequest)
-const category = { id: 'category-1', name: 'AI & Data', slug: 'ai-data' }
-const event = {
-  id: 'event-1', title: 'Campus AI meetup', organization: { id: 'org-1', name: 'Campus Club' },
-  startDate: '2027-01-12T10:00:00Z', endDate: '2027-01-12T12:00:00Z', format: 'HYBRID',
-  location: 'Rabat campus', categories: [category], registrationMode: 'AUTOMATIC',
-  registrationDeadline: '2027-01-11T18:00:00Z', availability: 'OPEN',
-  description: 'Meet students and build something together.', externalRegistrationUrl: null,
-  onlineUrl: 'https://private.example.test/join',
+// Frontend fixtures test the callback boundary only, not an agreed API schema.
+const values: EventValues = {
+  ...emptyEvent,
+  title: 'Campus robotics showcase',
+  description: 'Meet student makers.',
+  categoryIds: ['category-fixture'],
+  format: 'IN_PERSON',
+  location: 'Engineering hall',
+  startDate: '2026-12-10T10:00',
+  endDate: '2026-12-10T12:00',
+  registrationMode: 'AUTOMATIC',
+  registrationDeadline: '2026-12-09T18:00',
+  capacity: '120',
 }
+const draft: EventDraft = { id: 'draft-fixture', values, updatedAt: '2026-11-20T10:00:00Z' }
 let session: Record<string, unknown> | null
-let booking: { id: string; status: string } | null
-let bookingFailure: boolean
-let missing: boolean
-let external: boolean
-function results(page = 1, items = [event], total = 25) {
-  return { items, categories: [category], page, pageSize: 12, total }
+function services() {
+  return {
+    registrationMode: 'AUTOMATIC',
+    rules: { ...baselineRules, categoryRequired: true, automaticDeadlineRequired: true },
+    categories: vi
+      .fn<NonNullable<EventServices['categories']>>()
+      .mockResolvedValue([{ id: 'category-fixture', label: 'Robotics' }]),
+    draft: vi.fn<NonNullable<EventServices['draft']>>().mockResolvedValue(draft),
+    drafts: vi.fn<NonNullable<EventServices['drafts']>>().mockResolvedValue([
+      {
+        id: draft.id,
+        title: values.title,
+        updatedAt: draft.updatedAt,
+        startDate: values.startDate,
+        format: values.format,
+      },
+    ]),
+    saveDraft: vi
+      .fn<NonNullable<EventServices['saveDraft']>>()
+      .mockImplementation(async (input) => ({
+        id: input.id ?? draft.id,
+        values: input.values,
+        updatedAt: draft.updatedAt,
+      })),
+    publish: vi
+      .fn<NonNullable<EventServices['publish']>>()
+      .mockResolvedValue({ message: 'Publication request confirmed.' }),
+    bookings: vi
+      .fn<NonNullable<EventServices['bookings']>>()
+      .mockImplementation(async (selection) => ({
+        items: [
+          {
+            id: 'booking-fixture',
+            eventTitle: 'Campus robotics showcase',
+            participantName: 'Sara Example',
+            email: 'sara@example.test',
+            registeredAt: '2026-11-20T10:00:00Z',
+            status: selection.status,
+            cancellationReason: selection.status === 'CANCELLED' ? 'Unable to attend.' : null,
+          },
+        ],
+        previousPage: null,
+        nextPage: 'page-two-fixture',
+        label: 'Page 1',
+      })),
+  } satisfies EventServices
 }
-function mount(path = '/events') {
-  return render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
+function mount(service: EventServices = unavailableEventServices, path = '/organizer/events/new') {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <App eventServices={service} />
+    </MemoryRouter>,
+  )
 }
-function student(complete = true) {
-  return { id: 'student-1', email: 'student@example.test', role: 'STUDENT', status: 'ACTIVE', organization: null,
-    onboarding: { complete, nextStep: complete ? 'NONE' : 'SELECT_INTERESTS' } }
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
 }
-function bookingCalls() {
-  return request.mock.calls.filter(([path]) => String(path).endsWith('/my-booking'))
+async function openDraft(service = services()) {
+  mount(service, `/organizer/events/${draft.id}/edit`)
+  await screen.findByDisplayValue(values.title)
+  return service
 }
-
 beforeEach(() => {
-  session = null; booking = null; bookingFailure = false; missing = false; external = false
-  request.mockReset().mockImplementation(async input => {
-    const path = String(input)
-    if (path === '/api/auth/me') return session ? Response.json(session) : new Response(null, { status: 401 })
-    if (path === '/api/categories') return Response.json({ categories: [category] })
-    if (path === '/api/student/profile') return Response.json({ firstName: 'Sara', lastName: 'Student' })
-    if (path === '/api/student/preferences') return Response.json({
-      interests: ['AI_DATA', 'ROBOTICS_IOT'], university: null, academicField: null, studyLevel: null, opportunityFormat: null,
+  session = {
+    id: 'organizer-fixture',
+    email: 'organizer@example.test',
+    role: 'ORGANIZER',
+    status: 'ACTIVE',
+    organization: { verificationStatus: 'APPROVED', approvalAcknowledged: true },
+    onboarding: { complete: true, nextStep: 'NONE' },
+  }
+  request.mockReset().mockImplementation(async (input) => {
+    if (input === '/api/auth/me')
+      return session ? Response.json(session) : new Response(null, { status: 401 })
+    throw new Error(`No production event API is guessed: ${String(input)}`)
+  })
+})
+
+describe('organizer event access and unavailable integration', () => {
+  it('connects the default adapter to the confirmed/cancelled HTTP contract and retains dash fallbacks', async () => {
+    request.mockImplementation(async input => {
+      if (input === '/api/auth/me') return Response.json(session)
+      const url = new URL(String(input), 'https://example.test')
+      if (url.pathname !== '/api/organizer/bookings') throw new Error(`Unexpected request: ${input}`)
+      const status = url.searchParams.get('status')
+      return Response.json({
+        items: [{ id: '11111111-1111-4111-8111-111111111111', eventId: '22222222-2222-4222-8222-222222222222',
+          eventTitle: 'Live contract workshop', participantName: 'Sara Contract', email: 'sara@example.test',
+          registeredAt: '2027-01-10T10:00:00Z', status, cancellationReason: null }],
+        page: 1, pageSize: 20, total: 1,
+      })
     })
-    if (path.startsWith('/api/events?')) {
-      const params = new URL(path, 'https://example.test').searchParams
-      return Response.json(results(Number(params.get('page') ?? 1), params.get('q') === 'none' ? [] : [event], params.get('q') === 'none' ? 0 : 25))
+    mount(organizerEventService, '/organizer/bookings')
+    expect(await screen.findByText('Sara Contract')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('tab', { name: 'Cancelled' }))
+    await screen.findByRole('columnheader', { name: 'Cancelled' })
+    expect(await screen.findByText('Sara Contract')).toBeVisible()
+    const row = screen.getByText('Sara Contract').closest('tr')!
+    expect(within(row).getAllByText('—')).toHaveLength(2)
+    const bookingCalls = request.mock.calls.filter(([path]) => String(path).startsWith('/api/organizer/bookings?'))
+    expect(bookingCalls).toHaveLength(2)
+    expect(new URL(String(bookingCalls[1][0]), 'https://example.test').searchParams.get('status')).toBe('CANCELLED')
+  })
+  it('reports an unavailable publish callback without claiming draft saving is unavailable', async () => {
+    const service = services()
+    mount({ ...service, publish: undefined })
+    expect(
+      await screen.findByText('Publishing is currently unavailable. You can still save a draft.'),
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeEnabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+    expect(await screen.findByText('Draft saved.')).toBeVisible()
+    expect(screen.queryByText(/Changes made here have not been saved/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+  })
+
+  it('shows the real empty editor without fake sample data or guessed API requests', async () => {
+    mount()
+    expect(await screen.findByRole('heading', { name: 'Create Event' })).toBeVisible()
+    expect(screen.getByRole('textbox', { name: /Event title/ })).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+    expect(screen.getByText(/Saving and publishing are currently unavailable/)).toBeVisible()
+    expect(screen.queryByText('Alex Rivera')).not.toBeInTheDocument()
+    expect(request.mock.calls.every(([url]) => url === '/api/auth/me')).toBe(true)
+  })
+  it.each([
+    '/organizer/events',
+    '/organizer/events/new',
+    '/organizer/events/private/edit',
+    '/organizer/bookings',
+  ])('redirects anonymous visits to %s without reads', async (path) => {
+    session = null
+    const service = services()
+    mount(service, path)
+    expect(await screen.findByLabelText('Email Address')).toBeVisible()
+    expect(service.categories).not.toHaveBeenCalled()
+    expect(service.draft).not.toHaveBeenCalled()
+    expect(service.bookings).not.toHaveBeenCalled()
+    expect(service.drafts).not.toHaveBeenCalled()
+  })
+  it.each([
+    ['STUDENT', 'ACTIVE', null],
+    ['ADMIN', 'ACTIVE', null],
+    ['ORGANIZER', 'PENDING', 'PENDING'],
+    ['ORGANIZER', 'ACTIVE', 'REJECTED'],
+    ['ORGANIZER', 'SUSPENDED', 'APPROVED'],
+  ])('blocks %s/%s from event reads', async (role, status, organizationStatus) => {
+    session = {
+      ...session!,
+      role,
+      status,
+      organization: organizationStatus ? { verificationStatus: organizationStatus } : null,
     }
-    if (path.endsWith('/my-booking')) return bookingFailure ? new Response(null, { status: 503 }) : Response.json({ booking })
-    if (path === '/api/events/event-1') {
-      if (missing) return new Response(null, { status: 404 })
-      return Response.json({ event: external ? { ...event, registrationMode: 'EXTERNAL', registrationDeadline: null, externalRegistrationUrl: 'https://organizer.example.test/register' } : event })
-    }
-    throw new Error(`Unexpected request: ${path}`)
+    const service = services()
+    mount(service)
+    await waitFor(() =>
+      expect(screen.queryByText('Checking your session…')).not.toBeInTheDocument(),
+    )
+    expect(screen.queryByRole('form', { name: 'Event creation' })).not.toBeInTheDocument()
+    expect(service.categories).not.toHaveBeenCalled()
   })
 })
 
-describe('S3-07 proposed discovery contract', () => {
-  it('browses real routes without authentication or a booking mutation', async () => {
-    mount()
-    expect(await screen.findByRole('link', { name: event.title })).toBeVisible()
-    await userEvent.click(screen.getByRole('link', { name: event.title }))
-    expect(await screen.findByRole('heading', { name: event.title })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Create student account' })).toBeVisible()
-    expect(document.body).not.toHaveTextContent(event.onlineUrl)
-    expect(bookingCalls()).toHaveLength(0)
-    expect(request.mock.calls.every(([, options]) => !options?.method || options.method === 'GET')).toBe(true)
+describe('creation reference design and write handoff', () => {
+  it('keeps the live preview distinct from confirmed saves and restores the last saved values on discard', async () => {
+    const service = services()
+    const response = deferred<EventDraft>()
+    service.saveDraft.mockReturnValueOnce(response.promise)
+    mount(service)
+    const panel = await screen.findByRole('complementary', { name: 'Event preview' })
+    const title = screen.getByRole('textbox', { name: /Event title/ })
+    await userEvent.type(title, 'My event')
+    expect(within(panel).getByRole('heading', { name: 'My event' })).toBeVisible()
+    expect(screen.queryByText('Draft saved.')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save draft from action dock' })).toBeDisabled()
+    await act(async () =>
+      response.resolve({ ...draft, values: { ...values, title: 'Server-confirmed title' } }),
+    )
+    expect(
+      await within(panel).findByRole('heading', { name: 'Server-confirmed title' }),
+    ).toBeVisible()
+    expect(await screen.findByText('Draft saved.')).toBeVisible()
+    await userEvent.type(title, ' edited')
+    expect(
+      within(panel).getByRole('heading', { name: 'Server-confirmed title edited' }),
+    ).toBeVisible()
+    expect(screen.getByText(/Unsaved changes/)).toBeVisible()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(true)
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(title).toHaveValue('Server-confirmed title')
+    expect(service.saveDraft).toHaveBeenCalledTimes(1)
+    confirm.mockRestore()
   })
-
-  it('combines filters, resets pagination, and clears an empty result', async () => {
-    mount('/events?page=2')
-    await screen.findByRole('link', { name: event.title })
-    await userEvent.type(screen.getByLabelText('Keyword'), 'none')
-    await userEvent.selectOptions(screen.getByLabelText('Category'), 'ai-data')
-    await userEvent.selectOptions(screen.getByLabelText('Format'), 'HYBRID')
-    await userEvent.click(screen.getByRole('button', { name: 'Search events' }))
-    expect(await screen.findByRole('heading', { name: 'No events found' })).toBeVisible()
-    const url = request.mock.calls.map(([p]) => String(p)).find(p => p.includes('q=none'))!
-    const params = new URL(url, 'https://example.test').searchParams
-    expect(Object.fromEntries(params)).toMatchObject({ q: 'none', category: 'ai-data', format: 'HYBRID', page: '1', pageSize: '12' })
-    await userEvent.click(screen.getByRole('button', { name: 'Show all events' }))
-    expect(await screen.findByRole('link', { name: event.title })).toBeVisible()
-    expect(screen.getByLabelText('Keyword')).toHaveValue('')
+  it('renders the three sections and focuses category and schedule errors', async () => {
+    const service = services()
+    mount(service)
+    expect(await screen.findByRole('heading', { name: 'Event Details' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Format & Venue' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Registration & Ticketing' })).toBeVisible()
+    expect(screen.getByRole('radio', { name: 'Online' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Publish' }))
+    const summary = await screen.findByRole('alert')
+    expect(summary).toHaveFocus()
+    await userEvent.click(
+      within(summary).getByRole('link', { name: 'Choose at least one category.' }),
+    )
+    expect(document.getElementById('event-categoryIds')).toHaveFocus()
+    const dateLink = within(summary)
+      .getAllByRole('link', { name: 'Required before publishing.' })
+      .find((link) => link.getAttribute('href') === '#event-startDate')!
+    await userEvent.click(dateLink)
+    expect(screen.getByLabelText('Start date & time')).toHaveFocus()
+    expect(service.publish).not.toHaveBeenCalled()
   })
-
-  it('keeps filters during pagination and supports keyboard submission', async () => {
-    mount('/events?format=HYBRID')
-    await screen.findByRole('link', { name: event.title })
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }))
-    await screen.findByText('Page 2')
-    expect(request.mock.calls.some(([p]) => String(p).includes('format=HYBRID&page=2'))).toBe(true)
-    await userEvent.type(screen.getByLabelText('Keyword'), 'none{Enter}')
-    expect(await screen.findByRole('heading', { name: 'No events found' })).toBeVisible()
+  it('validates optional banner URLs and keeps the reference artwork outside saved values', async () => {
+    const service = services()
+    mount(service)
+    await userEvent.click(await screen.findByText('Use image URL'))
+    const banner = screen.getByRole('textbox', { name: /Event banner image URL/ })
+    await userEvent.type(banner, 'javascript:alert(1)')
+    await userEvent.tab()
+    expect(
+      screen.getByText('Enter a complete http:// or https:// link without credentials.'),
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Change photo' })).toBeDisabled()
+    expect(screen.getAllByRole('img', { name: 'Example event cover' })).toHaveLength(2)
+    await userEvent.click(screen.getByRole('button', { name: 'Remove banner' }))
+    expect(banner).toHaveValue('')
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+    await waitFor(() =>
+      expect(service.saveDraft).toHaveBeenCalledWith(
+        expect.objectContaining({ values: expect.objectContaining({ imageUrl: '' }) }),
+        expect.anything(),
+      ),
+    )
   })
-
-  it('removes an applied filter independently and clears unsent filter changes', async () => {
-    mount('/events?q=meetup&format=HYBRID&category=ai-data&page=2')
-    await screen.findByRole('link', { name: event.title })
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Category filter: AI & Data' }))
-
-    await screen.findByText('Page 1')
-    expect(screen.getByLabelText('Category')).toHaveValue('')
-    expect(screen.getByLabelText('Keyword')).toHaveValue('meetup')
-    expect(screen.getByLabelText('Format')).toHaveValue('HYBRID')
-    expect(request.mock.calls.some(([path]) => String(path).includes('q=meetup&format=HYBRID&page=1'))).toBe(true)
-
-    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
-    await screen.findByRole('link', { name: event.title })
-    await userEvent.type(screen.getByLabelText('Keyword'), 'unsent search')
-    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
-
-    expect(screen.getByLabelText('Keyword')).toHaveValue('')
-    expect(request.mock.calls.some(([path]) => String(path).includes('unsent'))).toBe(false)
+  it('updates conditional format and registration fields without inventing modes', async () => {
+    const service = services()
+    mount(service)
+    await userEvent.type(
+      await screen.findByRole('textbox', { name: /Event title/ }),
+      'Robotics workshop',
+    )
+    expect(
+      within(screen.getByRole('complementary', { name: 'Event preview' })).getByRole('heading', {
+        name: 'Robotics workshop',
+      }),
+    ).toBeVisible()
+    await userEvent.click(screen.getByRole('radio', { name: 'Online' }))
+    expect(screen.getByRole('textbox', { name: /Online event link/ })).toBeRequired()
+    expect(screen.queryByRole('textbox', { name: /Venue/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('radio', { name: 'Hybrid' }))
+    expect(screen.getByRole('textbox', { name: /Venue/ })).toBeRequired()
+    expect(screen.queryByLabelText(/Registration mode/i)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/Registration deadline/)).toBeRequired()
+    expect(screen.queryByRole('option', { name: /Approval Required/ })).not.toBeInTheDocument()
   })
-
-  it('ignores city and date filters in a previously shared event URL', async () => {
-    mount('/events?city=Rabat&from=2027-01-14&to=2027-01-15')
-    expect(await screen.findByRole('link', { name: event.title })).toBeVisible()
-    expect(screen.queryByLabelText('City')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('From')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('To')).not.toBeInTheDocument()
-    expect(request.mock.calls.some(([path]) => String(path) === '/api/events?page=1&pageSize=12')).toBe(true)
+  it('retains external registration on a loaded draft without exposing a mode selector', async () => {
+    const service = services()
+    service.draft.mockResolvedValueOnce({
+      ...draft,
+      values: {
+        ...values,
+        registrationMode: 'EXTERNAL',
+        externalRegistrationUrl: 'https://example.test/register',
+      },
+    })
+    await openDraft(service)
+    expect(screen.queryByLabelText(/Registration mode/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Registration deadline/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/External registration link/)).toHaveValue(
+      'https://example.test/register',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+    await waitFor(() =>
+      expect(service.saveDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          values: expect.objectContaining({ registrationMode: 'EXTERNAL' }),
+        }),
+        expect.anything(),
+      ),
+    )
   })
-
-  it('shows a missing event without claiming a reservation', async () => {
-    missing = true; mount('/events/event-1')
-    expect(await screen.findByRole('heading', { name: 'Event unavailable' })).toBeVisible()
-    expect(bookingCalls()).toHaveLength(0)
+  it('allows partial saving but does not guess registration settings for new events', async () => {
+    const service = services()
+    mount({ ...service, registrationMode: undefined })
+    expect(await screen.findByRole('button', { name: 'Publish' })).toBeDisabled()
+    expect(screen.queryByLabelText(/Registration mode/i)).not.toBeInTheDocument()
+    fireEvent.submit(screen.getByRole('form'))
+    expect(service.publish).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+    await waitFor(() =>
+      expect(service.saveDraft).toHaveBeenCalledWith(
+        expect.objectContaining({ values: expect.objectContaining({ registrationMode: '' }) }),
+        expect.anything(),
+      ),
+    )
   })
-
-  it.each([
-    [null, 'You have no booking for this event.'],
-    [{ id: 'booking-1', status: 'CONFIRMED' }, 'Your place is confirmed.'],
-    [{ id: 'booking-1', status: 'CANCELLED' }, 'Your booking is cancelled.'],
-  ])('shows the current student booking: %j', async (value, message) => {
-    session = student(); booking = value; mount('/events/event-1')
-    expect(await screen.findByText(message)).toBeVisible()
-    expect(bookingCalls().length).toBeGreaterThan(0)
+  it('requires schedule changes to be applied or cancelled before either action can save them', async () => {
+    const service = await openDraft()
+    await userEvent.selectOptions(screen.getByLabelText('Start date & time'), '11:00')
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Publish event from action dock' })).toBeDisabled()
+    fireEvent.submit(screen.getByRole('form'))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Apply or cancel your schedule changes',
+    )
+    expect(service.publish).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Apply Schedule' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft from action dock' }))
+    await waitFor(() =>
+      expect(service.saveDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          values: expect.objectContaining({
+            startDate: '2026-12-10T11:00',
+            endDate: values.endDate,
+          }),
+        }),
+        expect.anything(),
+      ),
+    )
   })
-
-  it('does not treat a booking request failure as no booking and supports retry', async () => {
-    session = student(); bookingFailure = true; booking = { id: 'booking-1', status: 'CONFIRMED' }
-    mount('/events/event-1')
-    const retry = await screen.findByRole('button', { name: 'Retry booking status' })
-    expect(screen.queryByText('You have no booking for this event.')).not.toBeInTheDocument()
-    bookingFailure = false; await userEvent.click(retry)
-    expect(await screen.findByText('Your place is confirmed.')).toBeVisible()
+  it('uses only the supplied banner uploader and blocks writes and duplicate uploads while pending', async () => {
+    const service = services()
+    const response = deferred<{ url: string }>()
+    const uploadBanner = vi
+      .fn<NonNullable<EventServices['uploadBanner']>>()
+      .mockReturnValue(response.promise)
+    mount({ ...service, uploadBanner })
+    const input = await screen.findByLabelText('Select event banner')
+    const file = new File(['image bytes'], 'banner.png', { type: 'image/png' })
+    fireEvent.change(input, { target: { files: [file] } })
+    fireEvent.change(input, { target: { files: [file] } })
+    fireEvent.submit(screen.getByRole('form'))
+    expect(uploadBanner).toHaveBeenCalledTimes(1)
+    expect(uploadBanner).toHaveBeenCalledWith(
+      file,
+      expect.objectContaining({ request: expect.any(Function), signal: expect.any(AbortSignal) }),
+    )
+    expect(service.saveDraft).not.toHaveBeenCalled()
+    expect(service.publish).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled()
+    await act(async () => response.resolve({ url: 'https://example.test/confirmed-banner.png' }))
+    expect(screen.getByRole('img', { name: 'Event banner preview' })).toHaveAttribute(
+      'src',
+      'https://example.test/confirmed-banner.png',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+    await waitFor(() =>
+      expect(service.saveDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          values: expect.objectContaining({
+            imageUrl: 'https://example.test/confirmed-banner.png',
+          }),
+        }),
+        expect.anything(),
+      ),
+    )
   })
-
-  it('keeps incomplete students and organizers out of booking reads', async () => {
-    session = student(false); const view = mount('/events/event-1')
-    expect(await screen.findByRole('link', { name: 'Continue onboarding' })).toHaveAttribute('href', '/student/preferences')
-    expect(bookingCalls()).toHaveLength(0)
+  it('rejects unsupported uploads and aborts the upload callback when leaving the page', async () => {
+    const response = deferred<{ url: string }>()
+    const uploadBanner = vi
+      .fn<NonNullable<EventServices['uploadBanner']>>()
+      .mockReturnValue(response.promise)
+    const view = mount({ ...services(), uploadBanner })
+    const input = await screen.findByLabelText('Select event banner')
+    fireEvent.change(input, {
+      target: { files: [new File(['text'], 'file.txt', { type: 'text/plain' })] },
+    })
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Choose a PNG, JPG or WebP image up to 5 MB.',
+    )
+    expect(uploadBanner).not.toHaveBeenCalled()
+    fireEvent.change(input, {
+      target: { files: [new File(['bytes'], 'cover.jpg', { type: 'image/jpeg' })] },
+    })
+    const signal = uploadBanner.mock.calls[0][1].signal
     view.unmount()
-    session = { ...student(), role: 'ORGANIZER', organization: { verificationStatus: 'PENDING' } }
-    mount('/events/event-1')
-    expect(await screen.findByText('Only student accounts can reserve places through Younity.')).toBeVisible()
-    expect(bookingCalls()).toHaveLength(0)
+    expect(signal.aborted).toBe(true)
+    await act(async () => response.resolve({ url: 'https://example.test/late.jpg' }))
   })
-
-  it('offers an external link without making a Younity booking', async () => {
-    session = student(); external = true; mount('/events/event-1')
-    expect(await screen.findByRole('link', { name: /Open external registration/ })).toHaveAttribute('rel', 'noopener noreferrer')
-    expect(bookingCalls()).toHaveLength(0)
+  it('validates required publish fields, focuses feedback and links to fields', async () => {
+    const service = services()
+    mount(service)
+    await userEvent.click(await screen.findByRole('button', { name: 'Publish' }))
+    const summary = await screen.findByRole('alert')
+    expect(summary).toHaveFocus()
+    await userEvent.click(
+      within(summary).getAllByRole('link', { name: 'Required before publishing.' })[0],
+    )
+    expect(screen.getByRole('textbox', { name: /Event title/ })).toHaveFocus()
+    expect(service.publish).not.toHaveBeenCalled()
   })
-
-  it('opens discovery on the student dashboard and keeps preference editing on the profile', async () => {
-    session = student(); mount('/student/dashboard')
-    expect(await screen.findByRole('link', { name: event.title })).toBeVisible()
-    expect(screen.queryByRole('link', { name: 'Your account' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Account menu' }))
-    await userEvent.click(screen.getByRole('link', { name: 'Edit profile' }))
-    expect(await screen.findByRole('heading', { name: 'Student profile' })).toBeVisible()
-    expect(await screen.findByRole('button', { name: 'Save changes' })).toBeVisible()
-    expect(screen.queryByRole('link', { name: event.title })).not.toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('link', { name: 'Back to events' }))
-    expect(await screen.findByRole('link', { name: event.title })).toBeVisible()
+  it('saves an incomplete draft only through the supplied callback and reuses its identity', async () => {
+    const service = services()
+    mount(service)
+    await userEvent.type(
+      await screen.findByRole('textbox', { name: /Event title/ }),
+      'Unfinished event',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+    expect(await screen.findByRole('status', { name: '' })).toHaveTextContent('Draft saved.')
+    expect(service.saveDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        values: expect.objectContaining({ title: 'Unfinished event', description: '' }),
+      }),
+      expect.objectContaining({ request: expect.any(Function), signal: expect.any(AbortSignal) }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+    await waitFor(() =>
+      expect(service.saveDraft).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: draft.id }),
+        expect.anything(),
+      ),
+    )
+    expect(service.publish).not.toHaveBeenCalled()
   })
-
-  it('ignores a stale response after filters change', async () => {
-    let release!: (response: Response) => void
-    const normal = request.getMockImplementation()!
-    request.mockImplementation((input, options) => String(input).includes('q=slow')
-      ? new Promise(resolve => { release = resolve }) : normal(input, options))
-    mount('/events?q=slow')
-    await waitFor(() => expect(release).toBeDefined())
-    await userEvent.clear(screen.getByLabelText('Keyword'))
-    await userEvent.type(screen.getByLabelText('Keyword'), 'none{Enter}')
-    await screen.findByRole('heading', { name: 'No events found' })
-    await act(async () => release(Response.json(results())))
-    expect(screen.queryByRole('link', { name: event.title })).not.toBeInTheDocument()
+  it('locks duplicate submit events and displays only the integration-confirmed publication outcome', async () => {
+    const service = await openDraft()
+    const response = deferred<{ message: string }>()
+    service.publish.mockReturnValueOnce(response.promise)
+    fireEvent.submit(screen.getByRole('form'))
+    fireEvent.submit(screen.getByRole('form'))
+    expect(service.publish).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Publishing…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled()
+    await act(async () => response.resolve({ message: 'Event sent for review.' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Event sent for review.')
+    expect(screen.getByRole('status')).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
   })
-
-  it('offers database categories when the event list fails, then retries the list', async () => {
-    const normal = request.getMockImplementation()!
-    let fail = true
-    request.mockImplementation((input, options) => String(input).startsWith('/api/events?') && fail
-      ? Promise.resolve(new Response(null, { status: 503 })) : normal(input, options))
-    mount()
-    const retry = await screen.findByRole('button', { name: 'Retry events' })
-    expect(screen.queryByRole('heading', { name: 'No events found' })).not.toBeInTheDocument()
-    const option = await screen.findByRole('option', { name: category.name })
-    expect(option).toHaveValue(category.slug)
-    fail = false; await userEvent.click(retry)
-    expect(await screen.findByRole('link', { name: event.title })).toBeVisible()
+  it('preserves entered values after server validation errors', async () => {
+    const service = await openDraft()
+    service.publish.mockRejectedValueOnce(
+      new EventUiError('validation', { title: 'Choose another title.' }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Publish' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Check the highlighted information')
+    expect(screen.getByRole('textbox', { name: /Event title/ })).toHaveValue(values.title)
+    expect(screen.getByText('Choose another title.', { selector: 'p' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeEnabled()
+  })
+  it.each([new Error('lost response'), new EventUiError('conflict')])(
+    'requires a reload after uncertain/conflicting writes',
+    async (cause) => {
+      const service = await openDraft()
+      service.publish.mockRejectedValueOnce(cause)
+      await userEvent.click(screen.getByRole('button', { name: 'Publish' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        cause instanceof EventUiError ? 'draft changed' : 'could not confirm',
+      )
+      expect(screen.getByRole('textbox', { name: /Event title/ })).toHaveValue(values.title)
+      expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+      await userEvent.click(screen.getByRole('button', { name: 'Reload saved draft' }))
+      expect(await screen.findByRole('button', { name: 'Publish' })).toBeEnabled()
+      expect(service.publish).toHaveBeenCalledTimes(1)
+    },
+  )
+  it('removes event data and controls after backend denial', async () => {
+    const service = await openDraft()
+    service.publish.mockRejectedValueOnce(new EventUiError('forbidden'))
+    await userEvent.click(screen.getByRole('button', { name: 'Publish' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('do not have permission')
+    expect(screen.queryByDisplayValue(values.title)).not.toBeInTheDocument()
+    expect(screen.queryByRole('form')).not.toBeInTheDocument()
+  })
+  it('expires the session when the shared authenticated transport receives 401', async () => {
+    const service = await openDraft()
+    request.mockImplementation(async (input) =>
+      input === '/api/auth/me' ? Response.json(session) : new Response(null, { status: 401 }),
+    )
+    service.publish.mockImplementation(async (_input, context) => {
+      await context.request('/test-only/event-publish')
+      throw new EventUiError('unavailable')
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Publish' }))
+    expect(await screen.findByText('Your session expired. Please sign in again.')).toBeVisible()
+    expect(screen.queryByRole('form', { name: 'Event creation' })).not.toBeInTheDocument()
   })
 })
 
-describe('S3-07 response validation', () => {
-  it('drops private fields and rejects unsafe external URLs', async () => {
-    const signal = new AbortController().signal
-    expect(await getEvent('event-1', signal)).not.toHaveProperty('onlineUrl')
-    request.mockResolvedValue(Response.json({ event: { ...event, registrationMode: 'EXTERNAL', externalRegistrationUrl: 'javascript:alert(1)' } }))
-    await expect(getEvent('event-1', signal)).rejects.toBeInstanceOf(EventsError)
+describe('saved drafts and participant screens', () => {
+  it('loads draft information and provides a working continue-editing link', async () => {
+    const service = services()
+    mount(service, '/organizer/events')
+    await userEvent.click(
+      await screen.findByRole('link', { name: `Continue editing ${values.title}` }),
+    )
+    expect(await screen.findByDisplayValue(values.title)).toBeVisible()
+    expect(service.draft).toHaveBeenCalledWith(draft.id, expect.anything())
   })
-  it.each([
-    { ...event, registrationDeadline: null },
-    { ...event, startDate: 'invalid' },
-    { ...event, format: 'UNKNOWN' },
-    { ...event, endDate: event.startDate },
-    { ...event, categories: [] },
-  ])('rejects invalid event data', async value => {
-    request.mockResolvedValue(Response.json({ event: value }))
-    await expect(getEvent('event-1', new AbortController().signal)).rejects.toBeInstanceOf(EventsError)
+  it('shows a genuine empty result only after the draft adapter returns no data', async () => {
+    const service = services()
+    service.drafts.mockResolvedValue([])
+    mount(service, '/organizer/events')
+    expect(await screen.findByRole('heading', { name: 'No drafts in progress' })).toBeVisible()
   })
-  it('rejects malformed lists and missing booking envelopes', async () => {
-    request.mockResolvedValue(Response.json({ items: [], total: '0' }))
-    await expect(getEvents('page=1', new AbortController().signal)).rejects.toBeInstanceOf(EventsError)
-    request.mockResolvedValue(Response.json({}))
-    await expect(getMyBooking('event-1', new AbortController().signal, request)).rejects.toBeInstanceOf(EventsError)
+  it('searches actual drafts by title, format and location, clears with focus and sorts without mutating data', async () => {
+    const service = services()
+    const items: DraftSummary[] = [
+      {
+        id: 'a',
+        title: 'Art workshop',
+        format: 'IN_PERSON',
+        location: 'Studio',
+        startDate: '2026-12-15T10:00',
+        updatedAt: '2026-11-10T10:00Z',
+      },
+      {
+        id: 'z',
+        title: 'Zoology talk',
+        format: 'ONLINE',
+        startDate: '2026-12-01T10:00',
+        updatedAt: '2026-11-20T10:00Z',
+      },
+      { id: 'empty', title: '', format: '', startDate: null, updatedAt: 'invalid' },
+    ]
+    service.drafts.mockResolvedValue(items)
+    mount(service, '/organizer/events')
+    const list = await screen.findByRole('list')
+    const names = () =>
+      within(list)
+        .getAllByRole('heading')
+        .map((heading) => heading.textContent)
+    expect(names()).toEqual(['Zoology talk', 'Art workshop', 'Untitled event'])
+    expect(screen.getByRole('button', { name: 'Drafts 3' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort drafts' }), 'title')
+    expect(names()).toEqual(['Art workshop', 'Untitled event', 'Zoology talk'])
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort drafts' }), 'date')
+    expect(names()).toEqual(['Zoology talk', 'Art workshop', 'Untitled event'])
+    const search = screen.getByRole('searchbox', { name: 'Search saved drafts' })
+    await userEvent.type(search, '  STUDIO  ')
+    expect(within(list).getAllByRole('heading')).toHaveLength(1)
+    expect(screen.getByRole('status')).toHaveTextContent('1 draft matching your search')
+    await userEvent.clear(search)
+    await userEvent.type(search, 'online')
+    expect(within(list).getByRole('heading')).toHaveTextContent('Zoology talk')
+    await userEvent.clear(search)
+    await userEvent.type(search, 'missing')
+    expect(screen.getByRole('heading', { name: 'No matching drafts' })).toBeVisible()
+    expect(screen.queryByText('No drafts in progress')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(search).toHaveFocus()
+    expect(screen.getByRole('status')).toHaveTextContent('3 drafts available')
+    expect(items.map((item) => item.id)).toEqual(['a', 'z', 'empty'])
+    expect(service.drafts).toHaveBeenCalledTimes(1)
   })
-  it('encodes IDs, normalizes pagination and strips unrecognized query fields', async () => {
-    request.mockResolvedValue(Response.json({ booking: null }))
-    await getMyBooking('a/b', new AbortController().signal, request)
-    expect(request).toHaveBeenCalledWith('/api/events/a%2Fb/my-booking', expect.objectContaining({ method: 'GET', cache: 'no-store', credentials: 'include' }))
-    expect(discoveryQuery(new URLSearchParams('page=-1&admin=true&q= hello ')).toString()).toBe('q=hello&page=1&pageSize=12')
+  it('does not invent event counts, draft samples or unsupported actions when reads are unavailable', async () => {
+    mount(undefined, '/organizer/events')
+    expect(await screen.findByRole('alert')).toHaveTextContent('temporarily unavailable')
+    expect(screen.getByRole('button', { name: 'Published' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Past' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Drafts' })).toHaveTextContent(/^Drafts$/)
+    expect(screen.queryByRole('button', { name: /Delete|More draft/ })).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/No drafts in progress|Alex Rivera|Resiliency Patterns/),
+    ).not.toBeInTheDocument()
+    expect(request.mock.calls.every(([url]) => url === '/api/auth/me')).toBe(true)
   })
-  it('shows a full event in discovery instead of hiding it', async () => {
-    request.mockImplementation(async input => String(input) === '/api/auth/me'
-      ? new Response(null, { status: 401 }) : Response.json(results(1, [{ ...event, availability: 'FULL' }])))
-    mount()
-    const card = (await screen.findByRole('link', { name: event.title })).closest('li')!
-    expect(within(card).getByText(/Full/)).toBeVisible()
+  it('only displays the genuine empty state after loading completes', async () => {
+    const service = services()
+    const response = deferred<DraftSummary[]>()
+    service.drafts.mockReturnValueOnce(response.promise)
+    mount(service, '/organizer/events')
+    expect(await screen.findByText('Loading…')).toBeVisible()
+    expect(screen.queryByText('No drafts in progress')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Refresh drafts' })).toBeDisabled()
+    await act(async () => response.resolve([]))
+    expect(await screen.findByRole('heading', { name: 'No drafts in progress' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Drafts 0' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Create your first event' })).toHaveAttribute(
+      'href',
+      '/organizer/events/new',
+    )
   })
+  it('retries failed reads and removes stale drafts immediately when a refresh is denied', async () => {
+    const service = services()
+    service.drafts.mockRejectedValueOnce(new EventUiError('unavailable'))
+    mount(service, '/organizer/events')
+    await userEvent.click(await screen.findByRole('button', { name: 'Retry connection' }))
+    expect(await screen.findByRole('heading', { name: values.title })).toBeVisible()
+    const response = deferred<DraftSummary[]>()
+    service.drafts.mockReturnValueOnce(response.promise)
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh drafts' }))
+    expect(screen.queryByRole('heading', { name: values.title })).not.toBeInTheDocument()
+    await act(async () => response.resolve([]))
+    expect(await screen.findByRole('heading', { name: 'No drafts in progress' })).toBeVisible()
+    service.drafts.mockRejectedValueOnce(new EventUiError('forbidden'))
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh drafts' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('do not have permission')
+    expect(screen.queryByText('No drafts in progress')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Continue editing/ })).not.toBeInTheDocument()
+  })
+  it('uses safe artwork with a fallback, incomplete metadata and encoded draft navigation', async () => {
+    const service = services()
+    service.drafts.mockResolvedValue([
+      {
+        id: 'id/with space',
+        title: ' ',
+        format: '',
+        startDate: 'invalid',
+        updatedAt: 'invalid',
+        imageUrl: 'javascript:alert(1)',
+      },
+      {
+        id: 'image',
+        title: 'Artwork test',
+        format: 'ONLINE',
+        startDate: null,
+        updatedAt: draft.updatedAt,
+        imageUrl: 'https://example.test/banner.png',
+      },
+    ])
+    mount(service, '/organizer/events')
+    const link = await screen.findByRole('link', { name: 'Continue editing Untitled event' })
+    expect(link).toHaveAttribute('href', '/organizer/events/id%2Fwith%20space/edit')
+    expect(screen.getByText('No artwork')).toBeVisible()
+    expect(screen.getByText('Update time unavailable')).toBeVisible()
+    expect(screen.getByText('Format not set')).toBeVisible()
+    const drafts = screen.getByRole('list')
+    const image = drafts.querySelector('img')!
+    expect(image).toHaveAttribute('src', 'https://example.test/banner.png')
+    fireEvent.error(image)
+    expect(await screen.findByText('Artwork unavailable')).toBeVisible()
+    expect(drafts.querySelector('img')).toBeNull()
+  })
+  it('shows loading and error/retry without inventing drafts', async () => {
+    const service = services()
+    const response = deferred<EventDraft>()
+    service.draft.mockReturnValueOnce(response.promise)
+    const view = mount(service, '/organizer/events/draft-fixture/edit')
+    expect(await screen.findByText('Loading…')).toBeVisible()
+    view.unmount()
+    expect(service.draft.mock.calls[0][1].signal.aborted).toBe(true)
+    service.draft.mockRejectedValueOnce(new EventUiError('not-found'))
+    mount(service, '/organizer/events/missing/edit')
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be found')
+    expect(screen.queryByRole('form')).not.toBeInTheDocument()
+  })
+  it('shows confirmed/cancelled bookings, searches the page and passes pagination selection', async () => {
+    const service = services()
+    mount(service, '/organizer/bookings')
+    await screen.findByText('Sara Example')
+    await userEvent.type(screen.getByRole('searchbox'), 'missing')
+    expect(await screen.findByRole('heading', { name: 'No matching bookings' })).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
+    await waitFor(() =>
+      expect(service.bookings).toHaveBeenLastCalledWith(
+        { status: 'CONFIRMED', page: 'page-two-fixture' },
+        expect.anything(),
+      ),
+    )
+    await userEvent.click(screen.getByRole('tab', { name: 'Cancelled' }))
+    expect(await screen.findByText('Unable to attend.')).toBeVisible()
+    expect(service.bookings).toHaveBeenLastCalledWith(
+      { status: 'CANCELLED', page: null },
+      expect.anything(),
+    )
+    expect(screen.queryByRole('button', { name: /Cancel booking/ })).not.toBeInTheDocument()
+  })
+  it('removes participants when a refreshed request is denied', async () => {
+    const service = services()
+    mount(service, '/organizer/bookings')
+    await screen.findByText('Sara Example')
+    service.bookings.mockRejectedValueOnce(new EventUiError('forbidden'))
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh bookings' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('do not have permission')
+    expect(screen.queryByText('Sara Example')).not.toBeInTheDocument()
+  })
+  it('supports keyboard booking tabs and shows optional ticket/cancellation data only when supplied', async () => {
+    const service = services()
+    service.bookings.mockImplementation(async (selection) => ({
+      items: [
+        {
+          id: 'ticket-fixture',
+          eventTitle: 'Robotics',
+          participantName: 'Sara Example',
+          email: 'sara@example.test',
+          registeredAt: '2026-11-20T10:00:00Z',
+          status: selection.status,
+          cancellationReason: selection.status === 'CANCELLED' ? 'Unable to attend.' : null,
+          ticketCode: 'YN-TEST',
+          cancelledAt: selection.status === 'CANCELLED' ? '2026-11-21T10:00:00Z' : null,
+        },
+      ],
+      previousPage: null,
+      nextPage: null,
+      label: 'Page 1',
+    }))
+    mount(service, '/organizer/bookings')
+    expect(await screen.findByText('YN-TEST')).toBeVisible()
+    expect(screen.getByRole('columnheader', { name: 'Ticket' })).toBeVisible()
+    expect(screen.getByRole('columnheader', { name: 'Email' })).toBeVisible()
+    const confirmed = screen.getByRole('tab', { name: /Confirmed/ })
+    confirmed.focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(await screen.findByText('Unable to attend.')).toBeVisible()
+    const cancelled = screen.getByRole('tab', { name: /Cancelled/ })
+    expect(cancelled).toHaveFocus()
+    expect(cancelled).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'bookings-cancelled')
+    expect(screen.getByRole('columnheader', { name: 'Cancelled' })).toBeVisible()
+    expect(service.bookings).toHaveBeenLastCalledWith(
+      { status: 'CANCELLED', page: null },
+      expect.anything(),
+    )
+    await userEvent.keyboard('{Home}')
+    expect(confirmed).toHaveFocus()
+    await screen.findByText('YN-TEST')
+    expect(screen.queryByRole('columnheader', { name: 'Cancelled' })).not.toBeInTheDocument()
+  })
+})
+
+describe('frontend field rules pending S3-01 confirmation', () => {
+  it('accepts partial drafts while requiring complete publication fields', () => {
+    expect(validateEvent(emptyEvent, 'draft')).toEqual({})
+    expect(validateEvent(emptyEvent, 'publish')).toHaveProperty('title')
+    expect(validateEvent(values, 'publish')).toEqual({})
+  })
+  it('validates date order, supported links and positive capacity', () => {
+    expect(
+      validateEvent(
+        { ...values, endDate: values.startDate, capacity: '0', imageUrl: 'javascript:alert(1)' },
+        'publish',
+      ),
+    ).toMatchObject({
+      endDate: expect.any(String),
+      capacity: expect.any(String),
+      imageUrl: expect.any(String),
+    })
+    expect(safeImageUrl('https://user:password@example.test/image.png')).toBeNull()
+  })
+  it('uses supplied deadline/category policy and ignores inactive mode fields', () => {
+    expect(
+      validateEvent({ ...values, registrationDeadline: '', categoryIds: [] }, 'publish', {
+        ...baselineRules,
+        automaticDeadlineRequired: true,
+        categoryRequired: true,
+      }),
+    ).toMatchObject({ registrationDeadline: expect.any(String), categoryIds: expect.any(String) })
+    expect(
+      validateEvent(
+        {
+          ...values,
+          registrationMode: 'EXTERNAL',
+          registrationDeadline: 'invalid-hidden-value',
+          externalRegistrationUrl: 'https://example.test/register',
+        },
+        'publish',
+      ),
+    ).toEqual({})
+  })
+})
+
+describe('event integration response safeguards', () => {
+  it('hides the editor and write actions when category access is denied', async () => {
+    const service = services()
+    service.categories.mockRejectedValueOnce(new EventUiError('forbidden'))
+    mount(service)
+    expect(await screen.findByRole('alert')).toHaveTextContent('do not have permission')
+    expect(screen.queryByRole('form', { name: 'Event creation' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save draft' })).not.toBeInTheDocument()
+    expect(service.saveDraft).not.toHaveBeenCalled()
+  })
+
+  it('preserves entered values and locks writes when save returns another draft identity', async () => {
+    const service = await openDraft()
+    service.saveDraft.mockResolvedValueOnce({ ...draft, id: 'different-draft' })
+    await userEvent.type(screen.getByLabelText(/Event title/), ' updated')
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not confirm')
+    expect(screen.getByLabelText(/Event title/)).toHaveValue(`${values.title} updated`)
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+    expect(screen.queryByText('Draft saved.')).not.toBeInTheDocument()
+  })
+
+  it('uses a readable fallback for an invalid booking timestamp', async () => {
+    const service = services()
+    service.bookings.mockResolvedValueOnce({
+      items: [
+        {
+          id: 'invalid-time',
+          eventTitle: 'Robotics',
+          participantName: 'Sara Example',
+          email: 'sara@example.test',
+          registeredAt: 'invalid',
+          status: 'CONFIRMED',
+          cancellationReason: null,
+        },
+      ],
+      previousPage: null,
+      nextPage: null,
+      label: 'Page 1',
+    })
+    mount(service, '/organizer/bookings')
+    expect(await screen.findByText('Booking time unavailable')).toBeVisible()
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
+  })
+})
+
+it('requires an explicit save before publishing an edited persisted draft', async () => {
+  const service = services()
+  mount({ ...service, publishSavedOnly: true }, `/organizer/events/${draft.id}/edit`)
+  await screen.findByDisplayValue(values.title)
+  await userEvent.type(screen.getByRole('textbox', { name: 'Event title' }), ' updated')
+  expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+  expect(service.publish).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+  expect(await screen.findByText('Draft saved.', { exact: true })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Publish' })).toBeEnabled()
+  await userEvent.click(screen.getByRole('button', { name: 'Publish' }))
+  await waitFor(() => expect(service.publish).toHaveBeenCalledTimes(1))
+  expect(service.saveDraft).toHaveBeenCalledTimes(1)
 })

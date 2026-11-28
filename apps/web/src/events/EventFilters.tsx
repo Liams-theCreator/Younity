@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import ReferenceIcon from '../components/ReferenceIcon'
-import { formats, formatLabels, type Category } from './model'
-import styles from './events.module.css'
+import { formats, formatLabels, type Category } from './discovery.model'
+import styles from './discovery.module.css'
 
 const labels = {
   q: 'Keyword',

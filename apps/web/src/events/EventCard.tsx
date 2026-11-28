@@ -1,8 +1,8 @@
 import { useId } from 'react'
 import { Link } from 'react-router'
 import ReferenceIcon from '../components/ReferenceIcon'
-import { formatLabels, type Availability, type EventFormat, type EventSummary } from './model'
-import styles from './events.module.css'
+import { formatLabels, type Availability, type EventFormat, type EventSummary } from './discovery.model'
+import styles from './discovery.module.css'
 
 const availabilityLabels: Record<Availability, string> = {
   OPEN: 'Registration open',

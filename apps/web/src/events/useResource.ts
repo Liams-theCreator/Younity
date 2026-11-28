@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { EventsError } from './model'
+import { EventsError } from './discovery.model'
 
 type Result<T> = { key: string; attempt: number } & (
   | { state: 'ready'; data: T }
