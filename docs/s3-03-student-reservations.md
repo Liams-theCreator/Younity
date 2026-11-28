@@ -270,6 +270,11 @@ npm run test:e2e
 npm run build
 ```
 
+S3-08 adds a PostgreSQL regression case to the booking suite. It reserves a
+place through the API, moves the stored deadline into the past, and verifies
+that cancellation returns `409` while the same confirmed booking remains
+readable.
+
 ## Integration status
 
 The `feat/student-reservations` branch is based on `origin/main`
