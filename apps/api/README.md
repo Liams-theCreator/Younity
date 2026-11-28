@@ -339,3 +339,26 @@ The live runner creates eligible applications through the actual organizer
 PATCH draft/POST submit endpoints and tests private corrections/resubmission.
 The former test-only revision bridge has been removed. CI uploads sanitized live
 acceptance evidence; screenshots and results are linked from the integration guide.
+
+## Public event discovery (S3-05)
+
+- `GET /api/events` returns `{ items, categories, page, pageSize, total }`. The category catalog is complete even when a page is empty. `GET /api/categories` also returns the catalog as `{ categories }`.
+- `GET /api/events/:eventId` returns `{ event }`. Unknown IDs and events outside the public visibility rules return 404. Both endpoints include `PUBLISHED` and `FULL` events through 48 hours after `endDate`.
+- Both event endpoints accept anonymous requests. On the list, a valid cookie for an active, email-verified student enables interest ranking. Missing or invalid sessions browse as guests. The list response uses private, no-store caching.
+
+| Query | Behavior |
+| --- | --- |
+| `q` | Case-insensitive substring in title, description, or organizer name |
+| `category` | Exact category slug from the catalog |
+| `city` | Case-insensitive substring in the existing public location field. Organizers must include the city in the location for this filter to find it. |
+| `format` | `IN_PERSON`, `ONLINE`, or `HYBRID` |
+| `from`, `to` | Inclusive UTC calendar days for event start, in `YYYY-MM-DD` format |
+| `page`, `pageSize` | Positive integers. Defaults are 1 and 12. Maximums are 1,000,000 and 100. |
+
+Filters combine with AND. Invalid filters and reversed date ranges return 400. Upcoming events matching at least one saved student interest rank first, followed by other upcoming events. Both groups sort by soonest start. Guests and students with no matches see all upcoming events by soonest start. Events in progress follow, ordered by earliest start, then recently ended events, ordered by most recent end. ID breaks ties, and ordering happens before pagination.
+
+Public summaries include `id`, `title`, `organization: { id, name }`, `startDate`, `endDate`, `format`, `location`, `categories: [{ id, name, slug }]`, `registrationMode`, `registrationDeadline`, and `availability`. Timestamps are UTC ISO 8601. Availability is `CLOSED` once the event starts or the registration deadline passes, or when automatic registration has no deadline. Otherwise, a full event or one at confirmed capacity is `FULL`, and the remainder are `OPEN`. Details add `description` and `externalRegistrationUrl` (null for automatic registration). The protected `onlineUrl` field, participant information, and private organizer attributes are excluded from both responses. An automatic event with a null deadline remains readable within the visibility window and always has `availability: "CLOSED"`. Clients should accept this pair and disable reservation actions.
+
+This uses the existing event, category, and student profile tables. The API follows the frontend discovery branch's proposed contract. Search fields, city matching, public status rules, and the ordering policy are documented implementation decisions for team review.
+
+After migrating and seeding an isolated test database as described above, run `npm run test:e2e -- test/organizer-events.e2e-spec.ts` to verify the discovery flow against PostgreSQL.
