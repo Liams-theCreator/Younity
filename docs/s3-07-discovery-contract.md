@@ -1,6 +1,6 @@
 # S3-07: event discovery integration
 
-Status: proposal for Said, Aadel and Smail; these endpoints are not implemented yet.
+Status: the public discovery API and current booking reads are integrated with the event frontend.
 
 ## Scope and ownership
 
@@ -10,7 +10,7 @@ Status: proposal for Said, Aadel and Smail; these endpoints are not implemented 
 - S3-08: Smail's bounded backend contribution; agree ownership with Aadel before coding.
 - Oussama reviews S3-07. Reserve/cancel components must have one implementation owner.
 
-## Proposed interfaces
+## Interfaces
 
 | Method and path | Purpose | Response |
 | --- | --- | --- |
@@ -18,7 +18,8 @@ Status: proposal for Said, Aadel and Smail; these endpoints are not implemented 
 | GET /api/events/:eventId | Public event details | `{ event }`; 404 when not publicly available |
 | GET /api/events/:eventId/my-booking | Eligible student's own booking | `{ booking: null }` or `{ booking: { id, status } }` |
 
-Proposed list query: `q`, `category`, `city`, `format`, `from`, `to`, `page`, `pageSize`.
+The UI sends `q`, `category`, `format`, `page`, and `pageSize`. The API also
+supports `city`, `from`, and `to`.
 `category` is a category slug; `format` is IN_PERSON, ONLINE or HYBRID.
 `from` and `to` are YYYY-MM-DD; proposed start-date boundaries are inclusive UTC calendar days.
 `page` starts at 1. Frontend requests pageSize=12. Backend must validate and cap pagination.
@@ -38,18 +39,17 @@ Only a successful response with `booking: null` means no booking; request failur
 - Visitors browse without signing in. Browsing and external links never create a Younity booking.
 - Only eligible students get Younity booking actions; organizers can browse.
 - Search and filters combine and can be cleared. Empty results offer clear filters.
-- Matching student interests rank first within filtered results; other events remain visible.
-- Proposed non-personalized ordering: nearest upcoming first; PO confirmation still needed.
-- Drafts and unpublished events stay private. Agree how FULL/COMPLETED/CANCELLED states
-  appear publicly; do not accidentally hide a full published event that must display as full.
+- Upcoming events that match a saved interest rank first, followed by other upcoming
+  events. Each group sorts by soonest start. In-progress and recently ended events follow.
+- Public list and detail show published and full events through 48 hours after their
+  scheduled end. Detail returns 404 after that window.
 - Automatic booking/cancellation uses the explicit deadline, with no event-start fallback.
 - No booking emails, waiting list, payments or participant approval in this scope.
 - Tickets belong to YP-08 and are not a promised S3-07 deliverable.
 
 ## Integration decisions before implementation
 
-- Define city storage/filter behavior: current Event has `location`, but no `city` field.
-- Map saved `StudentProfile.interests` enum values to event category IDs/slugs.
+- The API matches city against the public location text and maps saved interests to category slugs.
 - The existing `/student/dashboard` URL sends completed students to `/events`. The events account menu opens `/student/profile` for inline preference edits.
   /events and /events/:eventId are public. Preferences remain accessible.
 - Agree booking response/status values and reserve/cancel component ownership with Aadel.
@@ -57,7 +57,7 @@ Only a successful response with `booking: null` means no booking; request failur
 - Include loading, empty, error/retry, unavailable-event and booking-status-unknown states.
 - Final completion requires real API/database journeys, mobile/keyboard checks and reviewed CI.
 
-## Proposed detail response example
+## Detail response example
 
 ```json
 {
@@ -82,6 +82,7 @@ Only a successful response with `booking: null` means no booking; request failur
 List items contain the same fields except description and externalRegistrationUrl.
 List/detail schemas must never include onlineUrl or private participant information.
 Availability values: OPEN, FULL, CLOSED; backend computes these from authoritative state/deadline/capacity.
+An automatic event with a null deadline renders when its availability is CLOSED.
 External details require an absolute http/https externalRegistrationUrl; automatic details use null.
 Do not substitute the protected joining link for that URL. Send explicit null for absent optional fields.
 Booking response: `{ "booking": null }` or
@@ -92,8 +93,8 @@ Use 401 for absent/expired authentication, 403 for ineligible accounts, 404 for 
 
 ## Implementation and verification
 
-- Frontend model, request mapping and response validation live under apps/web/src/events.
-- No backend endpoint, database migration, reserve/cancel mutation or ticket UI is added here.
+- The public discovery adapter lives in `apps/web/src/events/discovery.service.ts`.
+- Reserve and cancel actions remain in S3-04.
 - Service uses the existing cookie API client; booking reads use AuthProvider.requestProtected.
 - Requests abort on navigation/filter changes; stale results and old-account booking state are discarded.
 - Component/service tests use fixtures; they do not prove integration with Said/Aadel's APIs.

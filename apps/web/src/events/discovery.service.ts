@@ -4,7 +4,6 @@ import {
   type EventDetail, type EventResults, type Booking,
 } from './discovery.model'
 
-// Proposed S3 contract. Adapt response envelopes and fields here after review.
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new EventsError('unavailable')
   return value as Record<string, unknown>
@@ -42,7 +41,8 @@ function summary(value: unknown): EventSummary {
   const registrationDeadline = row.registrationDeadline === null ? null : date(row.registrationDeadline)
   const tags = categories(row.categories)
   if (Date.parse(endDate) <= Date.parse(startDate) || tags.length === 0 ||
-      (row.registrationMode === 'AUTOMATIC' && registrationDeadline === null)) throw new EventsError('unavailable')
+      (row.registrationMode === 'AUTOMATIC' && registrationDeadline === null &&
+        row.availability !== 'CLOSED')) throw new EventsError('unavailable')
   // Whitelist public properties. onlineUrl and unknown private fields never reach views.
   return {
     id: text(row.id), title: text(row.title),

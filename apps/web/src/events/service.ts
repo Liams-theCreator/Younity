@@ -1,6 +1,6 @@
 import {
   EventUiError, emptyEvent,
-  type BookingPage, type OrganizerDashboard, type EventContext, type EventDraft, type EventServices, type EventValues, type FieldErrors,
+  type BookingPage, type DraftSummary, type OrganizerDashboard, type EventContext, type EventDraft, type EventServices, type EventValues, type FieldErrors,
 } from './model'
 import { safeImageUrl, validateEvent } from './validation'
 
@@ -163,6 +163,15 @@ function format(value: unknown): Exclude<EventValues['format'], ''> {
   if (value !== 'IN_PERSON' && value !== 'ONLINE' && value !== 'HYBRID') throw new EventUiError('unavailable')
   return value
 }
+function draftSummary(value: unknown): DraftSummary {
+  const draft = record(value)
+  return {
+    id: uuid(draft.id), title: text(draft.title), updatedAt: isoDate(draft.updatedAt),
+    startDate: draft.startDate === null ? null : isoDate(draft.startDate),
+    format: format(draft.format), location: nullableText(draft.location) || null,
+    ...(draft.imageUrl !== undefined && { imageUrl: nullableText(draft.imageUrl) || null }),
+  }
+}
 function dashboard(value: unknown): OrganizerDashboard {
   const data = record(value)
   const metrics = record(data.metrics)
@@ -182,10 +191,7 @@ function dashboard(value: unknown): OrganizerDashboard {
         capacity: event.capacity === null ? null : count(event.capacity), confirmedCount: count(event.confirmedCount),
       }
     }),
-    drafts: rows(data.drafts).map(value => {
-      const draft = record(value)
-      return { id: uuid(draft.id), title: text(draft.title), startDate: draft.startDate === null ? null : isoDate(draft.startDate), updatedAt: isoDate(draft.updatedAt), format: format(draft.format), location: nullableText(draft.location) || null }
-    }),
+    drafts: rows(data.drafts).map(draftSummary),
     recentBookings: rows(data.recentBookings).map(value => {
       const booking = record(value)
       if (booking.status !== 'CONFIRMED' && booking.status !== 'CANCELLED') throw new EventUiError('unavailable')
@@ -200,6 +206,10 @@ export const organizerEventService: EventServices = {
   publishSavedOnly: true,
   async dashboard(context) {
     return dashboard(await json(await response('/api/organizer/dashboard', context)))
+  },
+  async drafts(context) {
+    const data = record(await json(await response(base, context)))
+    return rows(data.drafts).map(draftSummary)
   },
   async bookings({ status, page }, context) {
     if ((status !== 'CONFIRMED' && status !== 'CANCELLED') ||

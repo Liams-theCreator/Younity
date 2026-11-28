@@ -22,6 +22,24 @@ import { UpdateOrganizerEventDto } from './dto/update-organizer-event.dto.js';
 export class OrganizerEventsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async listDrafts(userId: string) {
+    await this.approvedOrganization(userId);
+    const drafts = await this.prisma.event.findMany({
+      where: { ...this.ownedEvent(userId), status: EventStatus.DRAFT },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        title: true,
+        updatedAt: true,
+        startDate: true,
+        format: true,
+        location: true,
+        imageUrl: true,
+      },
+    });
+    return { drafts };
+  }
+
   create(userId: string, dto: CreateOrganizerEventDto) {
     return this.createEvent(userId, dto, EventStatus.DRAFT);
   }
@@ -53,18 +71,7 @@ export class OrganizerEventsService {
     dto: CreateOrganizerEventDto,
     status: EventStatus,
   ) {
-    const organization = await this.prisma.organization.findFirst({
-      where: {
-        ownerId: userId,
-        verificationStatus: VerificationStatus.APPROVED,
-      },
-      select: { id: true },
-    });
-
-    if (!organization) {
-      throw new ForbiddenException('An approved organization is required');
-    }
-
+    const organization = await this.approvedOrganization(userId);
     const data = this.eventData(dto);
     this.validateDates(
       data.startDate!,
@@ -274,6 +281,20 @@ export class OrganizerEventsService {
       ...fields,
       categoryIds: categories.map((link) => link.categoryId),
     };
+  }
+
+  private async approvedOrganization(userId: string) {
+    const organization = await this.prisma.organization.findFirst({
+      where: {
+        ownerId: userId,
+        verificationStatus: VerificationStatus.APPROVED,
+      },
+      select: { id: true },
+    });
+    if (!organization) {
+      throw new ForbiddenException('An approved organization is required');
+    }
+    return organization;
   }
 
   private ownedEvent(userId: string) {

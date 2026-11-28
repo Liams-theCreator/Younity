@@ -1,16 +1,15 @@
-     current_database      
+     current_database
 ---------------------------
  younity_s302_browser_test
 (1 row)
 
-                  id                  |              title              |  status   | registration_mode |             category_id              
+                  id                  |              title              |  status   | registration_mode |             category_id
 --------------------------------------+---------------------------------+-----------+-------------------+--------------------------------------
  eccfbb7d-f044-41cf-a0c9-11bbf5485182 | S302 draft edited 1795771750611 | PUBLISHED | AUTOMATIC         | 844142dd-86d6-47e0-b959-7947c2ff3e7b
  fbc18d4b-5c27-4857-9232-0c560bc777ee | S302 direct 1795771750611       | PUBLISHED | AUTOMATIC         | 844142dd-86d6-47e0-b959-7947c2ff3e7b
 (2 rows)
 
- seeded_categories 
+ seeded_categories
 -------------------
                 10
 (1 row)
-

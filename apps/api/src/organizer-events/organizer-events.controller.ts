@@ -32,6 +32,13 @@ export class OrganizerEventsController {
     private readonly organizerEventsService: OrganizerEventsService,
   ) { }
 
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'List drafts belonging to the signed-in organizer' })
+  listDrafts(@CurrentUser() user: AuthenticatedUser) {
+    return this.organizerEventsService.listDrafts(user.id);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Save a new event as a draft' })
   create(

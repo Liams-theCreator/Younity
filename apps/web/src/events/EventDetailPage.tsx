@@ -51,8 +51,8 @@ export default function EventDetailPage() {
         <a href={result.data.externalRegistrationUrl!} target="_blank" rel="noopener noreferrer">Open external registration (new tab)</a>
       </section> : <>
         {auth.status === 'loading' && <p role="status">Checking your account…</p>}
-        {(auth.status === 'anonymous' || auth.status === 'error') && <section className={styles.card}><p>Sign in with a student account to register through Younity.</p><Link to="/login">Sign in</Link>{' · '}<Link to="/register/student">Create student account</Link></section>}
-        {auth.status === 'authenticated' && !eligible && <section className={styles.card}>{auth.user.role !== 'STUDENT'
+        {result.data.availability !== 'CLOSED' && (auth.status === 'anonymous' || auth.status === 'error') && <section className={styles.card}><p>Sign in with a student account to register through Younity.</p><Link to="/login">Sign in</Link>{' · '}<Link to="/register/student">Create student account</Link></section>}
+        {result.data.availability !== 'CLOSED' && auth.status === 'authenticated' && !eligible && <section className={styles.card}>{auth.user.role !== 'STUDENT'
           ? <p>Only student accounts can reserve places through Younity.</p>
           : <><p>Complete student onboarding before registering.</p><Link to={auth.destination ?? '/login'}>Continue onboarding</Link></>}</section>}
         {eligible && <BookingStatus key={`${auth.user?.id}:${eventId}`} eventId={eventId} />}

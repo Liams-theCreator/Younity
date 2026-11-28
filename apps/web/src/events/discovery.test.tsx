@@ -133,6 +133,24 @@ describe('S3-07 proposed discovery contract', () => {
     expect(bookingCalls()).toHaveLength(0)
   })
 
+  it('shows closed automatic events with no deadline in the list and detail', async () => {
+    const closed = { ...event, registrationDeadline: null, availability: 'CLOSED' }
+    request.mockImplementation(async input => {
+      if (input === '/api/auth/me') return new Response(null, { status: 401 })
+      if (input === '/api/categories') return Response.json({ categories: [category] })
+      if (input === '/api/events/event-1') return Response.json({ event: closed })
+      return Response.json({ ...results(1), items: [closed], total: 1 })
+    })
+
+    mount()
+    const card = await screen.findByRole('link', { name: event.title })
+    expect(within(card).getByText('Registration closed')).toBeVisible()
+    await userEvent.click(card)
+    expect(await screen.findByRole('heading', { name: event.title })).toBeVisible()
+    expect(screen.getByText('Registration closed')).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Create student account' })).not.toBeInTheDocument()
+  })
+
   it.each([
     [null, 'You have no booking for this event.'],
     [{ id: 'booking-1', status: 'CONFIRMED' }, 'Your place is confirmed.'],

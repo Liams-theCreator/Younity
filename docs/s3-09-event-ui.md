@@ -24,14 +24,11 @@ AUTOMATIC (Younity RSVP) registration as the frontend default. Saved EXTERNAL
 registration settings are restored. Room/campus controls are hidden for this
 adapter because their separate fields are outside the DTO.
 
-**Remaining API dependencies prevent complete live acceptance.** PR #21 has no
-draft-list, category-list, upload, or participant APIs. The category callback uses
-`GET /api/categories` from `origin/feature/s3-07-event-discovery`
-(`CategoriesController`, `{ categories: [{ id, name, slug }] }`). That discovery
-module must be integrated into the target API. Draft listing retains its injected
-callback. Bookings now use Aadel's agreed `GET /api/organizer/bookings` contract
-from `feat/student-reservations` at `2b3d8fb`. That backend branch must be integrated
-into the running API. No additional participant endpoint is implemented here.
+The combined sprint branch uses the public category catalog
+(`GET /api/categories`), organizer-owned draft summaries
+(`GET /api/organizer-events`), banner uploads, and Aadel's participant read
+(`GET /api/organizer/bookings`). The dashboard shows the last three drafts.
+The full saved-drafts screen reads the organizer's draft collection directly.
 
 The current booking integration and verification are documented in
 [the participant integration report](s3-09-bookings-integration.md). Earlier
