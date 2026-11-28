@@ -1,4 +1,5 @@
 import RegistrationSelect from './RegistrationSelect'
+import MoroccanPhoneInput from './MoroccanPhoneInput'
 import ReferenceIcon from './ReferenceIcon'
 import type { ReactNode } from 'react'
 
@@ -39,7 +40,7 @@ export function OrganizationFields({
   function input(
     field: keyof OrganizationDetails,
     label: string,
-    placeholder: string,
+    placeholder?: string,
     autoComplete?: string,
   ) {
     return (
@@ -48,19 +49,30 @@ export function OrganizationFields({
           <label htmlFor={field}>{label}</label>
           <span className="required-hint">Required</span>
         </div>
-        <input
-          id={field}
-          name={field}
-          type={field === 'phone' ? 'tel' : 'text'}
-          required
-          maxLength={255}
-          aria-invalid={Boolean(errors[field])}
-          aria-describedby={errors[field] ? `${field}-error` : undefined}
-          autoComplete={autoComplete}
-          placeholder={placeholder}
-          value={details[field]}
-          onChange={(event) => onChange(field, event.target.value)}
-        />
+        {field === 'phone' ? (
+          <MoroccanPhoneInput
+            id={field}
+            name={field}
+            required
+            value={details[field]}
+            error={errors[field]}
+            onChange={(value) => onChange(field, value)}
+          />
+        ) : (
+          <input
+            id={field}
+            name={field}
+            type="text"
+            required
+            maxLength={255}
+            aria-invalid={Boolean(errors[field])}
+            aria-describedby={errors[field] ? `${field}-error` : undefined}
+            autoComplete={autoComplete}
+            placeholder={placeholder}
+            value={details[field]}
+            onChange={(event) => onChange(field, event.target.value)}
+          />
+        )}
         {errors[field] && (
           <p className="field-error" id={`${field}-error`}>
             {errors[field]}
@@ -108,7 +120,7 @@ export function OrganizationFields({
             'organization-title',
           )}
         </div>
-        {input('phone', 'Direct Contact Phone', 'e.g., +212 6 00 12 34 56', 'tel')}
+        {input('phone', 'Direct Contact Phone')}
         {children}
       </OrganizerSection>
     </>

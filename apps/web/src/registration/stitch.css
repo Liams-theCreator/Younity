@@ -334,11 +334,12 @@
   outline: 2px solid #003bba;
   outline-offset: 2px;
 }
-.registration-organizer #document-note {
+.registration-organizer .document-note {
   margin: 12px 0 0;
   font-size: 11px;
   line-height: 14px;
-  color: #747686;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 .registration-organizer .organizer-consent {
   padding: 16px;
@@ -712,60 +713,6 @@
 .registration-shell.registration-student .primary:active {
   transform: scale(0.99);
 }
-.registration-student .role-switcher {
-  margin-top: 40px;
-  padding: 20px;
-  gap: 16px;
-  border: 0;
-}
-.student-organizer-prompt {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.student-organizer-icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  color: #c2410c;
-  background: #fff7ed;
-}
-.student-organizer-icon .reference-icon {
-  font-size: 20px;
-}
-.registration-student .role-switcher h2 {
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
-  margin: 0;
-}
-.registration-student .role-switcher p {
-  font-size: 11px;
-  line-height: 14px;
-  color: #434654;
-}
-.registration-student .role-switcher .secondary {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  min-height: 32px;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 600;
-  border: 0;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 5%);
-}
-.registration-student .role-switcher .secondary:hover {
-  background: rgb(174 229 253 / 20%);
-}
-.registration-student .role-switcher .secondary .reference-icon {
-  font-size: 16px;
-}
 @media (max-width: 1023px) {
   .registration-shell.registration-student {
     padding: 40px 24px;
@@ -774,9 +721,6 @@
 @media (max-width: 639px) {
   .registration-shell.registration-student {
     padding: 40px 16px;
-  }
-  .registration-student .role-switcher {
-    align-items: center;
   }
 }
 

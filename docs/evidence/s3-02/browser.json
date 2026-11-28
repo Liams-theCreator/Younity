@@ -1,0 +1,345 @@
+{
+  "base": "http://localhost:5174",
+  "database": "younity_s302_browser_test",
+  "browser": "156.0.8078.79",
+  "checks": [
+    {
+      "name": "Real login with approved organizer",
+      "userId": "aecc6e7e-1009-4dbb-9453-62be743c159f"
+    },
+    {
+      "name": "React picker shows all ten actual seeded categories"
+    },
+    {
+      "name": "Save draft: genuine database-blocked pending controls",
+      "status": 201
+    },
+    {
+      "name": "Keyboard save creates exactly one DRAFT with selected categoryIds",
+      "id": "eccfbb7d-f044-41cf-a0c9-11bbf5485182"
+    },
+    {
+      "name": "Reopen restores persisted title and category selection",
+      "id": "eccfbb7d-f044-41cf-a0c9-11bbf5485182"
+    },
+    {
+      "name": "Unsaved existing draft disables both Publish controls at 390px"
+    },
+    {
+      "name": "Mobile keyboard save PATCH and bodyless publish preserve event ID in PostgreSQL",
+      "id": "eccfbb7d-f044-41cf-a0c9-11bbf5485182",
+      "title": "S302 draft edited 1795771750611",
+      "status": "PUBLISHED",
+      "registration_mode": "AUTOMATIC",
+      "category_ids": [
+        "844142dd-86d6-47e0-b959-7947c2ff3e7b"
+      ]
+    },
+    {
+      "name": "Direct Publish: genuine database-blocked pending controls",
+      "status": 201
+    },
+    {
+      "name": "Keyboard direct publish creates exactly one PUBLISHED event",
+      "id": "fbc18d4b-5c27-4857-9232-0c560bc777ee",
+      "title": "S302 direct 1795771750611",
+      "status": "PUBLISHED",
+      "registration_mode": "AUTOMATIC",
+      "category_ids": [
+        "844142dd-86d6-47e0-b959-7947c2ff3e7b"
+      ]
+    },
+    {
+      "name": "Real backend save 400 displays feedback and preserves entered values",
+      "response": {
+        "message": "categoryIds contains an unknown category",
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "Real backend publish 400 displays feedback and preserves entered values",
+      "response": {
+        "message": "categoryIds contains an unknown category",
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "Exactly two event rows; no duplicate writes or browser errors"
+    }
+  ],
+  "writes": [
+    {
+      "method": "POST",
+      "path": "/api/organizer-events",
+      "body": {
+        "title": "S302 draft 1795771750611",
+        "description": "Real S3-02 browser acceptance fixture.",
+        "format": "ONLINE",
+        "registrationMode": "AUTOMATIC",
+        "startDate": "2026-12-04T10:00:00.000Z",
+        "endDate": "2026-12-04T12:00:00.000Z",
+        "categoryIds": [
+          "844142dd-86d6-47e0-b959-7947c2ff3e7b"
+        ],
+        "location": null,
+        "onlineUrl": "https://example.test/s302-meeting",
+        "imageUrl": null,
+        "capacity": 50,
+        "registrationDeadline": "2026-12-03T09:00:00.000Z",
+        "externalRegistrationUrl": null
+      },
+      "status": 201,
+      "response": {
+        "id": "eccfbb7d-f044-41cf-a0c9-11bbf5485182",
+        "organizationId": "0be8c8bf-0fbb-4921-bebb-06eac9b77add",
+        "createdById": "aecc6e7e-1009-4dbb-9453-62be743c159f",
+        "title": "S302 draft 1795771750611",
+        "description": "Real S3-02 browser acceptance fixture.",
+        "format": "ONLINE",
+        "location": null,
+        "onlineUrl": "https://example.test/s302-meeting",
+        "imageUrl": null,
+        "startDate": "2026-12-04T10:00:00.000Z",
+        "endDate": "2026-12-04T12:00:00.000Z",
+        "registrationDeadline": "2026-12-03T09:00:00.000Z",
+        "capacity": 50,
+        "registrationMode": "AUTOMATIC",
+        "externalRegistrationUrl": null,
+        "status": "DRAFT",
+        "createdAt": "2026-11-27T09:29:13.196Z",
+        "updatedAt": "2026-11-27T09:29:13.196Z",
+        "categoryIds": [
+          "844142dd-86d6-47e0-b959-7947c2ff3e7b"
+        ]
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/organizer-events/eccfbb7d-f044-41cf-a0c9-11bbf5485182",
+      "body": {
+        "title": "S302 draft edited 1795771750611",
+        "description": "Real S3-02 browser acceptance fixture.",
+        "format": "ONLINE",
+        "registrationMode": "AUTOMATIC",
+        "startDate": "2026-12-04T10:00:00.000Z",
+        "endDate": "2026-12-04T12:00:00.000Z",
+        "categoryIds": [
+          "844142dd-86d6-47e0-b959-7947c2ff3e7b"
+        ],
+        "location": null,
+        "onlineUrl": "https://example.test/s302-meeting",
+        "imageUrl": null,
+        "capacity": 50,
+        "registrationDeadline": "2026-12-03T09:00:00.000Z",
+        "externalRegistrationUrl": null
+      },
+      "status": 200,
+      "response": {
+        "id": "eccfbb7d-f044-41cf-a0c9-11bbf5485182",
+        "organizationId": "0be8c8bf-0fbb-4921-bebb-06eac9b77add",
+        "createdById": "aecc6e7e-1009-4dbb-9453-62be743c159f",
+        "title": "S302 draft edited 1795771750611",
+        "description": "Real S3-02 browser acceptance fixture.",
+        "format": "ONLINE",
+        "location": null,
+        "onlineUrl": "https://example.test/s302-meeting",
+        "imageUrl": null,
+        "startDate": "2026-12-04T10:00:00.000Z",
+        "endDate": "2026-12-04T12:00:00.000Z",
+        "registrationDeadline": "2026-12-03T09:00:00.000Z",
+        "capacity": 50,
+        "registrationMode": "AUTOMATIC",
+        "externalRegistrationUrl": null,
+        "status": "DRAFT",
+        "createdAt": "2026-11-27T09:29:13.196Z",
+        "updatedAt": "2026-11-27T09:29:14.119Z",
+        "categoryIds": [
+          "844142dd-86d6-47e0-b959-7947c2ff3e7b"
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizer-events/eccfbb7d-f044-41cf-a0c9-11bbf5485182/publish",
+      "body": null,
+      "status": 200,
+      "response": {
+        "id": "eccfbb7d-f044-41cf-a0c9-11bbf5485182",
+        "organizationId": "0be8c8bf-0fbb-4921-bebb-06eac9b77add",
+        "createdById": "aecc6e7e-1009-4dbb-9453-62be743c159f",
+        "title": "S302 draft edited 1795771750611",
+        "description": "Real S3-02 browser acceptance fixture.",
+        "format": "ONLINE",
+        "location": null,
+        "onlineUrl": "https://example.test/s302-meeting",
+        "imageUrl": null,
+        "startDate": "2026-12-04T10:00:00.000Z",
+        "endDate": "2026-12-04T12:00:00.000Z",
+        "registrationDeadline": "2026-12-03T09:00:00.000Z",
+        "capacity": 50,
+        "registrationMode": "AUTOMATIC",
+        "externalRegistrationUrl": null,
+        "status": "PUBLISHED",
+        "createdAt": "2026-11-27T09:29:13.196Z",
+        "updatedAt": "2026-11-27T09:29:14.553Z",
+        "categoryIds": [
+          "844142dd-86d6-47e0-b959-7947c2ff3e7b"
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizer-events/publish",
+      "body": {
+        "title": "S302 direct 1795771750611",
+        "description": "Real S3-02 browser acceptance fixture.",
+        "format": "ONLINE",
+        "registrationMode": "AUTOMATIC",
+        "startDate": "2026-12-04T10:00:00.000Z",
+        "endDate": "2026-12-04T12:00:00.000Z",
+        "categoryIds": [
+          "844142dd-86d6-47e0-b959-7947c2ff3e7b"
+        ],
+        "location": null,
+        "onlineUrl": "https://example.test/s302-meeting",
+        "imageUrl": null,
+        "capacity": 50,
+        "registrationDeadline": "2026-12-03T09:00:00.000Z",
+        "externalRegistrationUrl": null
+      },
+      "status": 201,
+      "response": {
+        "id": "fbc18d4b-5c27-4857-9232-0c560bc777ee",
+        "organizationId": "0be8c8bf-0fbb-4921-bebb-06eac9b77add",
+        "createdById": "aecc6e7e-1009-4dbb-9453-62be743c159f",
+        "title": "S302 direct 1795771750611",
+        "description": "Real S3-02 browser acceptance fixture.",
+        "format": "ONLINE",
+        "location": null,
+        "onlineUrl": "https://example.test/s302-meeting",
+        "imageUrl": null,
+        "startDate": "2026-12-04T10:00:00.000Z",
+        "endDate": "2026-12-04T12:00:00.000Z",
+        "registrationDeadline": "2026-12-03T09:00:00.000Z",
+        "capacity": 50,
+        "registrationMode": "AUTOMATIC",
+        "externalRegistrationUrl": null,
+        "status": "PUBLISHED",
+        "createdAt": "2026-11-27T09:29:17.165Z",
+        "updatedAt": "2026-11-27T09:29:17.165Z",
+        "categoryIds": [
+          "844142dd-86d6-47e0-b959-7947c2ff3e7b"
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizer-events",
+      "body": {
+        "title": "S302 retained failure 1795771750611",
+        "description": "Real S3-02 browser acceptance fixture.",
+        "format": "ONLINE",
+        "registrationMode": "AUTOMATIC",
+        "startDate": "2026-12-04T10:00:00.000Z",
+        "endDate": "2026-12-04T12:00:00.000Z",
+        "categoryIds": [
+          "42cbccd1-c8ed-4763-a62c-5b0641bdbf6b"
+        ],
+        "location": null,
+        "onlineUrl": "https://example.test/s302-meeting",
+        "imageUrl": null,
+        "capacity": 50,
+        "registrationDeadline": "2026-12-03T09:00:00.000Z",
+        "externalRegistrationUrl": null
+      },
+      "status": 400,
+      "response": {
+        "message": "categoryIds contains an unknown category",
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizer-events/publish",
+      "body": {
+        "title": "S302 retained failure 1795771750611",
+        "description": "Real S3-02 browser acceptance fixture.",
+        "format": "ONLINE",
+        "registrationMode": "AUTOMATIC",
+        "startDate": "2026-12-04T10:00:00.000Z",
+        "endDate": "2026-12-04T12:00:00.000Z",
+        "categoryIds": [
+          "42cbccd1-c8ed-4763-a62c-5b0641bdbf6b"
+        ],
+        "location": null,
+        "onlineUrl": "https://example.test/s302-meeting",
+        "imageUrl": null,
+        "capacity": 50,
+        "registrationDeadline": "2026-12-03T09:00:00.000Z",
+        "externalRegistrationUrl": null
+      },
+      "status": 400,
+      "response": {
+        "message": "categoryIds contains an unknown category",
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    }
+  ],
+  "errors": [],
+  "categories": [
+    {
+      "id": "844142dd-86d6-47e0-b959-7947c2ff3e7b",
+      "name": "AI and Data",
+      "slug": "ai-data"
+    },
+    {
+      "id": "373c6376-60f8-4600-b8bb-694d69b9ead5",
+      "name": "Career Fairs and Networking",
+      "slug": "career-fairs-networking"
+    },
+    {
+      "id": "42cbccd1-c8ed-4763-a62c-5b0641bdbf6b",
+      "name": "Fintech",
+      "slug": "fintech"
+    },
+    {
+      "id": "e39dd388-4aca-4d0e-b46d-065048b2e322",
+      "name": "Hackathons",
+      "slug": "hackathons"
+    },
+    {
+      "id": "c5c46622-6293-4a71-815d-b1cdc34722fc",
+      "name": "Public Speaking",
+      "slug": "public-speaking"
+    },
+    {
+      "id": "fc68beed-1bc5-471e-89af-3514db6972be",
+      "name": "Robotics and IoT",
+      "slug": "robotics-iot"
+    },
+    {
+      "id": "fb378bf4-d958-47c8-a051-a10fe78b1d7e",
+      "name": "Scientific Research",
+      "slug": "scientific-research"
+    },
+    {
+      "id": "42255624-abce-4c35-97aa-dd8c08c95f10",
+      "name": "Social Impact and NGOs",
+      "slug": "social-impact-ngos"
+    },
+    {
+      "id": "14c7a46a-e26a-4e4b-9fb8-b5615829ac71",
+      "name": "Startups and Entrepreneurship",
+      "slug": "startups-entrepreneurship"
+    },
+    {
+      "id": "42f6fd40-0a4c-4af3-ace9-99d7e05c26e9",
+      "name": "UI and UX Design",
+      "slug": "ui-ux-design"
+    }
+  ]
+}

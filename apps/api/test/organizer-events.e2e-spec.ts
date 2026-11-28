@@ -123,6 +123,51 @@ describe('Organizer events with PostgreSQL and real JWT guards', () => {
     }
   });
 
+  it('lists only the current approved organizer’s drafts', async () => {
+    const own = await createDraft({ title: 'Organizer draft list fixture' });
+    const other = await request(app.getHttpServer())
+      .post('/api/organizer-events')
+      .set('Cookie', otherCookie)
+      .send({ ...base, title: 'Other organizer draft' })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/organizer-events/publish')
+      .set('Cookie', cookie)
+      .send({ ...base, categoryIds: [categoryIds[0]] })
+      .expect(201);
+    const list = () => request(app.getHttpServer()).get('/api/organizer-events');
+
+    await list().expect(401);
+    const result = await list().set('Cookie', cookie).expect(200);
+    expect(result.headers['cache-control']).toBe('no-store');
+    expect(result.body).toEqual({ drafts: [{
+      id: own.body.id,
+      title: own.body.title,
+      updatedAt: own.body.updatedAt,
+      startDate: own.body.startDate,
+      format: 'ONLINE',
+      location: null,
+      imageUrl: null,
+    }] });
+    const otherList = await list().set('Cookie', otherCookie).expect(200);
+    expect(otherList.body.drafts.map((draft: { id: string }) => draft.id)).toEqual([other.body.id]);
+
+    await request(app.getHttpServer())
+      .post(path(own.body.id) + '/publish')
+      .set('Cookie', cookie)
+      .expect(200);
+    const afterPublish = await list().set('Cookie', cookie).expect(200);
+    expect(afterPublish.body.drafts).toEqual([]);
+
+    const where = { ownerId };
+    await prisma.organization.updateMany({ where, data: { verificationStatus: 'REJECTED' } });
+    try {
+      await list().set('Cookie', cookie).expect(403);
+    } finally {
+      await prisma.organization.updateMany({ where, data: { verificationStatus: 'APPROVED' } });
+    }
+  });
+
   it('discovers only public events with combined filters and protected details', async () => {
     const q = randomUUID();
     const [{ slug: category }] = await prisma.category.findMany({

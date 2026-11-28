@@ -1,4 +1,5 @@
 import type { OrganizationStatus } from '../auth/model'
+import type { ProofDocument } from '../organizer/proof'
 
 // Normalized view models for S2-06 lists and S2-09 review snapshots/decisions.
 export type ApplicationSummary = {
@@ -14,6 +15,7 @@ export type ApplicationDetail = ApplicationSummary & {
   academicPosition: string
   phoneNumber: string
   proofUrl: string | null
+  proof?: ProofDocument
   submittedBy: { firstName: string; lastName: string; email: string }
   reviewerNote: string | null
   reviewedAt: string | null

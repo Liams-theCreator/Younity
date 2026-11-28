@@ -83,7 +83,7 @@ describe('merged registration and login routes', () => {
 
       await user.click(
         screen.getByRole('link', {
-          name: 'Sign In',
+          name: 'Back to Sign In',
         }),
       )
 
@@ -126,7 +126,7 @@ describe('merged registration and login routes', () => {
 
       expect(
         await screen.findByRole('heading', {
-          name: 'Organization verification pending',
+          name: 'Institutional Dossier Submitted',
         }),
       ).toBeInTheDocument()
 
@@ -201,7 +201,7 @@ describe('merged registration and login routes', () => {
 
     expect(
       screen.queryByRole('heading', {
-        name: 'Organization verification pending',
+        name: 'Institutional Dossier Submitted',
       }),
     ).not.toBeInTheDocument()
   })
@@ -225,13 +225,13 @@ describe('merged registration and login routes', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Student dashboard',
+        name: 'Campus events',
       }),
     ).toBeInTheDocument()
 
     expect(
       screen.queryByRole('heading', {
-        name: 'Organization verification pending',
+        name: 'Institutional Dossier Submitted',
       }),
     ).not.toBeInTheDocument()
   })
@@ -274,7 +274,7 @@ describe('merged registration and login routes', () => {
 
     expect(
       screen.queryByRole('heading', {
-        name: 'Organization verification pending',
+        name: 'Institutional Dossier Submitted',
       }),
     ).not.toBeInTheDocument()
 
@@ -286,7 +286,7 @@ describe('merged registration and login routes', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Organization verification pending',
+        name: 'Institutional Dossier Submitted',
       }),
     ).toBeInTheDocument()
   })

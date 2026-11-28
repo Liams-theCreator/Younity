@@ -1,14 +1,23 @@
-import { Body, Controller, Post, HttpCode, HttpStatus, Header, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, HttpCode, HttpStatus, Header, Req, Res, UseGuards } from '@nestjs/common';
 import { EmailVerificationService } from './email-verification.service.js';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiBadRequestResponse } from '@nestjs/swagger';
 import { VerifyEmailDto } from '../dto/email-verification.dto.js';
 import { VerificationRecoveryDto } from '../dto/verification-recovery.dto.js';
 import { ResendRateLimitGuard } from '../guards/resend-rate-limit.guard.js';
 
+import { ConfigService } from '@nestjs/config';
+import type { Request, Response } from 'express';
+import { jwtSettings } from '../../config/jwt.js';
+import { writeSessionCookie } from '../session-cookie.js';
+import { REGISTRATION_VERIFICATION_COOKIE, registrationVerificationCookieOptions } from './settings.js';
+
 @ApiTags('Email verification')
 @Controller('email-verification')
 export class EmailVerificationController {
-  constructor(private readonly emailverificationService: EmailVerificationService,) { }
+  constructor(
+    private readonly emailverificationService: EmailVerificationService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Post('recovery-status')
   @HttpCode(HttpStatus.OK)
@@ -30,7 +39,7 @@ export class EmailVerificationController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify an email address' })
   @ApiOkResponse({
-    description: 'Email verified successfully',
+    description: 'Email verified successfully. A matching registration browser receives a session cookie and sessionCreated: true.',
     schema: {
       example: { message: 'Email verified successfully.' },
     },
@@ -40,7 +49,21 @@ export class EmailVerificationController {
   })
   @Post('verify-email')
   @Header('Cache-Control', 'no-store')
-  async verifyEmail(@Body() dto: VerifyEmailDto) {
-    return this.emailverificationService.verifyEmail(dto);
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const recoveryToken: unknown = request.cookies?.[REGISTRATION_VERIFICATION_COOKIE];
+    const continuation = typeof recoveryToken === 'string'
+      ? { recoveryToken, ttlSeconds: jwtSettings(this.config).ttl }
+      : undefined;
+    const { message, accessToken } = await this.emailverificationService.verifyEmail(dto, continuation);
+
+    if (!accessToken || !continuation) return { message };
+
+    writeSessionCookie(response, accessToken, continuation.ttlSeconds);
+    response.clearCookie(REGISTRATION_VERIFICATION_COOKIE, registrationVerificationCookieOptions);
+    return { message, sessionCreated: true };
   }
 }

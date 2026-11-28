@@ -117,11 +117,11 @@ const acks = () =>
   )
 
 describe('onboarding routing and approval acknowledgment', () => {
-  it('resumes an incomplete student on preferences instead of the dashboard', async () => {
+  it.each(['/student/dashboard', '/student/profile'])('resumes an incomplete student on preferences from %s', async (path) => {
     role = 'STUDENT'
     complete = false
 
-    mount('/student/dashboard')
+    mount(path)
 
     expect(
       await screen.findByRole('heading', {
@@ -130,7 +130,7 @@ describe('onboarding routing and approval acknowledgment', () => {
     ).toBeVisible()
   })
 
-  it('resumes an unsubmitted organizer on the saved draft instead of pending review', async () => {
+  it('shows submission status without opening the editor for an organizer with no application', async () => {
     complete = false
     status = 'PENDING'
 
@@ -138,13 +138,12 @@ describe('onboarding routing and approval acknowledgment', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Organizer application draft',
+        name: 'Organizer application status',
       }),
     ).toBeVisible()
 
-    expect(
-      screen.getByRole('link', { name: 'Explore events' }),
-    ).toHaveAttribute('href', '/events')
+    expect(screen.getByText('Your application hasn’t entered review yet.')).toBeVisible()
+    expect(request.mock.calls.some(([url]) => url === '/api/organizer-applications/draft')).toBe(false)
   })
 
   it('routes completed corrections by review status and displays real feedback', async () => {
@@ -153,25 +152,26 @@ describe('onboarding routing and approval acknowledgment', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Your application needs changes',
+        name: 'Institutional Dossier: Changes Requested',
       }),
     ).toBeVisible()
 
     expect(
       screen.getByText('Please update your contact details.'),
     ).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Update application' })).toHaveAttribute('href', '/organizer/application')
   })
 
   it.each([
     'Enter organizer dashboard',
-    'Explore campus events',
+    'Explore Campus Events as Attendee',
   ])(
     'persists acknowledgment before %s and skips approval on a new visit',
     async (button) => {
       const view = mount()
 
       await screen.findByRole('heading', {
-        name: 'Your organizer application is approved',
+        name: 'Institutional Dossier: Application Approved',
       })
 
       await userEvent.click(
@@ -219,6 +219,7 @@ describe('onboarding routing and approval acknowledgment', () => {
     )
 
     expect(await screen.findByRole('alert')).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Refresh status' })).toBeVisible()
     expect(acknowledged).toBe(false)
 
     ackStatus = 204
@@ -259,7 +260,7 @@ describe('onboarding routing and approval acknowledgment', () => {
     expect(button).toBeDisabled()
     expect(
       screen.getByRole('button', {
-        name: 'Explore campus events',
+        name: 'Explore Campus Events as Attendee',
       }),
     ).toBeDisabled()
 
@@ -275,8 +276,11 @@ describe('onboarding routing and approval acknowledgment', () => {
     mount('/organizer/pending')
 
     await screen.findByRole('heading', {
-      name: 'Organization verification pending',
+      name: 'Institutional Dossier Submitted',
     })
+    expect(screen.getByText('ID: application')).toBeVisible()
+    expect(screen.getByText('Status: Queued')).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Update application' })).not.toBeInTheDocument()
 
     vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
     status = 'APPROVED'
@@ -287,7 +291,7 @@ describe('onboarding routing and approval acknowledgment', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Your organizer application is approved',
+        name: 'Institutional Dossier: Application Approved',
       }),
     ).toBeVisible()
   })

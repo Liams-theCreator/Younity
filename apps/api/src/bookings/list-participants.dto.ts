@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsIn, IsInt, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 const participantStatuses = ['CONFIRMED', 'CANCELLED'] as const;
 
@@ -14,6 +14,15 @@ export class ListParticipantsDto {
   @ApiProperty({ enum: participantStatuses })
   @IsIn(participantStatuses)
   status!: (typeof participantStatuses)[number];
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Restrict bookings to one accessible event; omission lists all owned events.',
+  })
+  @IsOptional()
+  @IsUUID()
+  eventId?: string;
 
   @ApiPropertyOptional({
     default: 1,

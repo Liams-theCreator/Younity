@@ -11,6 +11,9 @@ organization. Ownership comes from the session.
 
 - `POST /api/organizer-events` creates an event with status `DRAFT` and returns it
   with HTTP 201.
+- `GET /api/organizer-events` returns `{ drafts }` for the signed-in organizer
+  with HTTP 200 and `Cache-Control: no-store`. Draft summaries contain the event
+  title, format, location, image URL, and dates, with the latest edited drafts first.
 - `GET /api/organizer-events/:id` returns the organizer's saved event with HTTP 200
   and `Cache-Control: no-store`.
 - `PATCH /api/organizer-events/:id` saves partial changes to a draft and returns
@@ -130,10 +133,8 @@ unused, and include `"externalRegistrationUrl":"https://example.com/register"`.
 For IN_PERSON supply `location`; HYBRID requires both `location` and `onlineUrl`.
 Registration URLs keep their existing URL validation even on draft saves.
 
-Student discovery is an **S3-05 integration dependency**. A PUBLISHED response
-and saved category links verify this writer; visibility/filtering in student
-discovery must be verified separately after S3-05 integration. S3-01 does not add
-discovery, draft listing, media uploads, or participant APIs.
+Published events appear in student discovery according to the
+[S3-05 visibility and filter rules](#public-event-discovery-s3-05).
 
 Focused checks from `apps/api`:
 

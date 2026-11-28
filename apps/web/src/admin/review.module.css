@@ -141,6 +141,12 @@
 .documentLink small { display: block; margin-top: 5px; color: #526176; font-size: 10px; font-weight: 400; line-height: 1.6; }
 .documentLink > .icon { margin-left: auto; font-size: 17px; }
 .documentIcon { display: grid; place-items: center; width: 38px; height: 42px; flex-shrink: 0; border: 1px solid #e1e7f2; border-radius: 7px; background: #fff; color: #7a92cd; }
+.uploadedProof { flex-wrap: wrap; color: #17243d; font-size: .875rem; }
+.uploadedProof > span:nth-child(2) { flex: 1 1 10rem; }
+.proofActions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.proofActions a { display: inline-flex; align-items: center; gap: .375rem; min-height: 2.75rem; padding: 0 .75rem; border: 1px solid #e1e7f2; border-radius: 7px; background: var(--card); color: var(--link); font-size: .8125rem; }
+.proofActions a:hover { background: var(--panel); }
+.proofActions .icon { font-size: 1rem; }
 .decisionPanel { position: sticky; top: 100px; }
 .decisionHeading { display: flex; align-items: center; gap: 11px; margin-bottom: 24px; padding-bottom: 22px; border-bottom: 1px solid #edf0f5; }
 .decisionHeading h2 { font-size: 16px; }

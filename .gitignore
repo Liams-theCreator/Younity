@@ -13,3 +13,6 @@ __pycache__/
 
 # Local task notes
 /task.txt
+
+# Locally uploaded event banners
+/apps/api/uploads/

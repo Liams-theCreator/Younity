@@ -2,11 +2,13 @@ import { useRegistration } from '../registration/useRegistration'
 import { registrationFieldErrors } from '../registration/errors'
 import { mapOrganizerPayload } from '../registration/payload'
 import type { FormEvent } from 'react'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { AccountFields, PolicyAcceptance, RegistrationLayout } from '../components/RegistrationForm'
 import { emptyDraft, validateDraft } from '../registration/model'
 import type { RegistrationDraft, FieldErrors } from '../registration/model'
 import ReferenceIcon from '../components/ReferenceIcon'
+import OrganizerProofField from '../components/OrganizerProofField'
+import { proofSelectionError } from '../organizer/proof'
 import AlreadyHaveAccount from '../components/AlreadyHaveAccount'
 import {
   OrganizationFields,
@@ -26,19 +28,13 @@ export default function OrganizerRegistration({
   const [account, setAccount] = useState<RegistrationDraft>({ ...emptyDraft })
   const [acceptedPolicies, setAcceptedPolicies] = useState(false)
   const [organization, setOrganization] = useState<OrganizationDetails>({ ...emptyOrganizationDetails })
-  const [document, setDocument] = useState<File | null>(null)
+  const [proof, setProof] = useState<File | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [organizationErrors, setOrganizationErrors] = useState<
     Partial<Record<keyof OrganizationDetails, string>>
   >({})
-  const fileInput = useRef<HTMLInputElement>(null)
   const { submit, isSubmitting, accountCreated, error, clearError } = useRegistration()
 
-  function selectDocument(file: File | undefined) {
-    if (!file || isSubmitting || accountCreated) return
-    setDocument(file)
-    if (fileInput.current) fileInput.current.value = ''
-  }
   function changePolicies(value: boolean) {
     clearError()
     setAcceptedPolicies(value)
@@ -60,8 +56,9 @@ export default function OrganizerRegistration({
       window.document.getElementById(firstError)?.focus()
       return
     }
+    if (proofSelectionError(proof)) return
     const payload = mapOrganizerPayload(account, organization)
-    const failure = await submit((signal) => registerOrganizer(payload, signal), { email: payload.email })
+    const failure = await submit((signal) => registerOrganizer(payload, signal, undefined, proof ?? undefined), { email: payload.email })
     if (failure) {
       const result = registrationFieldErrors(failure)
       const { firstName, lastName, ...accountErrors } = result.fields
@@ -74,6 +71,7 @@ export default function OrganizerRegistration({
     <>
       <RegistrationLayout
         variant="organizer"
+        backToSignIn={signInPath}
         headerContent={<OrganizerHeader />}
         beforeCard={<OrganizerReviewNotice />}
         title="Institutional Organizer Registration"
@@ -107,67 +105,14 @@ export default function OrganizerRegistration({
               />
             </OrganizationFields>
             <OrganizerSection number={3} title="Proof of affiliation & authorization">
-              <div
-                className="document-dropzone"
-                role="group"
-                aria-label="Upload affiliation document"
-                onClick={(event) => {
-                  if (event.target instanceof Element && event.target.closest('button, input'))
-                    return
-                  fileInput.current?.click()
+              <OrganizerProofField
+                file={proof}
+                disabled={isSubmitting || accountCreated}
+                onChange={(file) => {
+                  clearError()
+                  setProof(file)
                 }}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault()
-                  selectDocument(event.dataTransfer.files[0])
-                }}
-              >
-                <span className="document-icon">
-                  <ReferenceIcon name="upload_file" />
-                </span>
-                <p>
-                  Drop Faculty Endorsement, Department Authorization, or Official Mandate Letter
-                  here
-                </p>
-                <p className="document-browse-line">
-                  or{' '}
-                  <button
-                    className="document-browse"
-                    type="button"
-                    onClick={() => fileInput.current?.click()}
-                  >
-                    {document ? 'Replace document' : 'Browse files'}
-                  </button>{' '}
-                  from your workstation
-                </p>
-                <input
-                  ref={fileInput}
-                  id="affiliationDocument"
-                  type="file"
-                  hidden
-                  aria-label="Affiliation or authorization document"
-                  aria-describedby="document-note"
-                  onChange={(event) => selectDocument(event.target.files?.[0])}
-                />
-                <p className="helper" id="document-note">
-                  Optional local selection only. Upload is not connected; this file will not be sent with registration.
-                </p>
-                {document && (
-                  <div className="document-selection" aria-live="polite">
-                    <span>Selected: {document.name}</span>
-                    <button
-                      className="secondary"
-                      type="button"
-                      onClick={() => {
-                        setDocument(null)
-                        if (fileInput.current) fileInput.current.value = ''
-                      }}
-                    >
-                      Remove document
-                    </button>
-                  </div>
-                )}
-              </div>
+              />
             </OrganizerSection>
             <div
               className="organizer-consent organizer-proof-consent"

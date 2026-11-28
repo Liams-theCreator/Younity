@@ -1,4 +1,6 @@
 import { Link, Navigate } from 'react-router'
+import AuthPageLayout from '../components/AuthPageLayout'
+import layoutStyles from '../components/AuthPageLayout.module.css'
 import LoginForm from '../components/LoginForm'
 import ReferenceIcon from '../components/ReferenceIcon'
 import { useAuth } from '../auth/useAuth'
@@ -15,21 +17,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={styles.shell}>
-      <main className={styles.page}>
+    <AuthPageLayout variant="login">
+      <div className={styles.frame}>
+        <Link className={layoutStyles.back} to="/events">
+          <ReferenceIcon name="arrow_back" />
+          Back to Directory
+        </Link>
+
         <section
-          className={styles.card}
+          className={layoutStyles.card}
           aria-labelledby="login-title"
         >
-          <header className={styles.header}>
+          <header>
             <h1
               id="login-title"
-              className={styles.title}
+              className={layoutStyles.title}
             >
               Welcome back to Younity
             </h1>
 
-            <p className={styles.subtitle}>
+            <p className={layoutStyles.subtitle}>
               Manage university club spaces, curate hackathons,
               and verify attendee check-ins.
             </p>
@@ -114,26 +121,22 @@ export default function LoginPage() {
             </div>
           </div>
         </section>
-      </main>
-
-      <footer className={styles.footer}>
-        <p>
-          © {new Date().getFullYear()} Younity Morocco
-          {' · '}
-          The Academic &amp; Civic Campus Network
-        </p>
-
-        <details>
-          <summary>
-            Privacy, terms &amp; support
-          </summary>
-
+        <footer className={styles.footer}>
           <p>
-            Official policies and support details will be
-            published before account registration opens.
+            © {new Date().getFullYear()} Younity Morocco
+            {' · '}
+            The Academic &amp; Civic Campus Network
           </p>
-        </details>
-      </footer>
-    </div>
+
+          <details>
+            <summary>Privacy, terms &amp; support</summary>
+            <p>
+              Official policies and support details will be
+              published before account registration opens.
+            </p>
+          </details>
+        </footer>
+      </div>
+    </AuthPageLayout>
   )
 }

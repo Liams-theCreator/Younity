@@ -1,4 +1,5 @@
 import { apiRequest } from '../api/client'
+import { proofSizeError } from '../organizer/proof'
 import type { OrganizerRegistrationPayload, StudentRegistrationPayload } from './payload'
 
 export interface RegistrationPageProps {
@@ -26,13 +27,16 @@ async function register(
   payload: StudentRegistrationPayload | OrganizerRegistrationPayload,
   signal: AbortSignal,
   request: typeof fetch,
+  form?: FormData,
 ): Promise<RegistrationResult> {
   signal.throwIfAborted()
   let response: Response
   try {
     response = await request(path, {
       method: 'POST', credentials: 'include', signal,
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      ...(form ? { body: form } : {
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      }),
     })
   } catch (cause) {
     if (signal.aborted) throw cause
@@ -60,6 +64,7 @@ async function register(
   if (response.status === 409) {
     throw new RegistrationError('This email is already registered. Please sign in or use another email.', 409, ['email is already registered'])
   }
+  if (response.status === 413) throw new RegistrationError(proofSizeError, response.status)
   if (response.status === 400 || response.status === 422) {
     throw new RegistrationError(details.join(' ') || 'Check your registration details and try again.', response.status, details)
   }
@@ -70,6 +75,13 @@ export function registerStudent(payload: StudentRegistrationPayload, signal: Abo
   return register('/api/auth/register/student', payload, signal, request)
 }
 
-export function registerOrganizer(payload: OrganizerRegistrationPayload, signal: AbortSignal, request: typeof fetch = apiRequest): Promise<RegistrationResult> {
-  return register('/api/auth/register/organizer', payload, signal, request)
+export function registerOrganizer(payload: OrganizerRegistrationPayload, signal: AbortSignal, request: typeof fetch = apiRequest, proof?: File): Promise<RegistrationResult> {
+  const form = proof ? new FormData() : undefined
+  if (form && proof) {
+    for (const [key, value] of Object.entries(payload)) {
+      if (typeof value === 'string') form.set(key, value)
+    }
+    form.set('proof', proof)
+  }
+  return register('/api/auth/register/organizer', payload, signal, request, form)
 }

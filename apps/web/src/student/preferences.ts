@@ -47,6 +47,8 @@ export type PreferencesDraft = {
   preferences: StudentPreferences
 }
 
+export type PreferencesUpdate = Omit<PreferencesDraft, 'university'> & { university?: string }
+
 export class PreferencesError extends Error {}
 
 function label(
@@ -115,8 +117,8 @@ export function parsePreferences(value: unknown): PreferencesDraft {
   }
 }
 
-export function preferencesPayload(draft: PreferencesDraft) {
-  const selected = draft.preferences.interests.map(
+export function preferencesPayload({ preferences, university }: PreferencesUpdate) {
+  const selected = preferences.interests.map(
     (name) =>
       interestCodes[
         interests.indexOf(name as typeof interests[number])
@@ -153,19 +155,19 @@ export function preferencesPayload(draft: PreferencesDraft) {
 
   return {
     interests: selected,
-    university: draft.university.trim() || null,
+    ...(university !== undefined ? { university: university.trim() || null } : {}),
     academicField: code(
-      draft.preferences.discipline,
+      preferences.discipline,
       disciplines.map((item) => item.label),
       disciplineCodes,
     ),
     studyLevel: code(
-      draft.preferences.academicLevel,
+      preferences.academicLevel,
       academicLevels,
       levelCodes,
     ),
     opportunityFormat: code(
-      draft.preferences.formats,
+      preferences.formats,
       opportunityFormats.map((item) => item.label),
       formatCodes,
     ),
@@ -175,20 +177,20 @@ export function preferencesPayload(draft: PreferencesDraft) {
 export async function requestPreferences(
   request: typeof fetch,
   signal: AbortSignal,
-  draft?: PreferencesDraft,
+  update?: PreferencesUpdate,
 ) {
   let response: Response
 
   try {
     response = await request('/api/student/preferences', {
-      method: draft ? 'PATCH' : 'GET',
+      method: update ? 'PATCH' : 'GET',
       credentials: 'include',
       cache: 'no-store',
       signal,
-      ...(draft
+      ...(update
         ? {
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(preferencesPayload(draft)),
+            body: JSON.stringify(preferencesPayload(update)),
           }
         : {}),
     })

@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
+import type { Request, Response } from 'express';
 import { EmailVerificationController } from './email-verification.controller.js';
 import { EmailVerificationService } from './email-verification.service.js';
 
@@ -8,7 +10,10 @@ describe('EmailVerificationController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [EmailVerificationController],
-      providers: [{ provide: EmailVerificationService, useValue: { verifyEmail: vi.fn().mockResolvedValue({ message: 'Email verified successfully.' }) } }],
+      providers: [
+        { provide: ConfigService, useValue: {} },
+        { provide: EmailVerificationService, useValue: { verifyEmail: vi.fn().mockResolvedValue({ message: 'Email verified successfully.' }) } },
+      ],
     }).compile();
 
     controller = module.get<EmailVerificationController>(EmailVerificationController);
@@ -19,6 +24,6 @@ describe('EmailVerificationController', () => {
   });
 
   it('passes the token to the verification service', async () => {
-    await expect(controller.verifyEmail({ token: 'a'.repeat(64) })).resolves.toEqual({ message: 'Email verified successfully.' });
+    await expect(controller.verifyEmail({ token: 'a'.repeat(64) }, {} as Request, {} as Response)).resolves.toEqual({ message: 'Email verified successfully.' });
   });
 });

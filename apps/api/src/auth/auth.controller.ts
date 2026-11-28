@@ -1,4 +1,5 @@
 import { jwtSettings } from '../config/jwt.js';
+import { writeSessionCookie } from './session-cookie.js';
 import {
 	Body,
 	Controller,
@@ -74,13 +75,7 @@ export class AuthController {
 		const result = await this.authService.login(dto.email, dto.password);
 		const { ttl: ttlSeconds } = jwtSettings(this.config);
 
-		response.cookie('access_token', result.accessToken, {
-			httpOnly: true,
-			secure: true,
-			sameSite: 'lax',
-			path: '/',
-			maxAge: ttlSeconds * 1000,
-		});
+		writeSessionCookie(response, result.accessToken, ttlSeconds);
 
 		response.setHeader('Cache-Control', 'no-store');
 		return { user: result.user };

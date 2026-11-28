@@ -6,7 +6,7 @@ import {
   Routes,
 } from 'react-router'
 import LoginPage from '../pages/LoginPage'
-import StudentDashboardPage from '../pages/StudentDashboardPage'
+import StudentProfilePage from '../pages/StudentProfilePage'
 import StudentPreferencesPage from '../pages/StudentPreferencesPage'
 import OrganizerDashboardPage from '../pages/OrganizerDashboardPage'
 import StudentRegisterPage from '../pages/StudentRegisterPage'
@@ -15,27 +15,37 @@ import OrganizationStatusPage from '../pages/OrganizationStatusPage'
 import ProtectedRoute from './ProtectedRoute'
 import EmailVerificationPage from '../pages/EmailVerificationPage'
 import OrganizerDraftPage from '../pages/OrganizerDraftPage'
-import OrganizerApprovalPage, {
-  EventsPortalPage,
-} from '../pages/OrganizerApprovalPage'
+import OrganizerApprovalPage from '../pages/OrganizerApprovalPage'
+import EventsPage from '../events/EventsPage'
+import EventDetailPage from '../events/EventDetailPage'
 import { useAuth } from './useAuth'
 import AdminApplicationsPage from '../admin/AdminApplicationsPage'
 import AdminApplicationDetailPage from '../admin/AdminApplicationDetailPage'
 import type { ApplicationReviewService } from '../admin/model'
+import { unavailableEventServices, type EventServices } from '../events/model'
+import EventCreationPage from '../events/EventCreationPage'
+import OrganizerEventsPage from '../events/OrganizerEventsPage'
+import OrganizerBookingsPage from '../events/OrganizerBookingsPage'
 
 type AuthRoutesProps = {
   pendingPage: ReactNode
   reviewService?: ApplicationReviewService
+  eventServices?: EventServices
 }
 
 export default function AuthRoutes({
   pendingPage,
   reviewService,
+  eventServices = unavailableEventServices,
 }: AuthRoutesProps) {
   const { destination } = useAuth()
 
   return (
     <Routes>
+      <Route path="/organizer/events" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><OrganizerEventsPage service={eventServices} /></ProtectedRoute>} />
+      <Route path="/organizer/events/new" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><EventCreationPage service={eventServices} /></ProtectedRoute>} />
+      <Route path="/organizer/events/:eventId/edit" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><EventCreationPage service={eventServices} /></ProtectedRoute>} />
+      <Route path="/organizer/bookings" element={<ProtectedRoute destination="/organizer/dashboard" renderRedirect={to => <Navigate to={to} replace />}><OrganizerBookingsPage service={eventServices} /></ProtectedRoute>} />
       <Route
         path="/admin/applications"
         element={
@@ -60,7 +70,8 @@ export default function AuthRoutes({
         }
       />
 
-      <Route path="/events" element={<EventsPortalPage />} />
+      <Route path="/events" element={<EventsPage />} />
+      <Route path="/events/:eventId" element={<EventDetailPage />} />
       <Route
         path="/organizer/approved"
         element={<OrganizerApprovalPage />}
@@ -114,7 +125,19 @@ export default function AuthRoutes({
             destination="/student/dashboard"
             renderRedirect={(to) => <Navigate to={to} replace />}
           >
-            <StudentDashboardPage />
+            <Navigate to="/events" replace />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/student/profile"
+        element={
+          <ProtectedRoute
+            destination="/student/dashboard"
+            renderRedirect={(to) => <Navigate to={to} replace />}
+          >
+            <StudentProfilePage />
           </ProtectedRoute>
         }
       />
@@ -126,7 +149,7 @@ export default function AuthRoutes({
             destination="/organizer/dashboard"
             renderRedirect={(to) => <Navigate to={to} replace />}
           >
-            <OrganizerDashboardPage />
+            <OrganizerDashboardPage service={eventServices} />
           </ProtectedRoute>
         }
       />

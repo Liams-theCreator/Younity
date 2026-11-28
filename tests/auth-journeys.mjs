@@ -119,6 +119,8 @@ assert.equal(pendingSession.status, 200);
 assert.equal(pendingSession.data.role, 'ORGANIZER');
 assert.equal(pendingSession.data.status, 'PENDING');
 assert.equal(pendingSession.data.organization.verificationStatus, 'PENDING');
+assert.equal(pendingSession.data.organization.application.status, 'PENDING');
+assert.deepEqual(pendingSession.data.onboarding, { complete: true, nextStep: 'NONE' });
 assert.equal((await send('/api/auth/organizer-check', { cookie: organizerCookie })).status, 403, 'pending organizers cannot use approved-organizer APIs');
 check('organizer creation, cookie login, verified pending session and approval enforcement');
 
@@ -131,6 +133,7 @@ if (process.env.AUTH_TEST_DATABASE_URL) {
   const client = new Client({ connectionString: database.toString() });
   await client.connect();
   try {
+    await client.query("UPDATE organization_applications SET status = 'APPROVED' WHERE id = $1", [pendingSession.data.organization.application.id]);
     await client.query("UPDATE organizations SET verification_status = 'APPROVED' WHERE owner_id = $1", [pendingSession.data.id]);
     await client.query("UPDATE users SET status = 'ACTIVE' WHERE id = $1", [pendingSession.data.id]);
     const approved = await send('/api/auth/me', { cookie: organizerCookie });

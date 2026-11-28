@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ReferenceIcon from './ReferenceIcon'
 import type {
   PreferenceErrors,
   StudentPreferences,
@@ -82,7 +83,7 @@ export default function StudentPreferencesForm({
 }: {
   preferences: StudentPreferences
   onChange: (next: StudentPreferences) => void
-  onBack: () => void
+  onBack?: () => void
   onSubmit: () => void
   onSkip?: () => void
   disabled?: boolean
@@ -142,11 +143,9 @@ export default function StudentPreferencesForm({
       }}
     >
       <fieldset disabled={disabled} className="contents">
-        <p className="helper">
-          {mode === 'preferences'
-            ? 'Select at least two interests. The other preferences are optional.'
-            : 'Choose optional preferences, then create your account.'}
-        </p>
+        {mode === 'registration' && (
+          <p className="helper">Choose optional preferences, then create your account.</p>
+        )}
 
         <fieldset
           data-preference-group="discipline"
@@ -157,6 +156,9 @@ export default function StudentPreferencesForm({
           }
         >
           <legend>
+            {mode === 'preferences' && (
+              <><ReferenceIcon name="domain" /> 1. </>
+            )}
             Field of Study & Academic Discipline{' '}
             <span className="text-outline/70 text-xs font-normal">
               OPTIONAL
@@ -207,7 +209,7 @@ export default function StudentPreferencesForm({
                     ✓
                   </span>
                   <strong>{option.label}</strong>
-                  <small>{option.detail}</small>
+                  {mode === 'registration' && <small>{option.detail}</small>}
                 </span>
               </label>
             ))}
@@ -283,13 +285,24 @@ export default function StudentPreferencesForm({
               : 'interests-hint'
           }
         >
-          <legend>Topics & Activities of Interest</legend>
+          <legend>
+            {mode === 'preferences' && (
+              <><ReferenceIcon name="interests" /> 2. </>
+            )}
+            Topics &amp; Activities of Interest
+          </legend>
 
           <p className="preference-hint" id="interests-hint">
             {mode === 'preferences'
               ? 'Select at least two different interests.'
               : 'Select the interests you care about (optional).'}
           </p>
+
+          {mode === 'preferences' && (
+            <p className="interest-count" aria-live="polite">
+              {preferences.interests.length} selected <span>(minimum 2)</span>
+            </p>
+          )}
 
           <div className="interest-options">
             {interests.map((option, index) => (
@@ -345,7 +358,12 @@ export default function StudentPreferencesForm({
             errors.formats ? 'formats-error' : undefined
           }
         >
-          <legend>Preferred Opportunity Formats</legend>
+          <legend>
+            {mode === 'preferences' && (
+              <><ReferenceIcon name="tune" /> 3. </>
+            )}
+            Preferred Opportunity Formats
+          </legend>
 
           <div className="format-grid">
             {opportunityFormats.map((option) => (
@@ -370,7 +388,7 @@ export default function StudentPreferencesForm({
 
                 <span>
                   <strong>{option.label}</strong>
-                  <small>{option.detail}</small>
+                  {mode === 'registration' && <small>{option.detail}</small>}
                 </span>
               </label>
             ))}
@@ -384,15 +402,17 @@ export default function StudentPreferencesForm({
         )}
 
         <div className="preference-actions">
-          <button
-            className="secondary"
-            type="button"
-            onClick={onBack}
-          >
-            {mode === 'preferences'
-              ? 'Back to dashboard'
-              : 'Back to Account Info'}
-          </button>
+          {onBack && (
+            <button
+              className="secondary"
+              type="button"
+              onClick={onBack}
+            >
+              {mode === 'preferences'
+                ? 'Back to profile'
+                : 'Back to Account Info'}
+            </button>
+          )}
 
           <div>
             {mode === 'registration' && onSkip && (
@@ -407,8 +427,9 @@ export default function StudentPreferencesForm({
 
             <button className="primary" type="submit">
               {mode === 'preferences'
-                ? 'Save and continue'
+                ? 'Save preferences & enter Younity'
                 : 'Create student account'}
+              {mode === 'preferences' && <ReferenceIcon name="arrow_forward" />}
             </button>
           </div>
         </div>

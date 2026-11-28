@@ -1,0 +1,35 @@
+.control {
+  position: relative;
+}
+
+.prefix {
+  position: absolute;
+  inset-block: 1px;
+  inset-inline-start: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .375rem;
+  width: 5.25rem;
+  border-inline-end: 1px solid var(--border);
+  border-start-start-radius: var(--auth-control-radius, .5rem);
+  border-end-start-radius: var(--auth-control-radius, .5rem);
+  background: var(--panel);
+  color: var(--text);
+  font-size: .875rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.flag { font-size: 1.125rem; }
+
+:global(.registration-shell.registration-organizer) :global(.registration-card) .control .prefix + input[type='tel'] {
+  padding-inline-start: 6rem;
+}
+
+.existing {
+  margin: .375rem 0 0;
+  color: var(--muted);
+  font-size: .8125rem;
+  overflow-wrap: anywhere;
+}

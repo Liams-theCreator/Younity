@@ -77,6 +77,10 @@ function ApplicationDetail({ id, service }: { id: string; service?: ApplicationR
 
   const detail = resource.status === 'ready' ? resource.data : null
   const application = detail?.application
+  const proofFile = application?.proof
+  const proofPath = application && proofFile
+    ? `/api/admin/applications/${encodeURIComponent(application.id)}/proof/${encodeURIComponent(proofFile.id)}`
+    : null
   const proof = proofLink(application?.proofUrl ?? null)
 
   return (
@@ -117,7 +121,26 @@ function ApplicationDetail({ id, service }: { id: string; service?: ApplicationR
                 </div>
                 <div className={styles.panel}>
                   <h3 className={styles.sectionTitle}><AdminIcon name="description" />Supporting document</h3>
-                  {proof ? <a className={styles.documentLink} href={proof} target="_blank" rel="noopener noreferrer"><span className={styles.documentIcon}><AdminIcon name="article" /></span><span>Open supporting document (new tab)<small>Review the evidence submitted with this application</small></span><AdminIcon name="open_in_new" /></a> : <p className={styles.muted}>No supporting document available</p>}
+                  {proofFile && proofPath ? (
+                    <div className={`${styles.documentLink} ${styles.uploadedProof}`}>
+                      <span className={styles.documentIcon}><AdminIcon name="article" /></span>
+                      <span>{proofFile.name}</span>
+                      <div className={styles.proofActions}>
+                        <a href={proofPath} target="_blank" rel="noopener noreferrer">
+                          <AdminIcon name="open_in_new" /> Preview proof
+                        </a>
+                        <a href={`${proofPath}?download=1`} download={proofFile.name}>
+                          <AdminIcon name="download" /> Download proof
+                        </a>
+                      </div>
+                    </div>
+                  ) : proof ? (
+                    <a className={styles.documentLink} href={proof} target="_blank" rel="noopener noreferrer">
+                      <span className={styles.documentIcon}><AdminIcon name="article" /></span>
+                      <span>Open supporting document (new tab)<small>Review the evidence submitted with this application</small></span>
+                      <AdminIcon name="open_in_new" />
+                    </a>
+                  ) : <p className={styles.muted}>No supporting document available</p>}
                 </div>
                 <div className={styles.panel}>
                   <h3 className={styles.sectionTitle}><AdminIcon name="history" />Decision history</h3>

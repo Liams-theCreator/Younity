@@ -13,6 +13,7 @@ describe('OrganizerEventsController', () => {
   let user: AuthenticatedUser | undefined;
   const eventId = 'a7495653-79c3-4fd2-98f5-84f92aa5e2da';
   const service = {
+    listDrafts: vi.fn(),
     create: vi.fn(),
     findOne: vi.fn(),
     update: vi.fn(),
@@ -149,6 +150,7 @@ describe('OrganizerEventsController', () => {
     else
       user!.ownedOrganizations[0]!.verificationStatus = state as
         'PENDING' | 'NEEDS_CHANGES' | 'REJECTED';
+    await request(app.getHttpServer()).get('/api/organizer-events').expect(403);
     await request(app.getHttpServer())
       .post('/api/organizer-events')
       .send(body)
@@ -241,8 +243,15 @@ describe('OrganizerEventsController', () => {
     );
   });
 
-  it('does not expose the generated list and delete routes', async () => {
-    await request(app.getHttpServer()).get('/api/organizer-events').expect(404);
+  it('scopes the draft collection to the authenticated organizer', async () => {
+    service.listDrafts.mockResolvedValue({ drafts: [{ id: eventId }] });
+    const response = await request(app.getHttpServer()).get('/api/organizer-events').expect(200);
+    expect(response.body).toEqual({ drafts: [{ id: eventId }] });
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(service.listDrafts).toHaveBeenCalledWith(user!.id);
+  });
+
+  it('does not expose a delete route', async () => {
     await request(app.getHttpServer())
       .delete(`/api/organizer-events/${eventId}`)
       .expect(404);

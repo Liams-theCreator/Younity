@@ -26,7 +26,7 @@ describe('local registration', () => {
       confirmPassword: 'Passwords must match.',
     })
   })
-  it('focuses errors and preserves both student steps without fake success', async () => {
+  it('focuses validation errors and preserves student details after a failed submission', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -46,26 +46,14 @@ describe('local registration', () => {
       await user.type(screen.getByLabelText(label, { exact: true }), value)
     await user.selectOptions(screen.getByLabelText('University / Academic Institution'), 'Other')
     await user.click(screen.getByRole('checkbox'))
-    await user.click(screen.getByRole('button', { name: 'Continue to preferences' }))
+    await user.click(screen.getByRole('button', { name: 'Create student account' }))
     expect(screen.getByLabelText('Custom University / Academic Institution')).toHaveFocus()
     expect(screen.getByText('Enter your institution name.')).toBeVisible()
     await user.type(screen.getByLabelText('Custom University / Academic Institution'), 'Custom Institute')
     await user.click(screen.getByRole('button', { name: 'Create student account' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Registration is temporarily unavailable')
-    await user.click(screen.getByRole('button', { name: 'Continue to preferences' }))
-    await user.click(screen.getByRole('checkbox', { name: /Computer Science & AI/ }))
-    await user.click(screen.getByRole('checkbox', { name: 'Second Year (L2)' }))
-    await user.click(screen.getByRole('checkbox', { name: /AI & Data Science/ }))
-    await user.click(screen.getByRole('checkbox', { name: /Hybrid Events/ }))
-    await user.click(screen.getByRole('button', { name: 'Back to Account Info' }))
     expect(screen.getByLabelText('University / Academic Institution')).toHaveValue('Other')
     expect(screen.getByLabelText('Custom University / Academic Institution')).toHaveValue('Custom Institute')
     expect(screen.getByLabelText('Account Password', { exact: true })).toHaveValue('Abcdefg1!')
-    await user.click(screen.getByRole('button', { name: 'Continue to preferences' }))
-    expect(screen.getByRole('checkbox', { name: /Hybrid Events/ })).toBeChecked()
-    await user.click(screen.getByRole('button', { name: 'Create student account' }))
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Registration is temporarily unavailable',
-    )
   })
 })
