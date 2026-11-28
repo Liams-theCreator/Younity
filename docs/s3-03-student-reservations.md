@@ -2,6 +2,13 @@
 
 Owner Aadel · Reviewer Said · Branch `feat/student-reservations`
 
+S3-10 supporting contribution: Oussama implements the optional organizer
+`eventId` filter, focused checks and this response documentation. Aadel agreed
+the slice on 2026-11-27, confirmed no other implementation owner for the filter,
+and retains ownership of the endpoint. The supporting PR targets
+`feat/student-reservations` and requests Aadel's review; retarget to `main` if
+S3-03 merges first. This slice preserves the booking lifecycle rules below.
+
 ## Proposed mutation contract for team review
 
 Use `POST /api/events/:eventId/my-booking` to reserve and
@@ -47,12 +54,20 @@ remains a frontend step, separate from this API's existing organizer policy.
 ### Participant query and response
 
 - `status` is required and case-sensitive. Use `CONFIRMED` or `CANCELLED`.
+- `eventId` is optional. Omit it to retain the existing all-events read. Supply
+  one UUID to restrict both `items` and `total` to that event, still combined
+  with status and all organizer ownership/approved-organization checks.
+  Empty, malformed or repeated values receive 400. A missing event, an event
+  belonging to another organizer, or an accessible event without matching
+  bookings returns the same empty collection; the filter does not disclose
+  whether an inaccessible event exists.
 - `page` is a one-based decimal integer. Default 1, maximum
   9,007,199,254,740,991. `pageSize` defaults to 20 and accepts 1–100.
   Fractions, scientific notation, leading zeroes, repeated parameters and
   unknown parameters receive 400.
 - Sort order is `registeredAt` descending, then `id` ascending. `total` counts
-  rows in that status across all events the organizer can manage.
+  rows in that status across the selected accessible event, or all events the
+  organizer can manage when `eventId` is omitted.
   An out-of-range page returns empty items with the actual total and requested
   page. An empty collection has total zero.
 
@@ -110,6 +125,24 @@ route leaves it unset. The API omits `ticketCode`, `cancelledAt`, and
 
 ### S3-09 callback
 
+For an event-specific consumer, include `eventId` in the query and reset page
+when changing the selected event. The response envelope, item fields and
+pagination mapping below stay the same. Omitting the filter keeps existing
+frontend requests compatible. No event selector is added by this backend slice.
+
+```http
+GET /api/organizer/bookings?status=CONFIRMED&eventId=22222222-2222-4222-8222-222222222222&page=1&pageSize=20
+```
+
+For an accessible matching event, the confirmed/cancelled response examples
+above apply with every item restricted to that event and `total` counting only
+the selected status for it. For an unknown or inaccessible UUID, the empty
+example applies with HTTP 200. For a malformed filter:
+
+```json
+{"statusCode":400,"message":["eventId must be a UUID"],"error":"Bad Request"}
+```
+
 Implement `bookings({ status, page }, { request, signal })` in the events
 adapter using the supplied protected `request` and `signal`. Send the selected
 `status` and omit `page` for a null input. Use one fixed page size for the
@@ -143,6 +176,7 @@ that array, multiple invalid inputs can produce multiple messages.
 | HTTP | Body or message |
 | --- | --- |
 | 400 Bad Request | Invalid event ID gives `Validation failed (uuid is expected)`. |
+| 400 Bad Request | Organizer `eventId` filter is empty, malformed or repeated: `eventId must be a UUID` in the validation message array. |
 | 400 Bad Request | Invalid organizer query uses messages from the DTO, such as `status must be one of the following values: CONFIRMED, CANCELLED`, `page must be an integer number`, `page must not be less than 1`, `page must not be greater than 9007199254740991`, and the corresponding `pageSize` messages with bounds 1–100. An extra field such as `ownerId` gives `property ownerId should not exist`. |
 | 401 Unauthorized | `{"statusCode":401,"message":"Unauthorized"}` for an absent, invalid or expired session. |
 | 403 Forbidden | `Forbidden resource` for role/account authorization denied by the roles guard. The organizer fallback on a student route gets `{"statusCode":403,"message":"Forbidden"}`. |
@@ -205,6 +239,9 @@ curl -ki -b student.cookies "$BASE/events/$EVENT_ID/my-booking"
 curl -ki -b student.cookies -X POST "$BASE/events/$EVENT_ID/my-booking"
 curl -ki -b organizer.cookies \
   "$BASE/organizer/bookings?status=CONFIRMED&page=1&pageSize=20"
+# Optional S3-10 event filter; omission retains the all-events collection.
+curl -ki -b organizer.cookies \
+  "$BASE/organizer/bookings?status=CONFIRMED&eventId=$EVENT_ID&page=1&pageSize=20"
 curl -ki -b student.cookies -X DELETE "$BASE/events/$EVENT_ID/my-booking"
 curl -ki -b organizer.cookies "$BASE/organizer/bookings?status=CANCELLED"
 curl -ki -b student.cookies "$BASE/organizer/bookings?status=CONFIRMED"
@@ -250,3 +287,27 @@ PostgreSQL 17.12 ran on an isolated loopback instance with database
 API lint and build passed, all 257 unit/controller tests passed, the focused
 booking suite passed all 11 tests, and the complete E2E suite passed 172 tests.
 One existing SMTP delivery test was skipped because its opt-in flag was unset.
+
+### S3-10 filter verification (2026-11-27)
+
+All seven migrations and the category seed ran successfully against an isolated
+PostgreSQL 17 database named `younity_s310_test`. The focused booking HTTP/DB suite
+passes all 15 tests, including:
+
+- Omitted filter preserving the all-events response, and valid UUID/uppercase UUID reads.
+- Confirmed and cancelled event-specific rows and totals, stable tie ordering,
+  page boundaries and unchanged safe response fields.
+- Empty, malformed and repeated filter values returning the documented 400.
+- Unknown, empty, other-organizer and mismatched creator/organization events
+  returning the same empty 200 collection for both statuses.
+- Filtered requests retaining session/organizer guards and approval revocation behavior.
+- The optional UUID query appearing in Swagger and successful responses keeping no-store.
+
+Use the isolated test database environment shown above, then run
+`npm run test:e2e -- bookings`, `npm run lint`, `npm test` and `npm run build`.
+The existing booking rollback test deliberately logs a PostgreSQL constraint
+exception while asserting HTTP 500 and successful rollback.
+
+API lint/build and all 257 unit/controller tests pass. The focused suite cleaned
+up all fixture users, events and registrations. No schema migration, response
+field or frontend change is required for this optional filter.
