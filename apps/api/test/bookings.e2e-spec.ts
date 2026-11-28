@@ -217,6 +217,26 @@ describe('Bookings with PostgreSQL and real JWT guards', () => {
     await booking('delete', open.id, alice.cookie).expect(200);
   });
 
+  it('keeps a confirmed booking readable after registration closes', async () => {
+    const { id } = await event();
+    const reserved = await booking('post', id, alice.cookie).expect(201);
+    const confirmed = {
+      booking: { id: reserved.body.booking.id, status: 'CONFIRMED' },
+    };
+
+    await prisma.event.update({
+      where: { id },
+      data: { registrationDeadline: new Date(Date.now() - 60_000) },
+    });
+
+    await booking('delete', id, alice.cookie)
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.message).toBe('Registration is closed');
+      });
+    await booking('get', id, alice.cookie).expect(200, confirmed);
+  });
+
   it('isolates own reads and cancellation, releases capacity and preserves the cancelled row', async () => {
     const { id } = await event({ capacity: 1 });
     await booking('get', id, alice.cookie)
