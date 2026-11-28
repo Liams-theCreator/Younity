@@ -15,6 +15,7 @@ import {
   type EventValues,
 } from './model'
 import { safeImageUrl, validateEvent } from './validation'
+import { organizerEventService } from './service'
 
 vi.mock('../api/client', () => ({ apiRequest: vi.fn() }))
 const request = vi.mocked(apiRequest)
@@ -117,6 +118,31 @@ beforeEach(() => {
 })
 
 describe('organizer event access and unavailable integration', () => {
+  it('connects the default adapter to the confirmed/cancelled HTTP contract and retains dash fallbacks', async () => {
+    request.mockImplementation(async input => {
+      if (input === '/api/auth/me') return Response.json(session)
+      const url = new URL(String(input), 'https://example.test')
+      if (url.pathname !== '/api/organizer/bookings') throw new Error(`Unexpected request: ${input}`)
+      const status = url.searchParams.get('status')
+      return Response.json({
+        items: [{ id: '11111111-1111-4111-8111-111111111111', eventId: '22222222-2222-4222-8222-222222222222',
+          eventTitle: 'Live contract workshop', participantName: 'Sara Contract', email: 'sara@example.test',
+          registeredAt: '2027-01-10T10:00:00Z', status, cancellationReason: null }],
+        page: 1, pageSize: 20, total: 1,
+      })
+    })
+    mount(organizerEventService, '/organizer/bookings')
+    expect(await screen.findByText('Sara Contract')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('tab', { name: 'Cancelled' }))
+    await screen.findByRole('columnheader', { name: 'Cancelled' })
+    expect(await screen.findByText('Sara Contract')).toBeVisible()
+    const row = screen.getByText('Sara Contract').closest('tr')!
+    expect(within(row).getAllByText('—')).toHaveLength(2)
+    const bookingCalls = request.mock.calls.filter(([path]) => String(path).startsWith('/api/organizer/bookings?'))
+    expect(bookingCalls).toHaveLength(2)
+    expect(new URL(String(bookingCalls[1][0]), 'https://example.test').searchParams.get('status')).toBe('CANCELLED')
+  })
   it('reports an unavailable publish callback without claiming draft saving is unavailable', async () => {
     const service = services()
     mount({ ...service, publish: undefined })
